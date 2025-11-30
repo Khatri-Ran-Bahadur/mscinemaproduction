@@ -115,7 +115,7 @@ export default function SignInPage() {
 
             {/* Forgot Password */}
             <div className="text-right mb-6">
-              <a href="#" className="text-sm text-[#f5c118] hover:underline">
+              <a href="/forgot-password" className="text-sm text-[#f5c118] hover:underline">
                 Forgot password?
               </a>
             </div>

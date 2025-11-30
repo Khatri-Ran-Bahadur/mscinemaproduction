@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { Play, Info, ChevronLeft, ChevronRight, Star } from 'lucide-react';
+import Header from '@/components/header';
 
 export default function MovieStreamingSite() {
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -61,34 +62,7 @@ export default function MovieStreamingSite() {
   return (
     <div className="bg-black min-h-screen text-white">
       {/* Header */}
-      <header className="fixed top-0 w-full z-50 bg-gradient-to-b from-black to-transparent">
-        <div className="flex items-center justify-between px-8 py-4">
-          <div className="flex items-center space-x-8">
-            <div className="relative">
-              <svg width="60" height="50" viewBox="0 0 60 50" className="text-yellow-400">
-                <path d="M5 5 L30 0 L55 5 L55 35 L30 45 L5 35 Z" fill="currentColor" stroke="currentColor" strokeWidth="1"/>
-                <path d="M8 8 L30 3 L52 8 L52 33 L30 42 L8 33 Z" fill="#1a1a1a" stroke="currentColor" strokeWidth="0.5"/>
-                <line x1="8" y1="20" x2="52" y2="20" stroke="currentColor" strokeWidth="0.5"/>
-                <text x="30" y="17" textAnchor="middle" fill="currentColor" fontSize="14" fontWeight="bold" fontFamily="serif">MS</text>
-                <text x="30" y="32" textAnchor="middle" fill="currentColor" fontSize="7" fontWeight="normal" fontFamily="serif" letterSpacing="2">CINEMAS</text>
-              </svg>
-            </div>
-            <nav className="hidden md:flex space-x-6 text-sm">
-              <a href="#" className="hover:text-yellow-400 transition">Home</a>
-              <a href="#" className="hover:text-yellow-400 transition">Movies</a>
-              <a href="#" className="hover:text-yellow-400 transition">TV Shows</a>
-              <a href="#" className="hover:text-yellow-400 transition">Sports</a>
-              <a href="#" className="hover:text-yellow-400 transition">Categories</a>
-            </nav>
-          </div>
-          <div className="flex items-center space-x-4">
-            <button className="bg-yellow-400 text-black px-6 py-2 rounded-full text-sm font-semibold hover:bg-yellow-500 transition">
-              Subscribe
-            </button>
-          </div>
-        </div>
-      </header>
-
+      <Header />
       {/* Hero Section */}
       <div className="relative h-screen">
         <div className="absolute inset-0">

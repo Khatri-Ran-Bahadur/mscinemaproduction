@@ -41,8 +41,10 @@ export default function LoginPage() {
           {/* Logo/Back Button */}
           <div className="mb-8">
             <button className="text-white flex items-center gap-2 hover:text-gray-300 transition">
-              <span>←</span>
-              <span className="text-sm">Back</span>
+               <a href='/sign-in' className='text-white flex items-center gap-2 hover:text-gray-300 transition'>
+               <span>←</span>
+               <span className="text-sm">Back</span>
+               </a>
             </button>
           </div>
 
