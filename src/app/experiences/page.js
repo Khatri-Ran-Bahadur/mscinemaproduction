@@ -7,37 +7,37 @@ export default function ExperiencesPage() {
     const experiences = [
         {
             id: 1,
-            image: "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=600&q=80",
+            image: "img/experiences1.jpg",
             title: "INDULGE",
             description: "Relax in luxurious comfort and let the big screen take you on a cinematic journey beyond the ordinary."
         },
         {
             id: 2,
-            image: "https://images.unsplash.com/photo-1571847140471-1d7766e825ea?w=600&q=80",
+            image: "img/experiences2.jpg",
             title: "IMAX",
             description: "Dive into a cutting-edge cinematic adventure, with crystal-clear visuals and mind-blowing sound."
         },
         {
             id: 3,
-            image: "https://images.unsplash.com/photo-1505686994434-e3cc5abf1330?w=600&q=80",
+            image: "img/experiences3.jpg",
             title: "JUNIOR",
             description: "A fun, safe space designed for young movie lovers to enjoy their favorite films in ultimate comfort."
         },
         {
             id: 4,
-            image: "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=600&q=80",
+            image: "img/experiences4.jpg",
             title: "BLANK",
             description: "Where it's just you, your movie, and an unforgettable cinema experience. Perfect for those seeking an intimate setting."
         },
         {
             id: 5,
-            image: "https://images.unsplash.com/photo-1524985069026-dd778a71c7b4?w=600&q=80",
+            image: "img/experiences5.jpg",
             title: "DOLBY ATMOS",
             description: "Experience the next level of immersive sound. Dolby Atmos delivers powerful, flowing audio that moves all around you."
         },
         {
             id: 6,
-            image: "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=600&q=80",
+            image: "img/experiences6.jpg",
             title: "3D",
             description: "Step into the action and feel the movie come to life with cutting-edge 3D technology. A truly immersive experience."
         }

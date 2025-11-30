@@ -29,30 +29,13 @@ export default function SignInPage() {
       <div className="w-1/2 bg-gradient-to-br from-red-600 to-red-700 relative overflow-hidden">
         <div className="absolute inset-0">
           <img 
-            src="https://images.unsplash.com/photo-1585647347384-2593bc35786b?w=800&h=1000&fit=crop&q=80" 
+            src="img/sing.jpg" 
             alt="Popcorn"
             className="w-full h-full object-cover opacity-90"
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-red-600/80 to-transparent"></div>
+          {/* <div className="absolute inset-0 bg-gradient-to-r from-red-600/80 to-transparent"></div> */}
         </div>
-        
-        {/* Text Content */}
-        <div className="relative z-10 p-12 text-white">
-          <div className="mb-2">
-            <p className="text-sm font-medium tracking-wide">GET OUR BEST SELLING</p>
-            <h1 className="text-5xl font-bold leading-tight">DOUBLE CARAMEL</h1>
-            <p className="text-xl mt-1">ROYALE POPCORN TODAY! 🍿</p>
-          </div>
-        </div>
-
-        {/* Popcorn Image */}
-        <div className="absolute bottom-0 left-0 right-0">
-          <img 
-            src="https://images.unsplash.com/photo-1578849278619-e73505e9610f?w=600&h=400&fit=crop&q=80" 
-            alt="Popcorn buckets"
-            className="w-full object-cover"
-          />
-        </div>
+      
       </div>
 
       {/* Right Side - Sign In Form */}

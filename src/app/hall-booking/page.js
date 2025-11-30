@@ -9,19 +9,19 @@ export default function BookHallPage() {
     const halls = [
         {
             id: 1,
-            image: "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=800&q=80",
+            image: "img/hall_booking1.jpg",
             title: "Book a Hall",
             subtitle: "Everything that you want under one theatre"
         },
         {
             id: 2,
-            image: "https://images.unsplash.com/photo-1594909122845-11baa439b7bf?w=800&q=80",
+            image: "img/hall_booking2.jpg",
             title: "Book a Hall",
             subtitle: "Everything that you want under one theatre"
         },
         {
             id: 3,
-            image: "https://images.unsplash.com/photo-1568876694728-451bbf694b83?w=800&q=80",
+            image: "img/hall_booking3.jpg",
             title: "Book a Hall",
             subtitle: "Everything that you want under one theatre"
         }
@@ -52,7 +52,7 @@ export default function BookHallPage() {
             <section className="relative h-[60vh] overflow-hidden pt-16">
                 <div className="absolute inset-0">
                     <img 
-                        src="https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=1920&q=80" 
+                        src="img/hall_booking.jpg" 
                         alt="Cinema Hall" 
                         className="w-full h-full object-cover"
                     />

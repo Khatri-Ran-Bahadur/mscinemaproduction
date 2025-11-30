@@ -66,7 +66,7 @@ export default function SeatSelection() {
         {/* Hero Image */}
         <div className="relative h-48 overflow-hidden">
           <img 
-            src="https://images.unsplash.com/photo-1635805737707-575885ab0820?w=1600&h=400&fit=crop&q=80" 
+            src="img/banner.jpg" 
             alt="Predator Badlands"
             className="absolute inset-0 w-full h-full object-cover object-center"
           />

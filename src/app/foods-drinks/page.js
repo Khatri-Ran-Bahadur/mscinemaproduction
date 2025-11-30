@@ -9,43 +9,43 @@ export default function FoodDrinksPage() {
     const foodItems = [
         {
             id: 1,
-            image: "https://images.unsplash.com/photo-1585238342024-78d387f4a707?w=400&q=80",
+            image: "img/foods1.jpg",
             title: "Mini Popcorn with Coke",
             price: "₹180/-"
         },
         {
             id: 2,
-            image: "https://images.unsplash.com/photo-1578849278619-e73505e9610f?w=400&q=80",
+            image: "img/foods2.jpg",
             title: "Large popcorn with Cheese Dip with Coke",
             price: "₹250/-"
         },
         {
             id: 3,
-            image: "https://images.unsplash.com/photo-1585238342024-78d387f4a707?w=400&q=80",
+            image: "img/foods3.jpg",
             title: "Large Coke(single) with Cheese Nachos",
             price: "₹200/-"
         },
         {
             id: 4,
-            image: "https://images.unsplash.com/photo-1585238342024-78d387f4a707?w=400&q=80",
+            image: "img/foods4.jpg",
             title: "Mini Coke(2) combo with Fries",
             price: "₹160/-"
         },
         {
             id: 5,
-            image: "https://images.unsplash.com/photo-1585238342024-78d387f4a707?w=400&q=80",
+            image: "img/foods5.jpg",
             title: "Mid Regular popcorn with Coke",
             price: "₹200/-"
         },
         {
             id: 6,
-            image: "https://images.unsplash.com/photo-1621939514649-280e2ee25f60?w=400&q=80",
+            image: "img/foods6.png",
             title: "Large popcorn with Cheese Dip with Coke",
             price: "₹250/-"
         },
         {
             id: 7,
-            image: "https://images.unsplash.com/photo-1585238342024-78d387f4a707?w=400&q=80",
+            image: "img/foods7.jpg",
             title: "Mid Regular popcorn with Coke",
             price: "₹200/-"
         }
@@ -76,7 +76,7 @@ export default function FoodDrinksPage() {
             <section className="relative h-[50vh] overflow-hidden pt-16">
                 <div className="absolute inset-0">
                     <img 
-                        src="https://images.unsplash.com/photo-1578849278619-e73505e9610f?w=1920&q=80" 
+                        src="img/food.jpg" 
                         alt="Food & Drinks" 
                         className="w-full h-full object-cover"
                     />
