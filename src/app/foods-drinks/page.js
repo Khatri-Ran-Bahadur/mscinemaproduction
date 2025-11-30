@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { Facebook, Instagram, Youtube, Twitter } from 'lucide-react';
+import Header from '@/components/header';
 
 export default function FoodDrinksPage() {
     const [activeTab, setActiveTab] = useState('best-sellers');
@@ -9,43 +10,43 @@ export default function FoodDrinksPage() {
     const foodItems = [
         {
             id: 1,
-            image: "https://images.unsplash.com/photo-1585238342024-78d387f4a707?w=400&q=80",
+            image: "img/foods1.jpg",
             title: "Mini Popcorn with Coke",
             price: "₹180/-"
         },
         {
             id: 2,
-            image: "https://images.unsplash.com/photo-1578849278619-e73505e9610f?w=400&q=80",
+            image: "img/foods2.jpg",
             title: "Large popcorn with Cheese Dip with Coke",
             price: "₹250/-"
         },
         {
             id: 3,
-            image: "https://images.unsplash.com/photo-1585238342024-78d387f4a707?w=400&q=80",
+            image: "img/foods3.jpg",
             title: "Large Coke(single) with Cheese Nachos",
             price: "₹200/-"
         },
         {
             id: 4,
-            image: "https://images.unsplash.com/photo-1585238342024-78d387f4a707?w=400&q=80",
+            image: "img/foods4.jpg",
             title: "Mini Coke(2) combo with Fries",
             price: "₹160/-"
         },
         {
             id: 5,
-            image: "https://images.unsplash.com/photo-1585238342024-78d387f4a707?w=400&q=80",
+            image: "img/foods5.jpg",
             title: "Mid Regular popcorn with Coke",
             price: "₹200/-"
         },
         {
             id: 6,
-            image: "https://images.unsplash.com/photo-1621939514649-280e2ee25f60?w=400&q=80",
+            image: "img/foods6.png",
             title: "Large popcorn with Cheese Dip with Coke",
             price: "₹250/-"
         },
         {
             id: 7,
-            image: "https://images.unsplash.com/photo-1585238342024-78d387f4a707?w=400&q=80",
+            image: "img/foods7.jpg",
             title: "Mid Regular popcorn with Coke",
             price: "₹200/-"
         }
@@ -53,30 +54,13 @@ export default function FoodDrinksPage() {
 
     return (
         <div className="min-h-screen bg-neutral-900 text-white">
-            {/* Navigation */}
-            <nav className="fixed top-0 left-0 right-0 bg-black/90 backdrop-blur-sm z-50 border-b border-gray-800">
-                <div className="container mx-auto px-6 py-4 flex items-center justify-between">
-                    <div className="flex items-center gap-8">
-                        <div className="text-2xl font-bold text-yellow-500">MS CINEMAS</div>
-                        <div className="hidden md:flex gap-6 text-sm">
-                            <a href="#" className="text-white hover:text-yellow-500 transition">Home</a>
-                            <a href="#" className="text-white hover:text-yellow-500 transition">Movies</a>
-                            <a href="#" className="text-yellow-500 border-b-2 border-yellow-500 pb-1">Food & Drinks</a>
-                            <a href="#" className="text-white hover:text-yellow-500 transition">Hall booking</a>
-                            <a href="#" className="text-white hover:text-yellow-500 transition">About us</a>
-                        </div>
-                    </div>
-                    <button className="bg-yellow-500 text-black px-6 py-2 rounded-lg font-semibold hover:bg-yellow-400 transition">
-                        Sign In
-                    </button>
-                </div>
-            </nav>
+            <Header/>
 
             {/* Hero Section */}
             <section className="relative h-[50vh] overflow-hidden pt-16">
                 <div className="absolute inset-0">
                     <img 
-                        src="https://images.unsplash.com/photo-1578849278619-e73505e9610f?w=1920&q=80" 
+                        src="img/food.jpg" 
                         alt="Food & Drinks" 
                         className="w-full h-full object-cover"
                     />

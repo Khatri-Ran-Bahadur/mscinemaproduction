@@ -2,8 +2,10 @@
 
 import React, { useState } from 'react';
 import { ChevronLeft, MapPin, Clock } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 export default function TicketSelection() {
+  const router = useRouter();
   const [tickets, setTickets] = useState({
     adult: 0,
     student: 0,
@@ -30,6 +32,10 @@ export default function TicketSelection() {
     setTickets(prev => ({ ...prev, [type]: Math.max(0, prev[type] - 1) }));
   };
 
+  const handleGoBack = () => {
+    router.back();
+  };
+
   const totalTickets = Object.values(tickets).reduce((sum, count) => sum + count, 0);
 
   return (
@@ -37,7 +43,7 @@ export default function TicketSelection() {
       {/* Header */}
       <div className="relative">
         <div className="absolute top-5 left-5 z-10">
-          <button className="flex items-center gap-2 text-white/70 hover:text-white text-sm">
+          <button className="flex items-center gap-2 text-white/70 hover:text-white text-sm" onClick={handleGoBack}>
             <ChevronLeft className="w-4 h-4" />
             <span>Back</span>
           </button>
@@ -59,7 +65,7 @@ export default function TicketSelection() {
         {/* Hero Image */}
         <div className="relative h-56 overflow-hidden">
           <img 
-            src="https://images.unsplash.com/photo-1635805737707-575885ab0820?w=1600&h=600&fit=crop&q=80" 
+            src="img/banner.jpg" 
             alt="Predator Badlands"
             className="absolute inset-0 w-full h-full object-cover object-center"
           />
@@ -155,6 +161,9 @@ export default function TicketSelection() {
                 : 'bg-[#f5c118]/30 text-black/50 cursor-not-allowed'
             }`}
             disabled={totalTickets === 0}
+            onClick={()=>{
+              router.push('/seat-selection')
+            }}
           >
             Continue
           </button>

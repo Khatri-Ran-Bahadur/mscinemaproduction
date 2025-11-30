@@ -2,8 +2,10 @@
 
 import React, { useState } from 'react';
 import { ChevronLeft } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 export default function SeatSelection() {
+  const router = useRouter();
   const [selectedSeats, setSelectedSeats] = useState(['F8', 'F9']);
   const [seatType, setSeatType] = useState('standard');
 
@@ -20,6 +22,10 @@ export default function SeatSelection() {
 
   const occupiedSeats = ['C5', 'C6', 'D7', 'D8', 'E6', 'E7', 'E8', 'E9'];
   const coupleSeats = ['F5-F6', 'F11-F12', 'G5-G6', 'G11-G12'];
+  
+  const handleGoBack = () => {
+    router.back();
+  };
 
   const toggleSeat = (seatId) => {
     if (occupiedSeats.includes(seatId)) return;
@@ -44,7 +50,9 @@ export default function SeatSelection() {
       {/* Header */}
       <div className="relative">
         <div className="absolute top-5 left-5 z-10">
-          <button className="flex items-center gap-2 text-white/70 hover:text-white text-sm">
+          <button className="flex items-center gap-2 text-white/70 hover:text-white text-sm" onClick={()=>{
+            handleGoBack()
+          }}>
             <ChevronLeft className="w-4 h-4" />
             <span>Back</span>
           </button>
@@ -66,7 +74,7 @@ export default function SeatSelection() {
         {/* Hero Image */}
         <div className="relative h-48 overflow-hidden">
           <img 
-            src="https://images.unsplash.com/photo-1635805737707-575885ab0820?w=1600&h=400&fit=crop&q=80" 
+            src="img/banner.jpg" 
             alt="Predator Badlands"
             className="absolute inset-0 w-full h-full object-cover object-center"
           />

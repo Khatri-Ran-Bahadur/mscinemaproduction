@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { Facebook, Instagram, Youtube, Twitter } from 'lucide-react';
+import Header from '@/components/header';
 
 export default function MoviesPage() {
     const [activeTab, setActiveTab] = useState('now-showing');
@@ -110,25 +111,7 @@ export default function MoviesPage() {
 
     return (
         <div className="min-h-screen bg-black text-white">
-            {/* Navigation */}
-            <nav className="fixed top-0 left-0 right-0 bg-black/90 backdrop-blur-sm z-50 border-b border-gray-800">
-                <div className="container mx-auto px-6 py-4 flex items-center justify-between">
-                    <div className="flex items-center gap-8">
-                        <div className="text-2xl font-bold text-yellow-500">MS CINEMAS</div>
-                        <div className="hidden md:flex gap-6 text-sm">
-                            <a href="#" className="text-white hover:text-yellow-500 transition">Home</a>
-                            <a href="#" className="text-yellow-500 border-b-2 border-yellow-500 pb-1">Movies</a>
-                            <a href="#" className="text-white hover:text-yellow-500 transition">Food & Drinks</a>
-                            <a href="#" className="text-white hover:text-yellow-500 transition">Our Screens</a>
-                            <a href="#" className="text-white hover:text-yellow-500 transition">More</a>
-                        </div>
-                    </div>
-                    <button className="bg-yellow-500 text-black px-6 py-2 rounded-lg font-semibold hover:bg-yellow-400 transition">
-                        Sign In
-                    </button>
-                </div>
-            </nav>
-
+             <Header/>
             {/* Header Section */}
             <section className="pt-32 pb-8">
                 <div className="container mx-auto px-6">
