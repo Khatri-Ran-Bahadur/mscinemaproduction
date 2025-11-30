@@ -125,7 +125,7 @@ export default function SignInPage() {
               onClick={handleSubmit}
               className="w-full bg-[#f5c118] text-black font-semibold py-3 rounded hover:bg-[#f5c118]/90 transition"
             >
-              Sign In
+              <a href='/verify-otp'>Sign In</a>
             </button>
 
             {/* Sign Up Link */}

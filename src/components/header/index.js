@@ -47,7 +47,7 @@ const Header = () => {
                             <text x="30" y="32" textAnchor="middle" fill="currentColor" fontSize="7" fontWeight="normal" fontFamily="serif" letterSpacing="2">CINEMAS</text>
                         </svg>
                     </div>
-                    <div className="hidden md:flex gap-6 text-sm">
+                    <div className="absolute left-1/2 transform -translate-x-1/2 hidden md:flex gap-6 text-sm">
                         {menuItems.map((item) => (
                             <a
                                 key={item.id}

@@ -63,8 +63,8 @@ export default function VerifyOTPPage() {
         <div className="w-full max-w-md">
           {/* Back Button */}
           <button className="flex items-center gap-2 text-white/60 hover:text-white mb-8 transition">
-            <ChevronLeft className="w-5 h-5" />
-            <span className="text-sm">Back</span>
+            <a href='/sign-in' className='flex items-center gap-2 text-white/60 hover:text-white mb-8 transition'> <ChevronLeft className="w-5 h-5" />
+            <span className="text-sm">Back</span></a>
           </button>
 
           {/* Header */}

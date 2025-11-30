@@ -1,12 +1,22 @@
-"use client";
-
+"use client"
 import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
 
 export default function MovieBooking() {
   const [selectedDate, setSelectedDate] = useState('11');
   const [selectedExperience, setSelectedExperience] = useState('IMAX');
   const [selectedTime, setSelectedTime] = useState(null);
+  const router = useRouter();
+
+  const handleClick = (idx) => {
+    setSelectedTime(idx)
+    router.push('/ticket-type');   
+  };
+
+  const handleGoBack = () => {
+    router.back();
+  };
 
   const dates = [
     { day: '11', date: 'Mon', month: 'NOV' },
@@ -45,7 +55,7 @@ export default function MovieBooking() {
       {/* Header */}
       <div className="relative">
         <div className="absolute top-4 left-6 z-10">
-          <button className="flex items-center gap-1 text-white/80 hover:text-white text-sm">
+          <button className="flex items-center gap-1 text-white/80 hover:text-white text-sm" onClick={handleGoBack}>
             <ChevronLeft className="w-4 h-4" />
             <span>Back</span>
           </button>
@@ -172,7 +182,7 @@ export default function MovieBooking() {
               {showtimes.map((show, idx) => (
                 <button
                   key={idx}
-                  onClick={() => setSelectedTime(idx)}
+                  onClick={()=>handleClick(idx)}
                   className={`p-3 rounded-lg border transition ${
                     selectedTime === idx
                       ? 'bg-yellow-500 border-yellow-500 text-black'

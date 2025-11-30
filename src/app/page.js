@@ -105,7 +105,8 @@ export default function MovieStreamingSite() {
         <h3 className="text-2xl font-bold mb-6">Featured Movies</h3>
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-6">
           {featuredMovies.slice(0, 8).map((movie, idx) => (
-            <div key={idx} className="group cursor-pointer">
+             <a href='/movie-detail'>
+              <div key={idx} className="group cursor-pointer">
               <div className="relative rounded-lg overflow-hidden aspect-[2/3] mb-3">
                 <img 
                   src={movie.image}
@@ -124,6 +125,7 @@ export default function MovieStreamingSite() {
               </div>
               <h4 className="font-semibold">{movie.title}</h4>
             </div>
+             </a>
           ))}
         </div>
       </div>
