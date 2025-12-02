@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Play, Info, ChevronLeft, ChevronRight, Star } from 'lucide-react';
+import { Play, Star, ChevronLeft, ChevronRight } from 'lucide-react';
 import Header from '@/components/header';
 
 export default function MovieStreamingSite() {
@@ -20,10 +20,6 @@ export default function MovieStreamingSite() {
     { title: "Inception", image: "img/movies2.png", rating: "8.8" },
     { title: "Interstellar", image: "img/movies3.png", rating: "8.6" },
     { title: "The Matrix", image: "img/movies4.png", rating: "8.7" },
-    // { title: "Gladiator", image: "https://images.unsplash.com/photo-1478720568477-152d9b164e26?w=500&q=80", rating: "8.5" },
-    // { title: "The Prestige", image: "https://images.unsplash.com/photo-1440404653325-ab127d49abc1?w=500&q=80", rating: "8.5" },
-    // { title: "Fight Club", image: "https://images.unsplash.com/photo-1533613220915-609f661a6fe1?w=500&q=80", rating: "8.8" },
-    // { title: "Pulp Fiction", image: "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=500&q=80", rating: "8.9" }
   ];
 
   const newReleases = [
@@ -31,10 +27,6 @@ export default function MovieStreamingSite() {
     { title: "Fast X", year: "2024", image: "img/promotions2.jpg" },
     { title: "Guardians", year: "2024", image: "img/promotions3.jpg" },
     { title: "The Flash", year: "2024", image: "img/promotions2.jpg" },
-    { title: "Aquaman 2", year: "2024", image: "img/promotions1.jpg" },
-    { title: "Shazam 2", year: "2024", image: "img/promotions3.jpg" },
-    // { title: "Deadpool 3", year: "2024", image: "https://images.unsplash.com/photo-1478720568477-152d9b164e26?w=500&q=80" },
-    // { title: "Blade", year: "2024", image: "https://images.unsplash.com/photo-1515634928627-2a4e0dae3ddf?w=500&q=80" }
   ];
 
   const tamilMovies = [
@@ -42,57 +34,42 @@ export default function MovieStreamingSite() {
     { title: "Ponniyin Selvan", image: "img/our_hall2.jpg" },
     { title: "Varisu", image: "img/our_hall3.jpg" },
     { title: "Jailer", image: "img/our_hall4.jpg" },
-    { title: "Leo", image: "img/our_hall5.jpg" },
-    { title: "Maaveeran", image: "img/our_hall6.jpg" },
-    { title: "Mark Antony", image: "https://images.unsplash.com/photo-1533613220915-609f661a6fe1?w=500&q=80" },
-    { title: "Captain Miller", image: "https://images.unsplash.com/photo-1518676590629-3dcbd9c5a5c9?w=500&q=80" }
-  ];
-
-  const teluguMovies = [
-    { title: "RRR", image: "https://images.unsplash.com/photo-1509347528160-9a9e33742cdb?w=500&q=80" },
-    { title: "Pushpa", image: "https://images.unsplash.com/photo-1515634928627-2a4e0dae3ddf?w=500&q=80" },
-    { title: "Salaar", image: "https://images.unsplash.com/photo-1478720568477-152d9b164e26?w=500&q=80" },
-    { title: "HanuMan", image: "https://images.unsplash.com/photo-1594908900066-3f47337549d8?w=500&q=80" },
-    { title: "Baahubali", image: "https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=500&q=80" },
-    { title: "Eega", image: "https://images.unsplash.com/photo-1485846234645-a62644f84728?w=500&q=80" },
-    { title: "Ala Vaikunthapurramuloo", image: "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=500&q=80" },
-    { title: "Arjun Reddy", image: "https://images.unsplash.com/photo-1440404653325-ab127d49abc1?w=500&q=80" }
   ];
 
   return (
     <div className="bg-black min-h-screen text-white">
-      {/* Header */}
-      <Header />
-      {/* Hero Section */}
+      <Header/>
+
+      {/* Hero Section - Full Banner View */}
       <div className="relative h-screen">
         <div className="absolute inset-0">
           <img 
             src={heroMovies[currentSlide].image}
             alt={heroMovies[currentSlide].title}
-            className="w-full h-full object-cover object-right"
+            className="w-full h-full object-cover"
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-black via-black/70 to-transparent"></div>
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent"></div>
+          <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/30 to-transparent"></div>
+          <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-black/50"></div>
         </div>
         
-        <div className="relative h-full flex items-center px-8 md:px-16">
-          <div className="max-w-3xl">
-            <div className="mb-8">
-              <h2 className="text-7xl md:text-8xl font-bold tracking-wider mb-4" style={{letterSpacing: '0.2em'}}>
-                BADLANDS
-              </h2>
-            </div>
-            <h3 className="text-4xl md:text-5xl font-light mb-6">Predator: Badlands</h3>
-            <div className="flex items-center space-x-4 mb-8 text-sm text-gray-300">
-              <span className="border border-gray-400 px-3 py-1 rounded">2D</span>
+        <div className="relative h-full px-6 md:px-16">
+          <div className="absolute bottom-20 md:bottom-28 left-6 md:left-16 max-w-3xl">
+            <h3 className="text-2xl md:text-3xl lg:text-4xl font-light mb-4 md:mb-6">
+              Predator: Badlands
+            </h3>
+
+            <div className="flex items-center space-x-3 md:space-x-4 mb-6 md:mb-8 text-xs md:text-sm text-gray-300">
+              <span className="border border-gray-400 px-2 md:px-3 py-1 rounded">2D</span>
               <span>|</span>
               <span>ATMOS</span>
             </div>
-            <div className="flex space-x-4">
-              <button className="bg-yellow-400 text-black px-8 py-3 rounded font-semibold hover:bg-yellow-500 transition text-sm uppercase tracking-wide">
+
+            <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-4">
+              <button className="bg-yellow-400 text-black px-6 md:px-8 py-2.5 md:py-3 rounded font-semibold hover:bg-yellow-500 transition text-xs md:text-sm uppercase tracking-wide">
                 Watch Trailer
               </button>
-              <button className="bg-yellow-400 text-black px-8 py-3 rounded font-semibold hover:bg-yellow-500 transition text-sm uppercase tracking-wide">
+
+              <button className="bg-yellow-400 text-black px-6 md:px-8 py-2.5 md:py-3 rounded font-semibold hover:bg-yellow-500 transition text-xs md:text-sm uppercase tracking-wide">
                 Book Now
               </button>
             </div>
@@ -104,28 +81,28 @@ export default function MovieStreamingSite() {
       <div className="px-8 md:px-16 py-12">
         <h3 className="text-2xl font-bold mb-6">Featured Movies</h3>
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-6">
-          {featuredMovies.slice(0, 8).map((movie, idx) => (
-             <a href='/movie-detail'>
-              <div key={idx} className="group cursor-pointer">
-              <div className="relative rounded-lg overflow-hidden aspect-[2/3] mb-3">
-                <img 
-                  src={movie.image}
-                  alt={movie.title}
-                  className="w-full h-full object-cover group-hover:scale-110 transition duration-300"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent opacity-0 group-hover:opacity-100 transition duration-300 flex items-end justify-center pb-4">
-                  <button className="bg-yellow-400 text-black p-3 rounded-full">
-                    <Play size={20} fill="currentColor" />
-                  </button>
+          {featuredMovies.map((movie, idx) => (
+            <a href="/movie-detail" key={idx}>
+              <div className="group cursor-pointer">
+                <div className="relative rounded-lg overflow-hidden aspect-[2/3] mb-3">
+                  <img 
+                    src={movie.image}
+                    alt={movie.title}
+                    className="w-full h-full object-cover group-hover:scale-110 transition duration-300"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent opacity-0 group-hover:opacity-100 transition duration-300 flex items-end justify-center pb-4">
+                    <button className="bg-yellow-400 text-black p-3 rounded-full">
+                      <Play size={20} fill="currentColor" />
+                    </button>
+                  </div>
+                  <div className="absolute top-3 right-3 bg-black/80 px-2 py-1 rounded flex items-center space-x-1">
+                    <Star size={14} fill="#FCD34D" className="text-yellow-400" />
+                    <span className="text-sm">{movie.rating}</span>
+                  </div>
                 </div>
-                <div className="absolute top-3 right-3 bg-black/80 px-2 py-1 rounded flex items-center space-x-1">
-                  <Star size={14} fill="#FCD34D" className="text-yellow-400" />
-                  <span className="text-sm">{movie.rating}</span>
-                </div>
+                <h4 className="font-semibold">{movie.title}</h4>
               </div>
-              <h4 className="font-semibold">{movie.title}</h4>
-            </div>
-             </a>
+            </a>
           ))}
         </div>
       </div>
@@ -144,7 +121,7 @@ export default function MovieStreamingSite() {
           </div>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-6">
-          {newReleases.slice(0, 8).map((movie, idx) => (
+          {newReleases.map((movie, idx) => (
             <div key={idx} className="group cursor-pointer">
               <div className="relative rounded-lg overflow-hidden aspect-[2/3] mb-3">
                 <img 
@@ -172,7 +149,7 @@ export default function MovieStreamingSite() {
       <div className="px-8 md:px-16 py-12">
         <h3 className="text-2xl font-bold mb-6">Popular Tamil Movies</h3>
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-6">
-          {tamilMovies.slice(0, 8).map((movie, idx) => (
+          {tamilMovies.map((movie, idx) => (
             <div key={idx} className="group cursor-pointer">
               <div className="relative rounded-lg overflow-hidden aspect-[2/3] mb-3">
                 <img 
@@ -191,30 +168,6 @@ export default function MovieStreamingSite() {
           ))}
         </div>
       </div>
-
-      {/* Telugu Movies */}
-      {/* <div className="px-8 md:px-16 py-12 bg-zinc-900/50">
-        <h3 className="text-2xl font-bold mb-6">Popular Telugu Movies</h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-6">
-          {teluguMovies.slice(0, 8).map((movie, idx) => (
-            <div key={idx} className="group cursor-pointer">
-              <div className="relative rounded-lg overflow-hidden aspect-[2/3] mb-3">
-                <img 
-                  src={movie.image}
-                  alt={movie.title}
-                  className="w-full h-full object-cover group-hover:scale-110 transition duration-300"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent opacity-0 group-hover:opacity-100 transition duration-300 flex items-end justify-center pb-4">
-                  <button className="bg-yellow-400 text-black p-3 rounded-full">
-                    <Play size={20} fill="currentColor" />
-                  </button>
-                </div>
-              </div>
-              <h4 className="font-semibold">{movie.title}</h4>
-            </div>
-          ))}
-        </div>
-      </div> */}
 
       {/* Footer */}
       <footer className="px-8 md:px-16 py-12 border-t border-zinc-800">
