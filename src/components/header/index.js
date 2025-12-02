@@ -1,8 +1,8 @@
-
 import { useEffect, useState } from 'react';
 
 const Header = () => {
     const [activePage, setActivePage] = useState('home');
+    const [isScrolled, setIsScrolled] = useState(false);
 
     useEffect(() => {
         // Get current path from URL
@@ -20,6 +20,14 @@ const Header = () => {
         } else if (path.includes('/more')) {
             setActivePage('more');
         }
+
+        // Add scroll listener for background transition
+        const handleScroll = () => {
+            setIsScrolled(window.scrollY > 50);
+        };
+
+        window.addEventListener('scroll', handleScroll);
+        return () => window.removeEventListener('scroll', handleScroll);
     }, []);
 
     const menuItems = [
@@ -35,7 +43,9 @@ const Header = () => {
     };
 
     return (
-        <nav className="fixed top-0 left-0 right-0 bg-black/90 backdrop-blur-sm z-50 border-b border-gray-800">
+        <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+            isScrolled ? 'bg-black/90 backdrop-blur-sm border-b border-gray-800' : 'bg-gradient-to-b from-black/60 to-transparent'
+        }`}>
             <div className="container mx-auto px-6 py-4 flex items-center justify-between">
                 <div className="flex items-center gap-8">
                     <div className="relative">
