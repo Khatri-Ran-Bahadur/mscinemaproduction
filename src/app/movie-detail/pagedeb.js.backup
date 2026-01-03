@@ -1,0 +1,998 @@
+"use client"
+import React, { useState, useEffect, useRef } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { ChevronLeft, X } from 'lucide-react';
+import { movies, cinemas, shows } from '@/services/api';
+import { APIError } from '@/services/api';
+import Loader from '@/components/Loader';
+
+export default function MovieBooking() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const movieId = searchParams?.get('movieId');
+  // Always use this cinema ID since there's only one cinema
+  const cinemaId = '7001';
+  
+  const [selectedDate, setSelectedDate] = useState(null);
+  const [selectedDateObj, setSelectedDateObj] = useState(null);
+  const [selectedExperience, setSelectedExperience] = useState(null);
+  const [selectedTime, setSelectedTime] = useState(null);
+  const [movieDetails, setMovieDetails] = useState(null);
+  const [cinemasList, setCinemasList] = useState([]);
+  const [allShowTimes, setAllShowTimes] = useState([]); 
+  const [filteredShowTimes, setFilteredShowTimes] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [showTrailerModal, setShowTrailerModal] = useState(false);
+  const [showMovieInfoModal, setShowMovieInfoModal] = useState(false);
+  const [showAgeConfirmationModal, setShowAgeConfirmationModal] = useState(false);
+  const [availableDates, setAvailableDates] = useState([]);
+  const [moviesList, setMoviesList] = useState([]);
+  
+  // Refs to prevent duplicate API calls
+  const hasLoadedMovies = useRef(false);
+  const hasLoadedMovieDetails = useRef(false);
+  const hasLoadedCinemas = useRef(false);
+  const hasLoadedShowTimes = useRef(false);
+  const lastMovieId = useRef(null);
+
+  useEffect(() => {
+    loadShowDates(); // Load dates from API
+    
+    // Reset refs when movieId actually changes
+    if (movieId && lastMovieId.current !== movieId) {
+      hasLoadedMovieDetails.current = false;
+      hasLoadedCinemas.current = false;
+      hasLoadedShowTimes.current = false;
+      lastMovieId.current = movieId;
+    }
+    
+    // Load all data in sequence to prevent duplicate calls
+    const loadData = async () => {
+      // Step 1: Load movies list first (only once per session)
+      let allMoviesData = [];
+      if (!hasLoadedMovies.current) {
+        hasLoadedMovies.current = true; // Set immediately to prevent duplicate calls
+        allMoviesData = await loadMoviesList();
+      } else {
+        // If already loaded, use existing moviesList state
+        // Wait a bit for state to update if needed
+        if (moviesList.length === 0) {
+          // Wait up to 500ms for state to update
+          for (let i = 0; i < 10; i++) {
+            await new Promise(resolve => setTimeout(resolve, 50));
+            if (moviesList.length > 0) {
+              allMoviesData = moviesList;
+              break;
+            }
+          }
+          // If still empty, fetch fresh (shouldn't happen but safety net)
+          if (allMoviesData.length === 0) {
+            allMoviesData = await loadMoviesList();
+          }
+        } else {
+          allMoviesData = moviesList;
+        }
+      }
+      
+      // Step 2: Load movie details (uses movies data from step 1 - no additional API call)
+      if (movieId && !hasLoadedMovieDetails.current) {
+        hasLoadedMovieDetails.current = true; // Set immediately to prevent duplicate calls
+        await loadMovieDetails(allMoviesData);
+      }
+      
+      // Step 3: Load cinemas and show times (only once per movieId)
+      if (movieId && (!hasLoadedCinemas.current || !hasLoadedShowTimes.current)) {
+        hasLoadedCinemas.current = true; // Set immediately to prevent duplicate calls
+        hasLoadedShowTimes.current = true; // Set immediately to prevent duplicate calls
+        await loadCinemasAndShowTimes();
+      }
+      
+      // All data loaded, hide main loader
+      setIsLoading(false);
+    };
+    
+    loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [movieId]);
+
+  // Auto-select experience when movie details are loaded
+  useEffect(() => {
+    if (movieDetails?.type && !selectedExperience) {
+      setSelectedExperience(movieDetails.type);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [movieDetails]);
+
+  // Filter show times when date, movie, or experience changes
+  useEffect(() => {
+    if (selectedDateObj && allShowTimes.length > 0 && movieId) {
+      // Check if we're returning from ticket-type page
+      const hasLastSelectedShowTime = localStorage.getItem('lastSelectedShowTime');
+      filterShowTimesByDateAndMovie(selectedDateObj, !!hasLastSelectedShowTime);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedDateObj, allShowTimes, movieId, selectedExperience]);
+
+  const loadMoviesList = async () => {
+    try {
+      const data = await movies.getMovies();
+      const moviesArray = Array.isArray(data) ? data : [];
+      setMoviesList(moviesArray.slice(0, 10)); // For display purposes
+      return moviesArray; // Return full array for movie details lookup
+    } catch (err) {
+      console.error('Error loading movies list:', err);
+      setMoviesList([]);
+      hasLoadedMovies.current = false; // Reset on error to allow retry
+      return [];
+    }
+  };
+
+  // This useEffect is now handled by the one below that includes movieId and selectedExperience
+
+  // Load show dates from API
+  const loadShowDates = async () => {
+    try {
+      const apiDates = await shows.getShowDates();
+      
+      console.log('API Dates response:', apiDates);
+      
+      if (!apiDates || !Array.isArray(apiDates) || apiDates.length === 0) {
+        setAvailableDates([]);
+        return;
+      }
+
+      const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+      
+      // Extract unique dates from API response
+      const uniqueDatesSet = new Set();
+      const dates = [];
+
+      apiDates.forEach((item) => {
+        // Handle different possible date field names from API
+        const dateStr = item.showDate || item.ShowDate || item.date || item.Date || item.showdate || item.SHOWDATE;
+        
+        if (dateStr && typeof dateStr === 'string' && dateStr.trim()) {
+          // Format date as YYYY-MM-DD
+          let formattedDate = dateStr.trim();
+          if (formattedDate.includes('T')) {
+            formattedDate = formattedDate.split('T')[0];
+          }
+          
+          // Validate date format (should be YYYY-MM-DD)
+          const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+          if (!dateRegex.test(formattedDate)) {
+            console.warn('Invalid date format:', formattedDate);
+            return;
+          }
+          
+          // Only add if not already in set
+          if (!uniqueDatesSet.has(formattedDate)) {
+            uniqueDatesSet.add(formattedDate);
+            
+            // Parse the date
+            const dateObj = new Date(formattedDate + 'T00:00:00');
+            
+            // Validate that the date is valid (not NaN)
+            if (isNaN(dateObj.getTime())) {
+              console.warn('Invalid date object:', formattedDate);
+              return;
+            }
+            
+            // Format date as YYYY-MM-DD using local date (not UTC)
+            const year = dateObj.getFullYear();
+            const month = dateObj.getMonth() + 1;
+            const day = dateObj.getDate();
+            const dayOfWeek = dateObj.getDay();
+            const monthIndex = dateObj.getMonth();
+            
+            // Validate values are not NaN
+            if (isNaN(year) || isNaN(month) || isNaN(day) || isNaN(dayOfWeek) || isNaN(monthIndex)) {
+              console.warn('Invalid date values:', { year, month, day, formattedDate });
+              return;
+            }
+            
+            const fullDate = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            
+            dates.push({
+              day: day.toString(),
+              date: days[dayOfWeek],
+              month: months[monthIndex],
+              fullDate: fullDate,
+              dateObj: dateObj
+            });
+          }
+        }
+      });
+
+      // Sort dates chronologically
+      dates.sort((a, b) => a.dateObj - b.dateObj);
+      
+      console.log('Processed dates:', dates);
+      setAvailableDates(dates);
+      
+      // Auto-select first date if no date is selected
+      if (!selectedDate && dates.length > 0) {
+        setSelectedDate(dates[0].day);
+        setSelectedDateObj(dates[0].dateObj);
+      }
+    } catch (error) {
+      console.error('Error loading show dates:', error);
+      setAvailableDates([]);
+    }
+  };
+
+  // Filter show times by selected date, movieID, and experience type
+  const filterShowTimesByDateAndMovie = (dateObj, restoreShowTime = false) => {
+    if (!dateObj || allShowTimes.length === 0 || !movieId) {
+      setFilteredShowTimes([]);
+      return;
+    }
+
+    // Get the selected date in YYYY-MM-DD format for comparison (use local date, not UTC)
+    const year = dateObj.getFullYear();
+    const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const day = String(dateObj.getDate()).padStart(2, '0');
+    const selectedDateStr = `${year}-${month}-${day}`;
+
+    // Filter show times that match:
+    // 1. Selected date (showDate format: YYYY-MM-DD)
+    // 2. Movie ID
+    // 3. Experience type (if selected)
+    const filtered = allShowTimes.filter((show) => {
+      // Match movieID - handle both string and number comparison
+      const showMovieID = show.movieID || show.movieId;
+      const movieIdNum = parseInt(movieId);
+      const showMovieIdNum = parseInt(showMovieID);
+      
+      if (showMovieIdNum !== movieIdNum && String(showMovieID) !== String(movieId)) {
+        return false;
+      }
+
+      // Match date - API returns showDate in YYYY-MM-DD format
+      if (show.showDate) {
+        // Handle both YYYY-MM-DD and YYYY-MM-DDTHH:mm:ss formats
+        const showDateStr = show.showDate.split('T')[0].split(' ')[0]; // Get YYYY-MM-DD
+        if (showDateStr !== selectedDateStr) {
+          return false;
+        }
+      } else {
+        return false; // If no showDate, exclude it
+      }
+
+      // Match experience type if selected
+      if (selectedExperience) {
+        // The API doesn't have experience type in show times, so we'll use movie type
+        // But we can still filter if needed based on hall or other criteria
+        // For now, we'll show all times for the selected date and movie
+      }
+
+      // Only show times that allow online sales (but show them anyway, just mark as unavailable)
+      // Don't filter out - let user see all times but disable those with allowOnlineSales: false
+      // if (show.allowOnlineSales === false) {
+      //   return false;
+      // }
+
+      return true;
+    });
+
+    // Sort by show time
+    filtered.sort((a, b) => {
+      const timeA = a.showTime ? new Date(a.showTime).getTime() : 0;
+      const timeB = b.showTime ? new Date(b.showTime).getTime() : 0;
+      return timeA - timeB;
+    });
+
+    console.log('Filtered show times for date', selectedDateStr, 'movie', movieId, ':', filtered.length, filtered);
+    console.log('All show times:', allShowTimes.length);
+    console.log('Selected date string:', selectedDateStr);
+    console.log('Movie ID:', movieId, 'Type:', typeof movieId);
+    console.log('Sample show time:', allShowTimes[0]);
+    setFilteredShowTimes(filtered);
+    
+    // Restore show time selection if coming back from ticket-type page
+    if (restoreShowTime) {
+      const lastSelectedShowTime = localStorage.getItem('lastSelectedShowTime');
+      if (lastSelectedShowTime && filtered.length > 0) {
+        try {
+          const showTimeData = JSON.parse(lastSelectedShowTime);
+          localStorage.removeItem('lastSelectedShowTime');
+          
+          // Find the matching show time index in filtered array
+          const matchingShowIndex = filtered.findIndex(show => {
+            const showId = show.showID || show.id;
+            return showId == showTimeData.showId;
+          });
+          
+          if (matchingShowIndex !== -1) {
+            // Restore the selected time
+            setTimeout(() => {
+              setSelectedTime(matchingShowIndex);
+            }, 100);
+          }
+        } catch (e) {
+          console.error('Error restoring show time selection:', e);
+        }
+      }
+    }
+  };
+
+  const loadMovieDetails = async (allMoviesData) => {
+    if (!movieId) return;
+    
+    setError(''); // Clear previous errors
+    
+    try {
+      // Use provided movies data (from loadMoviesList - no additional API call)
+      let allMovies = allMoviesData;
+      
+      // Ensure allMovies is an array
+      if (!Array.isArray(allMovies)) {
+        allMovies = [];
+      }
+      
+      // If empty, something went wrong - but don't fetch again
+      if (allMovies.length === 0) {
+        throw new Error('Movies list is empty. Please refresh the page.');
+      }
+      
+      // Find the movie by ID (handle different ID formats)
+      const movieIdNum = parseInt(movieId);
+      const movie = allMovies.find(m => {
+        const mId = m.movieID || m.movieId || m.id;
+        // Try multiple comparison methods
+        return mId === movieIdNum || 
+               mId === movieId || 
+               String(mId) === String(movieId) ||
+               parseInt(mId) === movieIdNum;
+      });
+      
+      if (movie) {
+        setMovieDetails(movie);
+        setError(''); // Clear any previous errors
+      } else {
+        // Movie not found in the list
+        throw new Error(`Movie with ID ${movieId} not found`);
+      }
+    } catch (err) {
+      hasLoadedMovieDetails.current = false; // Reset on error to allow retry
+      if (err instanceof APIError) {
+        setError(err.message || 'Failed to load movie details');
+      } else {
+        setError(err.message || 'Movie not found. Please check the movie ID and try again.');
+      }
+    }
+  };
+
+  const loadCinemasAndShowTimes = async () => {
+    setError('');
+    try {
+      // Load cinemas
+      const cinemasData = await cinemas.getCinemas();
+      setCinemasList(Array.isArray(cinemasData) ? cinemasData : []);
+
+      // Load show times for selected cinema
+      if (cinemaId) {
+        const showTimesData = await shows.getShowTimes(cinemaId);
+        
+        // Transform API response to match our format
+        const transformedShowTimes = Array.isArray(showTimesData) 
+          ? showTimesData.map((show) => ({
+              id: show.showID || show.showId || show.id,
+              showID: show.showID || show.showId || show.id,
+              movieID: show.movieID || show.movieId,
+              showDate: show.showDate, // Format: YYYY-MM-DD
+              showTime: show.showTime, // Format: YYYY-MM-DD HH:mm:ss
+              hallName: show.hallName || 'HALL - 1',
+              sellingStatus: show.sellingStatus !== undefined ? show.sellingStatus : 0,
+              allowOnlineSales: show.allowOnlineSales !== undefined ? show.allowOnlineSales : true,
+              // Format time for display (extract time from datetime)
+              time: show.showTime 
+                ? new Date(show.showTime).toLocaleTimeString('en-US', { 
+                    hour: 'numeric', 
+                    minute: '2-digit',
+                    hour12: true 
+                  })
+                : '10:00 AM',
+              // Determine availability based on sellingStatus and allowOnlineSales
+              // Only available if: sellingStatus = 0 AND allowOnlineSales = true
+              available: show.sellingStatus === 0 && show.allowOnlineSales === true,
+              sellingFast: show.sellingStatus === 1,
+              // Sold out if: sellingStatus = 1 OR sellingStatus = 2 OR allowOnlineSales = false
+              soldOut: show.sellingStatus === 1 || show.sellingStatus === 2 || show.allowOnlineSales === false,
+            }))
+          : [];
+        
+        console.log('Loaded show times:', transformedShowTimes.length, 'for cinema:', cinemaId);
+        console.log('Show times for movie', movieId, ':', transformedShowTimes.filter(s => (s.movieID || s.movieId) == movieId));
+        
+        setAllShowTimes(transformedShowTimes);
+        
+        // Dates are now loaded from API, so we don't update dates from show times
+        
+        // Filter will be applied by useEffect when date is selected
+      }
+    } catch (err) {
+      console.error('Error loading data:', err);
+      hasLoadedCinemas.current = false; // Reset on error to allow retry
+      hasLoadedShowTimes.current = false; // Reset on error to allow retry
+      if (err instanceof APIError) {
+        setError(err.message || 'Failed to load show times');
+      } else {
+        setError('An unexpected error occurred');
+      }
+    }
+  };
+  
+
+  // Extract YouTube video ID from URL
+  const proceedToTicketType = () => {
+    if (selectedTime !== null) {
+      const show = filteredShowTimes[selectedTime];
+      // Only proceed if: sellingStatus = 0 AND allowOnlineSales = true
+      const isAvailable = show && show.sellingStatus === 0 && show.allowOnlineSales === true;
+      
+      if (isAvailable) {
+        // Use showID from the show time (this is the actual show ID from API)
+        const showId = show.showID || show.showId || show.id;
+        // Pass show time and date for display on ticket-type page
+        const showTimeParam = show.showTime ? encodeURIComponent(show.showTime) : '';
+        const showDateParam = show.showDate ? encodeURIComponent(show.showDate) : '';
+        const experienceType = selectedExperience || movieDetails?.type || '2D';
+        router.push(`/ticket-type?cinemaId=${cinemaId}&showId=${showId}&movieId=${movieId}&showTime=${showTimeParam}&showDate=${showDateParam}&experienceType=${encodeURIComponent(experienceType)}`);
+      } else {
+        setError('This show time is not available for online booking.');
+        setSelectedTime(null);
+      }
+    }
+  };
+
+  const getYouTubeVideoId = (url) => {
+    if (!url) return null;
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+    const match = url.match(regExp);
+    return (match && match[2].length === 11) ? match[2] : null;
+  };
+
+  const handleClick = (idx) => {
+    const show = filteredShowTimes[idx];
+    // Only allow selection if: sellingStatus = 0 AND allowOnlineSales = true
+    const isAvailable = show && show.sellingStatus === 0 && show.allowOnlineSales === true;
+    
+    if (isAvailable) {
+      setSelectedTime(idx);
+      // Don't auto-navigate, let user click Continue button
+    } else {
+      // Don't allow selection if not available
+      setSelectedTime(null);
+    }
+  };
+
+  const handleDateSelect = (date) => {
+    setSelectedDate(date.day);
+    setSelectedDateObj(date.dateObj);
+    setSelectedTime(null); // Reset selected time when date changes
+    // Filter will be triggered by useEffect
+  };
+
+  const handleGoBack = () => {
+    router.back();
+  };
+
+  const experiences = ['IMAX', '2D', '3D', 'ATMOS'];
+
+  // Get movie type as the primary experience (auto-selected)
+  const movieType = movieDetails?.type || '2D';
+  
+  // Only show the movie's type as available (others are disabled)
+  const availableExperiences = [movieType];
+
+  // Get movie display data
+  const movieTitle = movieDetails?.movieName?.replace(/^\./, '') || 'Movie Title';
+  const movieImage = movieDetails?.imageURL || 'img/banner.jpg';
+  const movieGenre = movieDetails?.genre || 'Action';
+  const movieDuration = movieDetails?.duration || '';
+  const movieLanguage = movieDetails?.language || 'English';
+  const movieRating = movieDetails?.rating || 'U/A';
+  const movieSynopsis = movieDetails?.synopsis || '';
+  const movieCast = movieDetails?.cast || '';
+  const movieDirector = movieDetails?.director || '';
+  const movieReleaseDate = movieDetails?.releaseDate || '';
+  const trailerUrl = movieDetails?.trailerUrl || '';
+  const trailerVideoId = getYouTubeVideoId(trailerUrl);
+
+  // Show single full-page loader while loading
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
+        <Loader size="large" fullScreen={true} />
+      </div>
+    );
+  }
+
+  // Show error state if no movie details and there's an error
+  if (error && !movieDetails) {
+    return (
+      <div className="min-h-screen bg-[#0a0a0a] text-[#D3D3D3] flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-red-400 mb-4">{error}</p>
+          <button
+            onClick={() => {
+              setIsLoading(true);
+              hasLoadedMovieDetails.current = false;
+              hasLoadedCinemas.current = false;
+              hasLoadedShowTimes.current = false;
+              const loadData = async () => {
+                const allMoviesData = await loadMoviesList();
+                await loadMovieDetails(allMoviesData);
+                await loadCinemasAndShowTimes();
+                setIsLoading(false);
+              };
+              loadData();
+            }}
+            className="px-4 py-2 bg-[#FFCA20] text-black rounded hover:bg-[#FFCA20]/90"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-[#0a0a0a] text-[#D3D3D3]">
+      {/* Header */}
+      <div className="relative">
+        <div className="absolute top-4 left-6 z-10">
+          <button className="flex items-center gap-1 text-[#D3D3D3] hover:text-[#FAFAFA] text-sm" onClick={handleGoBack}>
+            <ChevronLeft className="w-4 h-4" />
+            <span>Back</span>
+          </button>
+        </div>
+
+        {/* Breadcrumb */}
+        <div className="absolute top-4 right-6 z-10">
+          <div className="flex items-center gap-2 text-xs text-[#D3D3D3]">
+            <span className="hover:text-[#FAFAFA] text-white cursor-pointer">Select Cinema</span>
+            <span>›</span>
+            <span className="hover:text-[#FAFAFA] cursor-pointer">Select type</span>
+            <span>›</span>
+            <span className="hover:text-[#FAFAFA] cursor-pointer">Select Seat</span>
+            <span>›</span>
+            <span className="text-[#FAFAFA]">Payment</span>
+          </div>
+        </div>
+
+        {/* Hero Image */}
+        <div className="relative h-72 overflow-hidden">
+          {movieDetails ? (
+            <>
+              <img 
+                src={movieImage} 
+                alt={movieTitle}
+                className="absolute inset-0 w-full h-full object-cover"
+                onError={(e) => {
+                  e.target.src = 'img/banner.jpg';
+                }}
+              />
+              <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-[#0a0a0a]/60 to-[#0a0a0a]" />
+              <div className="absolute inset-0 bg-gradient-to-r from-black/50 to-transparent" />
+              
+              {/* Movie Info */}
+              <div className="absolute bottom-8 left-8">
+                <h1 className="text-5xl font-bold mb-2 text-[#FAFAFA]">{movieTitle}</h1>
+                <div className="flex items-center gap-3 text-sm text-[#D3D3D3] mb-4">
+                  <span>{movieGenre}</span>
+                  {movieDuration && <span>|</span>}
+                  <span>{movieDuration}</span>
+                  {movieLanguage && <span>|</span>}
+                  <span>{movieLanguage}</span>
+                </div>
+                <div className="flex gap-3">
+                  <button 
+                    onClick={() => setShowTrailerModal(true)}
+                    disabled={!trailerVideoId}
+                    className={`px-6 py-2 bg-transparent border border-[#D3D3D3]/40 text-[#FAFAFA] text-sm rounded hover:bg-white/10 transition ${
+                      !trailerVideoId ? 'opacity-50 cursor-not-allowed' : ''
+                    }`}
+                  >
+                    Watch Trailer
+                  </button>
+                  <button 
+                    onClick={() => setShowMovieInfoModal(true)}
+                    className="px-6 py-2 bg-[#FFCA20] text-black font-semibold text-sm rounded hover:bg-[#FFCA20]/90 transition"
+                  >
+                    Movie Info
+                  </button>
+                </div>
+              </div>
+            </>
+          ) : null}
+        </div>
+      </div>
+
+      {movieDetails ? (
+        <div className="mt-8">
+        {/* Select Date */}
+        <div className="mb-8 px-6 md:px-8">
+          <h2 className="text-sm font-semibold mb-4 text-[#FAFAFA]">Select Date</h2>
+          <div className="flex gap-3 overflow-x-auto pb-2">
+            {availableDates.length > 0 ? (
+              availableDates.map((date, index) => (
+                <button
+                  key={date.showDate || `${date.day}-${index}`}
+                  onClick={() => handleDateSelect(date)}
+                  className={`w-16 h-20 rounded-lg flex flex-col items-center justify-center transition shrink-0 ${
+                    selectedDate === date.day
+                      ? 'bg-[#FFCA20] text-black'
+                      : 'bg-[#1a1a1a] text-[#D3D3D3] hover:bg-[#252525] border border-[#2a2a2a]'
+                  }`}
+                >
+                  <span className="text-2xl font-bold">{date.day}</span>
+                  <span className="text-xs mt-1">{date.date}</span>
+                  <span className="text-[10px] mt-0.5 opacity-70">{date.month}</span>
+                </button>
+              ))
+            ) : (
+              <div className="text-sm text-gray-400 py-4">
+                No show dates available for this movie
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Select Experience */}
+        <div className="mb-8 px-6 md:px-8">
+          <h2 className="text-sm font-semibold mb-4 text-[#FAFAFA]">Select Experience</h2>
+          <div className="flex gap-3 flex-wrap">
+            {experiences.map((exp) => {
+              const isMovieType = exp === movieType;
+              const isSelected = selectedExperience === exp;
+              const isDisabled = !isMovieType;
+              
+              return (
+                <button
+                  key={exp}
+                  onClick={() => {
+                    if (!isDisabled) {
+                      setSelectedExperience(exp);
+                    }
+                  }}
+                  disabled={isDisabled}
+                  className={`px-8 py-2.5 rounded-lg text-sm font-medium transition ${
+                    isSelected
+                      ? 'bg-[#FFCA20] text-black'
+                      : isDisabled
+                      ? 'bg-[#1a1a1a] text-[#666] border border-[#2a2a2a] cursor-not-allowed opacity-50'
+                      : 'bg-[#1a1a1a] text-[#D3D3D3] hover:bg-[#252525] border border-[#2a2a2a]'
+                  }`}
+                >
+                  {exp}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Select Cinema & Time */}
+        <div className="mb-8 px-6 md:px-8">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-semibold text-[#FAFAFA]">Select cinema & Time</h2>
+            <div className="flex gap-6 text-xs">
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 bg-green-500 rounded"></div>
+                <span className="text-[#D3D3D3]">Available</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 bg-[#FFCA20] rounded"></div>
+                <span className="text-[#D3D3D3]">Selling fast</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 bg-red-500 rounded"></div>
+                <span className="text-[#D3D3D3]">Sold out</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Error Message */}
+          {error && (
+            <div className="mb-4 p-4 bg-red-500/10 border border-red-500/50 rounded text-sm text-red-400">
+              {error}
+              <button 
+                onClick={loadCinemasAndShowTimes}
+                className="ml-4 text-yellow-500 hover:text-yellow-400 underline"
+              >
+                Retry
+              </button>
+            </div>
+          )}
+
+          {/* Cinema Location Card */}
+          {
+          <div className="bg-[#1a1a1a] rounded-lg p-6 border border-[#2a2a2a]">
+              {cinemasList.length > 0 ? (
+                cinemasList.map((cinema, index) => (
+                  <div key={cinema.id || cinema.cinemaId || `cinema-${index}`}>
+                    <div className="flex items-center gap-2 mb-5">
+                      <div className={`w-2.5 h-2.5 rounded-full ${
+                        cinema.available !== false ? 'bg-green-500' : 'bg-red-500'
+                      }`}></div>
+                      <span className="text-sm text-[#D3D3D3]">
+                        {cinema.displayName} -
+                        {/* address in html format */}
+                        <span dangerouslySetInnerHTML={{ __html: cinema.address }} />
+                      </span>
+                    </div>
+                  </div>
+                ))
+              ) : (
+            <div className="flex items-center gap-2 mb-5">
+              <div className="w-2.5 h-2.5 bg-green-500 rounded-full"></div>
+                  <span className="text-sm text-[#D3D3D3]">
+                    No cinemas available
+                  </span>
+            </div>
+              )}
+
+            {/* Showtimes Grid */}
+              {filteredShowTimes.length > 0 ? (
+                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
+                  {filteredShowTimes.map((show, idx) => {
+                    // Determine if show is available for selection
+                    // Only available if: sellingStatus = 0 AND allowOnlineSales = true
+                    const isAvailable = show.sellingStatus === 0 && show.allowOnlineSales === true;
+                    const isSoldOut = !isAvailable; // Sold out if not available
+                    
+                    return (
+                      <button
+                        key={show.showID || show.id || idx}
+                        onClick={() => {
+                          if (isAvailable) {
+                            handleClick(idx);
+                          }
+                        }}
+                        disabled={isSoldOut}
+                        className={`p-3 rounded-lg border transition ${
+                          isSoldOut
+                            ? 'bg-gray-800 border-red-500 text-gray-500 cursor-not-allowed opacity-60'
+                            : selectedTime === idx
+                            ? 'bg-[#FFCA20] border-[#FFCA20] text-black'
+                            : show.sellingFast
+                            ? 'bg-[#0a0a0a] border-[#FFCA20] text-[#FAFAFA] hover:border-[#FFCA20] hover:bg-[#151515]'
+                            : 'bg-[#0a0a0a] border-green-500 text-[#FAFAFA] hover:border-green-400 hover:bg-[#151515]'
+                        }`}
+                        title={isSoldOut 
+                          ? (show.allowOnlineSales === false 
+                              ? 'Not available for online sales' 
+                              : show.sellingStatus === 1 
+                              ? 'Selling fast / Limited availability' 
+                              : 'Sold out')
+                          : 'Available'}
+                      >
+                        <div className="text-sm font-semibold">{show.time}</div>
+                        <div className="text-xs mt-1 opacity-70">{show.hallName || movieType}</div>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-center text-gray-400 py-8">
+                  {selectedDateObj 
+                    ? `No show times available for ${selectedDateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+                    : 'No show times available for this cinema.'
+                  }
+                  <div className="text-xs mt-2 text-gray-500">
+                    Debug: filteredShowTimes.length = {filteredShowTimes.length}, allShowTimes.length = {allShowTimes.length}
+                  </div>
+                </div>
+              )}
+            </div>
+          }
+        </div>
+
+        {/* Continue Button */}
+        <div className="px-6 md:px-8 mb-8 flex justify-center">
+          <button
+            onClick={() => {
+              if (selectedTime !== null) {
+                // Check if age is already confirmed in localStorage
+                const ageConfirmed = localStorage.getItem('age_confirmed');
+                if (!ageConfirmed) {
+                  setShowAgeConfirmationModal(true);
+                } else {
+                  proceedToTicketType();
+                }
+              }
+            }}
+            disabled={selectedTime === null}
+            className={`px-8 py-2 rounded-lg font-semibold text-sm transition ${
+              selectedTime !== null
+                ? 'bg-[#FFCA20] text-black hover:bg-[#FFCA20]/90'
+                : 'bg-[#FFCA20]/30 text-black/50 cursor-not-allowed'
+            }`}
+          >
+            Continue
+          </button>
+        </div>
+
+        </div>
+      ) : null}
+
+      {/* Trailer Modal */}
+      {showTrailerModal && (
+        <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4" onClick={() => setShowTrailerModal(false)}>
+          <div className="relative w-full max-w-4xl bg-black rounded-lg overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <button
+              onClick={() => setShowTrailerModal(false)}
+              className="absolute top-4 right-4 z-10 bg-black/80 text-[#FAFAFA] p-2 rounded-full hover:bg-black transition"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            {trailerVideoId ? (
+              <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
+                <iframe
+                  className="absolute top-0 left-0 w-full h-full"
+                  src={`https://www.youtube.com/embed/${trailerVideoId}?autoplay=1`}
+                  title="Movie Trailer"
+                  frameBorder="0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              </div>
+            ) : (
+              <div className="p-12 text-center text-[#FAFAFA]">
+                <p className="text-lg mb-4">Trailer not available</p>
+                <button
+                  onClick={() => setShowTrailerModal(false)}
+                  className="px-6 py-2 bg-[#FFCA20] text-black rounded hover:bg-[#FFCA20]/90 transition"
+                >
+                  Close
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Movie Info Modal */}
+      {showMovieInfoModal && movieDetails && (
+        <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4 overflow-y-auto" onClick={() => setShowMovieInfoModal(false)}>
+          <div className="relative w-full max-w-2xl bg-[#1a1a1a] rounded-lg p-6 my-8" onClick={(e) => e.stopPropagation()}>
+            <button
+              onClick={() => setShowMovieInfoModal(false)}
+              className="absolute top-4 right-4 text-[#D3D3D3] hover:text-[#FAFAFA] transition"
+            >
+              <X className="w-6 h-6" />
+            </button>
+            
+            <div className="flex gap-6 mb-6">
+              <img 
+                src={movieImage} 
+                alt={movieTitle}
+                className="w-32 h-48 object-cover rounded"
+                onError={(e) => {
+                  e.target.src = 'img/movies1.png';
+                }}
+              />
+              <div className="flex-1">
+                <h2 className="text-2xl font-bold mb-2 text-[#FAFAFA]">{movieTitle}</h2>
+                <div className="space-y-2 text-sm text-[#D3D3D3]">
+                  <div><span className="font-semibold text-[#FAFAFA]">Genre:</span> {movieGenre}</div>
+                  <div><span className="font-semibold text-[#FAFAFA]">Duration:</span> {movieDuration}</div>
+                  <div><span className="font-semibold text-[#FAFAFA]">Language:</span> {movieLanguage}</div>
+                  <div><span className="font-semibold text-[#FAFAFA]">Rating:</span> {movieRating}</div>
+                  <div><span className="font-semibold text-[#FAFAFA]">Type:</span> {movieType}</div>
+                  {movieReleaseDate && (
+                    <div><span className="font-semibold text-[#FAFAFA]">Release Date:</span> {movieReleaseDate}</div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {movieSynopsis && (
+              <div className="mb-6">
+                <h3 className="text-lg font-semibold mb-2 text-[#FAFAFA]">Synopsis</h3>
+                <p className="text-[#D3D3D3] text-sm leading-relaxed">{movieSynopsis}</p>
+              </div>
+            )}
+
+            {movieCast && (
+              <div className="mb-6">
+                <h3 className="text-lg font-semibold mb-2 text-[#FAFAFA]">Cast</h3>
+                <p className="text-[#D3D3D3] text-sm">{movieCast}</p>
+              </div>
+            )}
+
+            {movieDirector && (
+              <div className="mb-6">
+                <h3 className="text-lg font-semibold mb-2 text-[#FAFAFA]">Director</h3>
+                <p className="text-[#D3D3D3] text-sm">{movieDirector}</p>
+              </div>
+            )}
+
+            <div className="flex gap-3">
+              {trailerVideoId && (
+                  <button
+                    onClick={() => {
+                      setShowMovieInfoModal(false);
+                      setShowTrailerModal(true);
+                    }}
+                    className="px-6 py-2 bg-[#FFCA20] text-black font-semibold rounded hover:bg-[#FFCA20]/90 transition"
+                  >
+                    Watch Trailer
+                  </button>
+              )}
+              <button
+                onClick={() => setShowMovieInfoModal(false)}
+                className="px-6 py-2 bg-transparent border border-[#D3D3D3]/40 text-[#FAFAFA] rounded hover:bg-white/10 transition"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Age Confirmation Modal */}
+      {showAgeConfirmationModal && (
+        <AgeConfirmationModal
+          moviesList={moviesList}
+          onConfirm={() => {
+            localStorage.setItem('age_confirmed', 'true');
+            setShowAgeConfirmationModal(false);
+            proceedToTicketType();
+          }}
+          onClose={() => setShowAgeConfirmationModal(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+// Age Confirmation Modal Component
+function AgeConfirmationModal({ onConfirm, onClose }) {
+  return (
+    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div 
+        className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg w-full max-w-md relative"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 border-b border-[#2a2a2a]">
+          <h2 className="text-xl font-bold text-[#FAFAFA]">Confirmation</h2>
+          <button
+            onClick={onClose}
+            className="text-[#FAFAFA] hover:text-[#FFCA20] transition"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="p-6">
+          {/* Icon Circle */}
+          <div className="flex justify-center mb-6">
+            <div className="w-32 h-32 bg-[#3a3a3a] rounded-full"></div>
+          </div>
+
+          {/* Age Confirmation Text */}
+          <div className="text-center mb-6">
+            <p className="text-[#FAFAFA] text-sm leading-relaxed">
+              Please confirm you are above <span className="font-bold text-[#FFCA20]">"18"</span> age, Verification will be done at the checkout.
+            </p>
+          </div>
+
+
+          {/* Confirm Button */}
+          <button
+            onClick={onConfirm}
+            className="w-full bg-[#FFCA20] text-black font-semibold py-3 rounded-lg hover:bg-[#FFCA20]/90 transition"
+          >
+            Confirm
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}

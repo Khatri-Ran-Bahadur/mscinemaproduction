@@ -5,6 +5,7 @@
 'use client'; // Only needed for App Router
 
 import React, { useState } from 'react';
+import Link from 'next/link';
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
@@ -168,12 +169,12 @@ export default function ForgotPasswordPage() {
             {/* Back to Login Link */}
             <p className="text-center text-gray-400 text-sm mt-6">
               Remember your password?{' '}
-              <a 
-                href="/login" 
+              <Link 
+                href="/sign-in" 
                 className="text-yellow-500 hover:text-yellow-400 font-semibold transition"
               >
                 Back to Login
-              </a>
+              </Link>
             </p>
           </form>
         </div>

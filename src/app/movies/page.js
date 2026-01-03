@@ -1,291 +1,313 @@
-'use client';
+"use client";
 
-import React, { useState } from 'react';
-import { Facebook, Instagram, Youtube, Twitter } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Header from '@/components/header';
+import Footer from '@/components/footer';
+import { movies as moviesAPI } from '@/services/api';
+import { APIError } from '@/services/api';
+import Loader from '@/components/Loader';
+import { ExperiencesGrid } from '@/components/Experiences/ExperiencesGrid';
 
 export default function MoviesPage() {
+    const router = useRouter();
     const [activeTab, setActiveTab] = useState('now-showing');
+    const [viewMode, setViewMode] = useState('movies'); // 'movies' or 'experiences'
+    const [movies, setMovies] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState('');
 
-    const movies = [
-        {
-            id: 1,
-            image: "https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=400&q=80",
-            title: "BADLANDS",
-            genre: "Action, Thriller",
-            rating: "U/A",
-            languages: "English, Hindi",
-            isComingSoon: false
-        },
-        {
-            id: 2,
-            image: "https://images.unsplash.com/photo-1594908900066-3f47337549d8?w=400&q=80",
-            title: "BADLANDS",
-            genre: "Action, Thriller",
-            rating: "U/A",
-            languages: "English, Hindi",
-            isComingSoon: false
-        },
-        {
-            id: 3,
-            image: "https://images.unsplash.com/photo-1485846234645-a62644f84728?w=400&q=80",
-            title: "MALAM TERLALANG",
-            genre: "Horror, Thriller",
-            rating: "A",
-            languages: "Indonesian",
-            isComingSoon: true
-        },
-        {
-            id: 4,
-            image: "https://images.unsplash.com/photo-1574267432644-f02b82a76bb5?w=400&q=80",
-            title: "BANDUAN",
-            genre: "Drama, Crime",
-            rating: "U/A",
-            languages: "Tamil, Hindi",
-            isComingSoon: false
-        },
-        {
-            id: 5,
-            image: "https://images.unsplash.com/photo-1574267432644-f02b82a76bb5?w=400&q=80",
-            title: "BANDUAN",
-            genre: "Drama, Crime",
-            rating: "U/A",
-            languages: "Tamil, Hindi",
-            isComingSoon: false
-        },
-        {
-            id: 6,
-            image: "https://images.unsplash.com/photo-1608270586620-248524c67de9?w=400&q=80",
-            title: "KANG SALAS",
-            genre: "Action, Adventure",
-            rating: "U/A",
-            languages: "Indonesian",
-            isComingSoon: true
-        },
-        {
-            id: 7,
-            image: "https://images.unsplash.com/photo-1485846234645-a62644f84728?w=400&q=80",
-            title: "MALAM TERLALANG",
-            genre: "Horror, Thriller",
-            rating: "A",
-            languages: "Indonesian",
-            isComingSoon: false
-        },
-        {
-            id: 8,
-            image: "https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=400&q=80",
-            title: "BADLANDS",
-            genre: "Action, Thriller",
-            rating: "U/A",
-            languages: "English, Hindi",
-            isComingSoon: false
-        },
-        {
-            id: 9,
-            image: "https://images.unsplash.com/photo-1574267432644-f02b82a76bb5?w=400&q=80",
-            title: "BANDUAN",
-            genre: "Drama, Crime",
-            rating: "U/A",
-            languages: "Tamil, Hindi",
-            isComingSoon: false
-        },
-        {
-            id: 10,
-            image: "https://images.unsplash.com/photo-1608270586620-248524c67de9?w=400&q=80",
-            title: "KANG SALAS",
-            genre: "Action, Adventure",
-            rating: "U/A",
-            languages: "Indonesian",
-            isComingSoon: false
-        },
-        {
-            id: 11,
-            image: "https://images.unsplash.com/photo-1485846234645-a62644f84728?w=400&q=80",
-            title: "MALAM TERLALANG",
-            genre: "Horror, Thriller",
-            rating: "A",
-            languages: "Indonesian",
-            isComingSoon: false
+    useEffect(() => {
+        loadMovies();
+    }, []);
+
+    const loadMovies = async () => {
+        setIsLoading(true);
+        setError('');
+        try {
+            const data = await moviesAPI.getMovies();
+            // Transform API data to match component structure
+            const transformedMovies = Array.isArray(data) ? data.map((movie, index) => ({
+                id: movie.movieID || movie.id || index + 1,
+                image: movie.imageURL || movie.image || movie.poster || "img/movies1.png",
+                title: movie.movieName || movie.title || movie.name || "Unknown Movie",
+                genre: movie.genre || movie.genres || movie.category || "Action",
+                rating: movie.rating || movie.ageRating || "U/A",
+                languages: movie.language || movie.languages || "English",
+                duration: movie.duration || "1 hr 48 mins",
+                isComingSoon: movie.isComingSoon || movie.comingSoon || false,
+                showType: movie.showType || "1",
+                releaseDate: movie.releaseDate || "",
+                trailerUrl: movie.trailerUrl || movie.trailer || "",
+                synopsis: movie.synopsis || ""
+            })) : [];
+            
+            setMovies(transformedMovies);
+        } catch (err) {
+            console.error('Error loading movies:', err);
+            if (err instanceof APIError) {
+                setError(err.message || 'Failed to load movies');
+            } else {
+                setError('An unexpected error occurred');
+            }
+            setMovies([]);
+        } finally {
+            setIsLoading(false);
         }
-    ];
+    };
+
+    const handleWatchTrailer = (trailerUrl, e) => {
+        e.stopPropagation();
+        if (trailerUrl) {
+            window.open(trailerUrl, '_blank');
+        }
+    };
+
+    const handleBookNow = (movieId, e) => {
+        e.stopPropagation();
+        router.push(`/movie-detail?movieId=${movieId}`);
+    };
+
+    const filteredMovies = () => {
+        switch (activeTab) {
+            case 'now-showing':
+                return movies.filter(m => m.showType === "1" || !m.isComingSoon);
+            case 'advance-booking':
+                return movies.filter(m => m.showType === "2");
+            case 'coming-soon':
+                return movies.filter(m => m.isComingSoon || m.showType === "3");
+            case 'top-rated':
+                return movies; // Could filter by rating if available
+            default:
+                return movies;
+        }
+    };
+
+    const formatReleaseDate = (dateString) => {
+        if (!dateString) return "";
+        try {
+            const date = new Date(dateString);
+            const day = date.getDate();
+            const month = date.toLocaleDateString('en-US', { month: 'long' }).toUpperCase();
+            const year = date.getFullYear();
+            return `${day} ${month} ${year}`;
+        } catch (e) {
+            return dateString;
+        }
+    };
+
+    const isNewRelease = (movie) => {
+        return movie.showType === "1" || !movie.isComingSoon;
+    };
+
+    if (isLoading) {
+        return (
+            <div className="min-h-screen bg-black text-[#FAFAFA]">
+                <Header />
+                <div className="min-h-screen flex items-center justify-center">
+                    <Loader fullScreen={true} size="large" />
+                </div>
+            </div>
+        );
+    }
 
     return (
-        <div className="min-h-screen bg-black text-white">
-             <Header/>
-            {/* Header Section */}
-            <section className="pt-32 pb-8">
-                <div className="container mx-auto px-6">
-                    <div className="flex items-center justify-between mb-8">
-                        <h1 className="text-4xl md:text-5xl font-bold">Cinemas</h1>
-                        <div className="flex gap-3">
-                            <button className="border border-white text-white px-6 py-2 rounded-lg hover:bg-white hover:text-black transition text-sm font-semibold">
-                                Movie List
-                            </button>
-                            <button className="bg-yellow-500 text-black px-6 py-2 rounded-lg font-semibold hover:bg-yellow-400 transition text-sm">
-                                Experiences
-                            </button>
+        <div className="min-h-screen bg-black text-[#FAFAFA]">
+            <Header />
+            
+            {/* Main Content */}
+            <div className="pt-24 pb-16 relative min-h-screen">
+                {/* Gradient Background Shadow - Full Width, Bottom to Top */}
+                <div 
+                    className="absolute left-0 right-0 top-0 bottom-0 pointer-events-none"
+                    style={{
+                        background: 'linear-gradient(180deg, rgba(17, 17, 17, 0.4) 0%, rgba(103, 80, 2, 0.4) 65.74%)'
+                    }}
+                />
+                
+                <div className="container mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+                    {/* Header Section with Title and Toggle */}
+                    <div className="mb-8">
+                        <div className="flex items-center justify-between mb-6 flex-wrap gap-4 py-6">
+                            {/* Dynamic Title */}
+                            <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-[#FAFAFA]">
+                                {viewMode === 'movies' ? 'Cinemas' : 'Experiences'}
+                            </h1>
+                            
+                            {/* Toggle Switch Buttons - Smaller and Rounded */}
+                            <div className="inline-flex rounded-full bg-[#1a1a1a] border border-[#2a2a2a] p-0.5">
+                                <button
+                                    onClick={() => setViewMode('movies')}
+                                    className={`px-3 py-1.5 rounded-full text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${
+                                        viewMode === 'movies'
+                                            ? 'bg-[#FFCA20] text-black shadow-sm'
+                                            : 'text-[#D3D3D3] hover:text-[#FAFAFA]'
+                                    }`}
+                                >
+                                    Near me
+                                </button>
+                                <button
+                                    onClick={() => setViewMode('experiences')}
+                                    className={`px-3 py-1.5 rounded-full text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${
+                                        viewMode === 'experiences'
+                                            ? 'bg-[#FFCA20] text-black shadow-sm'
+                                            : 'text-[#D3D3D3] hover:text-[#FAFAFA]'
+                                    }`}
+                                >
+                                    Experiences
+                                </button>
+                            </div>
                         </div>
-                    </div>
-                </div>
-            </section>
-
-            {/* Tabs Section */}
-            <section className="container mx-auto px-6">
-                <div className="flex gap-8 border-b border-gray-700 mb-8">
-                    <button
-                        onClick={() => setActiveTab('now-showing')}
-                        className={`pb-4 px-2 text-sm font-medium transition relative ${
-                            activeTab === 'now-showing' 
-                                ? 'text-white' 
-                                : 'text-gray-400 hover:text-white'
-                        }`}
-                    >
-                        Now showing
-                        {activeTab === 'now-showing' && (
-                            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-yellow-500"></div>
-                        )}
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('advance-booking')}
-                        className={`pb-4 px-2 text-sm font-medium transition relative ${
-                            activeTab === 'advance-booking' 
-                                ? 'text-white' 
-                                : 'text-gray-400 hover:text-white'
-                        }`}
-                    >
-                        Advance booking
-                        {activeTab === 'advance-booking' && (
-                            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-yellow-500"></div>
-                        )}
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('popular')}
-                        className={`pb-4 px-2 text-sm font-medium transition relative ${
-                            activeTab === 'popular' 
-                                ? 'text-white' 
-                                : 'text-gray-400 hover:text-white'
-                        }`}
-                    >
-                        Popular
-                        {activeTab === 'popular' && (
-                            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-yellow-500"></div>
-                        )}
-                    </button>
-                </div>
-
-                {/* Movies Grid */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-6 pb-16">
-                    {movies.map((movie) => (
-                        <div key={movie.id} className="group cursor-pointer">
-                            <div className="relative mb-3 rounded-lg overflow-hidden">
-                                <img 
-                                    src={movie.image} 
-                                    alt={movie.title}
-                                    className="w-full aspect-[2/3] object-cover group-hover:scale-105 transition duration-300"
-                                />
-                                {movie.isComingSoon && (
-                                    <div className="absolute top-3 left-0 bg-yellow-500 text-black px-3 py-1 text-xs font-bold">
-                                        Coming Soon
-                                    </div>
+                        
+                        {/* Tabs - Only show for movies view */}
+                        {viewMode === 'movies' && (
+                            <div className="flex gap-6 md:gap-8 border-b border-[#3a3a3a] overflow-x-auto">
+                            <button
+                                onClick={() => setActiveTab('now-showing')}
+                                className={`pb-4 px-2 text-sm font-medium transition relative whitespace-nowrap ${
+                                    activeTab === 'now-showing' 
+                                        ? 'text-[#FFCA20]' 
+                                        : 'text-[#D3D3D3] hover:text-[#FAFAFA]'
+                                }`}
+                            >
+                                Now showing
+                                {activeTab === 'now-showing' && (
+                                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#FFCA20]"></div>
                                 )}
-                                <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('advance-booking')}
+                                className={`pb-4 px-2 text-sm font-medium transition relative whitespace-nowrap ${
+                                    activeTab === 'advance-booking' 
+                                        ? 'text-[#FFCA20]' 
+                                        : 'text-[#D3D3D3] hover:text-[#FAFAFA]'
+                                }`}
+                            >
+                                Advance booking
+                                {activeTab === 'advance-booking' && (
+                                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#FFCA20]"></div>
+                                )}
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('coming-soon')}
+                                className={`pb-4 px-2 text-sm font-medium transition relative whitespace-nowrap ${
+                                    activeTab === 'coming-soon' 
+                                        ? 'text-[#FFCA20]' 
+                                        : 'text-[#D3D3D3] hover:text-[#FAFAFA]'
+                                }`}
+                            >
+                                Coming soon
+                                {activeTab === 'coming-soon' && (
+                                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#FFCA20]"></div>
+                                )}
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('top-rated')}
+                                className={`pb-4 px-2 text-sm font-medium transition relative whitespace-nowrap ${
+                                    activeTab === 'top-rated' 
+                                        ? 'text-[#FFCA20]' 
+                                        : 'text-[#D3D3D3] hover:text-[#FAFAFA]'
+                                }`}
+                            >
+                                Top rated
+                                {activeTab === 'top-rated' && (
+                                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#FFCA20]"></div>
+                                )}
+                            </button>
                             </div>
-                            <div className="space-y-1">
-                                <h3 className="text-white font-bold text-base">{movie.title}</h3>
-                                <p className="text-gray-400 text-xs">{movie.genre}</p>
-                                <div className="flex items-center gap-2 text-xs">
-                                    <span className="border border-gray-500 text-gray-300 px-2 py-0.5 rounded">{movie.rating}</span>
-                                    <span className="text-gray-400">{movie.languages}</span>
-                                </div>
-                            </div>
-                            <button className="w-full mt-3 bg-yellow-500 text-black py-2 rounded-lg font-semibold hover:bg-yellow-400 transition text-sm">
-                                Book Ticket
+                        )}
+                    </div>
+
+                    {/* Error Message */}
+                    {error && viewMode === 'movies' && (
+                        <div className="mb-6 p-4 bg-red-500/10 border border-red-500/50 rounded text-sm text-red-400">
+                            {error}
+                            <button 
+                                onClick={loadMovies}
+                                className="ml-4 text-[#FFCA20] hover:text-[#FFCA20]/80 underline"
+                            >
+                                Retry
                             </button>
                         </div>
-                    ))}
+                    )}
+
+                    {/* Movies Grid */}
+                    {!isLoading && viewMode === 'movies' && (
+                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
+                            {filteredMovies().length > 0 ? (
+                                filteredMovies().map((movie, index) => {
+                                    const showDetails = index % 3 === 1; // Show details on every 2nd card (index 1, 4, 7, etc.)
+                                    const formattedDate = formatReleaseDate(movie.releaseDate);
+                                    
+                                    return (
+                                        <div 
+                                            key={movie.id} 
+                                            className="group cursor-pointer"
+                                            onClick={() => handleBookNow(movie.id, { stopPropagation: () => {} })}
+                                        >
+                                            <div className="relative rounded-lg overflow-hidden">
+                                                {/* Movie Poster */}
+                                                <div className="relative aspect-[2/3] overflow-hidden">
+                                                    <img 
+                                                        src={movie.image} 
+                                                        alt={movie.title}
+                                                        className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
+                                                        onError={(e) => { e.target.src = 'img/movies1.png'; }}
+                                                    />
+                                                    
+                                                    {/* Gradient Background Shadow */}
+                                                    <div 
+                                                        className="absolute inset-0"
+                                                        style={{
+                                                            background: 'linear-gradient(180deg, rgba(17, 17, 17, 0.4) 0%, rgba(103, 80, 2, 0.4) 65.74%)'
+                                                        }}
+                                                    />
+                                                    
+                                                    {/* New Releases Banner */}
+                                                    {isNewRelease(movie) && (
+                                                        <div className="absolute top-3 left-3 z-10">
+                                                            <span className="bg-[#FFCA20] text-black px-2 py-1 text-[10px] sm:text-xs font-bold rounded">
+                                                                New releases
+                                                            </span>
+                                                        </div>
+                                                    )}
+                                                    
+                                                    {/* Title Overlay */}
+                                                    <div className="absolute bottom-0 left-0 right-0 p-3 sm:p-4 z-10">
+                                                        <h3 className="text-sm sm:text-base md:text-lg font-bold text-[#FAFAFA] mb-1 line-clamp-2">
+                                                            {movie.title}
+                                                        </h3>
+                                                        {formattedDate && (
+                                                            <p className="text-[10px] sm:text-xs text-[#D3D3D3]">
+                                                                {movie.releaseDate ? `DI PAWAGAM ${formattedDate}` : `IN THEATERS ${formattedDate}`}
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    );
+                                })
+                            ) : (
+                                <div className="col-span-full text-center py-16 text-[#D3D3D3]">
+                                    No movies available in this category.
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Experiences Grid */}
+                    {viewMode === 'experiences' && (
+                        <ExperiencesGrid 
+                            showTitle={false}
+                            columns={3}
+                            showFullDescription={true}
+                        />
+                    )}
                 </div>
-            </section>
+            </div>
 
-            {/* Footer */}
-            <footer className="bg-black border-t border-gray-800">
-                <div className="container mx-auto px-6 py-12">
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
-                        {/* Column 1 */}
-                        <div>
-                            <h4 className="text-white font-semibold mb-4">Home</h4>
-                            <ul className="space-y-2 text-gray-400 text-sm">
-                                <li><a href="#" className="hover:text-white transition">Movies</a></li>
-                                <li><a href="#" className="hover:text-white transition">Food & Drinks</a></li>
-                                <li><a href="#" className="hover:text-white transition">Hall booking</a></li>
-                            </ul>
-                        </div>
-
-                        {/* Column 2 */}
-                        <div>
-                            <h4 className="text-white font-semibold mb-4">About us</h4>
-                            <ul className="space-y-2 text-gray-400 text-sm">
-                                <li><a href="#" className="hover:text-white transition">Support</a></li>
-                                <li><a href="#" className="hover:text-white transition">Contact us</a></li>
-                            </ul>
-                        </div>
-
-                        {/* Column 3 */}
-                        <div>
-                            <h4 className="text-white font-semibold mb-4">Connect with us</h4>
-                            <div className="flex gap-4">
-                                <a href="#" className="w-10 h-10 bg-gray-800 rounded-full flex items-center justify-center hover:bg-yellow-500 hover:text-black transition">
-                                    <Facebook size={18} />
-                                </a>
-                                <a href="#" className="w-10 h-10 bg-gray-800 rounded-full flex items-center justify-center hover:bg-yellow-500 hover:text-black transition">
-                                    <Instagram size={18} />
-                                </a>
-                                <a href="#" className="w-10 h-10 bg-gray-800 rounded-full flex items-center justify-center hover:bg-yellow-500 hover:text-black transition">
-                                    <Twitter size={18} />
-                                </a>
-                                <a href="#" className="w-10 h-10 bg-gray-800 rounded-full flex items-center justify-center hover:bg-yellow-500 hover:text-black transition">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                                        <path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-5.2 1.74 2.89 2.89 0 012.31-4.64 2.93 2.93 0 01.88.13V9.4a6.84 6.84 0 00-1-.05A6.33 6.33 0 005 20.1a6.34 6.34 0 0010.86-4.43v-7a8.16 8.16 0 004.77 1.52v-3.4a4.85 4.85 0 01-1-.1z"/>
-                                    </svg>
-                                </a>
-                            </div>
-                        </div>
-
-                        {/* Column 4 - App Download */}
-                        <div>
-                            <div className="space-y-3">
-                                <a href="#" className="block">
-                                    <img 
-                                        src="https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg" 
-                                        alt="App Store" 
-                                        className="h-10"
-                                    />
-                                </a>
-                                <a href="#" className="block">
-                                    <img 
-                                        src="https://upload.wikimedia.org/wikipedia/commons/7/78/Google_Play_Store_badge_EN.svg" 
-                                        alt="Google Play" 
-                                        className="h-10"
-                                    />
-                                </a>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Bottom Footer */}
-                    <div className="border-t border-gray-800 pt-6">
-                        <div className="flex flex-col md:flex-row justify-between items-center gap-4 text-gray-400 text-xs">
-                            <div className="flex gap-6">
-                                <a href="#" className="hover:text-white transition">Terms & Conditions</a>
-                                <a href="#" className="hover:text-white transition">Privacy Policy</a>
-                                <a href="#" className="hover:text-white transition">Disclaimer</a>
-                                <a href="#" className="hover:text-white transition">Cookie Policy</a>
-                                <a href="#" className="hover:text-white transition">FAQ</a>
-                            </div>
-                            <p>Copyright © 2025 MS Cinemas. All rights reserved</p>
-                        </div>
-                    </div>
-                </div>
-            </footer>
+            <Footer />
         </div>
     );
 }

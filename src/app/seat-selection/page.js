@@ -1,451 +1,1385 @@
 "use client";
 
-import React, { useState } from 'react';
-import { ChevronLeft, X } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { ChevronLeft, MapPin, Clock, X } from 'lucide-react';
+import { shows, movies, cinemas, booking } from '@/services/api';
+import { APIError } from '@/services/api';
+import Loader from '@/components/Loader';
+import { getUserData } from '@/utils/storage';
 
 export default function SeatSelection() {
-  const [selectedSeats, setSelectedSeats] = useState([]);
-  const [showSummary, setShowSummary] = useState(false);
-  const [showConfirmation, setShowConfirmation] = useState(false);
-  const [showTicket, setShowTicket] = useState(false);
-
-  const rows = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J'];
-  const seatsPerRow = 16;
-
-  const seatTypes = [
-    { id: 'available', label: 'Available', color: 'border-gray-600 bg-transparent' },
-    { id: 'selected', label: 'Selected', color: 'bg-[#f5c118]' },
-    { id: 'occupied', label: 'Occupied', color: 'bg-gray-700' },
-    { id: 'single', label: 'Single', color: 'border-purple-500 bg-transparent' },
-    { id: 'double', label: 'Double', color: 'border-orange-500 bg-transparent' }
-  ];
-
-  const occupiedSeats = ['C5', 'C6', 'D7', 'D8', 'E6', 'E7', 'E8', 'E9', 'F10', 'G11'];
-  const singleSeats = ['E4', 'F4', 'G4', 'H4'];
-  const doubleSeats = ['E5-E6', 'F5-F6', 'G5-G6'];
-
-  const ticketPrice = 13.00;
-  const tax = 4.40;
-
-  const toggleSeat = (seatId) => {
-    if (occupiedSeats.includes(seatId)) return;
-    
-    setSelectedSeats(prev => 
-      prev.includes(seatId) 
-        ? prev.filter(s => s !== seatId)
-        : [...prev, seatId]
-    );
-  };
-
-  const isSingleSeat = (seatId) => singleSeats.includes(seatId);
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const cinemaId = searchParams?.get('cinemaId') || localStorage.getItem('cinemaId') || '7001';
+  const showId = searchParams?.get('showId') || localStorage.getItem('showId') || '31744';
+  const movieId = searchParams?.get('movieId') || localStorage.getItem('movieId') || '';
   
-  const isDoubleLeft = (row, col) => {
-    return doubleSeats.includes(`${row}${col}-${row}${col + 1}`);
+  const [selectedSeats, setSelectedSeats] = useState([]);
+  const [seatLayout, setSeatLayout] = useState(null);
+  const [seatsData, setSeatsData] = useState([]);
+  const [movieDetails, setMovieDetails] = useState(null);
+  const [cinemaDetails, setCinemaDetails] = useState(null);
+  const [showTimeDetails, setShowTimeDetails] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [maxSeats, setMaxSeats] = useState(6); // Default to 6, will be updated from ticket data
+  const [ticketData, setTicketData] = useState(null); // Store ticket data for price calculation
+  const [selectedTickets, setSelectedTickets] = useState({}); // Store selected tickets mapping
+  const [lockedSeats, setLockedSeats] = useState({}); // Track locked seats: { seatNo: referenceNo }
+  const [lockSeatResponse, setLockSeatResponse] = useState(null); // Store full LockSeat API response with lockedSeats array
+  const [isLocking, setIsLocking] = useState(false);
+  const [isReleasing, setIsReleasing] = useState(false);
+  const [showBookingSummary, setShowBookingSummary] = useState(false);
+  const [isConfirming, setIsConfirming] = useState(false);
+  const [confirmedReferenceNo, setConfirmedReferenceNo] = useState(null); // Store confirmed reference number
+  const [lockReferenceNo, setLockReferenceNo] = useState(null); // Store referenceNo from lockSeat API
+  const [timeLeft, setTimeLeft] = useState(170);
+  // Form state for booking modal
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    passportNo: '',
+    mobile: '',
+    membershipNo: ''
+  });
+  const [formErrors, setFormErrors] = useState({}); // 2:50 minutes = 170 seconds
+  const [timerActive, setTimerActive] = useState(false); // Timer only active after locking seats
+
+  // Countdown timer effect
+  useEffect(() => {
+    let interval = null;
+    if (timerActive && timeLeft > 0) {
+      interval = setInterval(() => {
+        setTimeLeft(time => {
+          if (time <= 1) {
+            setTimerActive(false);
+            // Timer expired - release locked seats
+            if (lockReferenceNo) {
+              releaseSeatLock(cinemaId, showId, lockReferenceNo);
+              setLockReferenceNo(null);
+              setLockSeatResponse(null);
+              setSelectedSeats([]);
+              setShowBookingSummary(false);
+            }
+            return 0;
+          }
+          return time - 1;
+        });
+      }, 1000);
+    } else if (timeLeft === 0 && lockReferenceNo) {
+      // Timer expired - release seats
+      releaseSeatLock(cinemaId, showId, lockReferenceNo);
+      setLockReferenceNo(null);
+      setLockSeatResponse(null);
+      setSelectedSeats([]);
+      setShowBookingSummary(false);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [timerActive, timeLeft, lockReferenceNo, cinemaId, showId]);
+
+  useEffect(() => {
+    // Get total ticket count from localStorage (set by ticket-type page)
+    const ticketDataStr = localStorage.getItem('ticketData');
+    const selectedTicketsStr = localStorage.getItem('selectedTickets');
+    
+    if (ticketDataStr && selectedTicketsStr) {
+      try {
+        const ticketDataObj = JSON.parse(ticketDataStr);
+        const selectedTicketsObj = JSON.parse(selectedTicketsStr);
+        
+        setTicketData(ticketDataObj);
+        setSelectedTickets(selectedTicketsObj);
+        
+        // Calculate total tickets (accounting for twin-seats)
+        let totalTickets = 0;
+        Object.entries(selectedTicketsObj).forEach(([ticketTypeID, count]) => {
+          const isTwinSeats = ticketDataObj?.generalInfo?.ticketTypeIDForTwinSeatsAndVIPSeats === parseInt(ticketTypeID);
+          totalTickets += count * (isTwinSeats ? 2 : 1);
+        });
+        
+        setMaxSeats(totalTickets);
+      } catch (e) {
+        console.error('Error parsing ticket data:', e);
+      }
+    }
+    
+    loadData();
+    
+    // Cleanup: Release locked seats when component unmounts
+    return () => {
+      if (lockReferenceNo) {
+        releaseSeatLock(cinemaId, showId, lockReferenceNo).catch(e => 
+          console.error('Error releasing seats on unmount:', e)
+        );
+      }
+    };
+  }, [cinemaId, showId, movieId]);
+
+  const loadData = async () => {
+    if (!cinemaId || !showId) {
+      setError('Missing cinema ID or show ID');
+      setIsLoading(false);
+      return;
+    }
+
+    setIsLoading(true);
+    setError('');
+
+    try {
+      // Load seat layout
+      const layoutData = await shows.getSeatLayoutAndProperties(cinemaId, showId);
+      setSeatLayout(layoutData);
+      
+      // Extract seats array from response
+      const seats = Array.isArray(layoutData) 
+        ? layoutData 
+        : (layoutData?.seats || layoutData?.data || []);
+      setSeatsData(seats);
+
+      // Load movie details
+      if (movieId) {
+        try {
+          const moviesList = await movies.getMovies();
+          const movie = Array.isArray(moviesList)
+            ? moviesList.find(m => (m.movieID || m.movieId || m.id) == movieId)
+            : null;
+          if (movie) {
+            setMovieDetails(movie);
+          }
+        } catch (movieErr) {
+          console.error('Error loading movie details:', movieErr);
+        }
+      }
+
+      // Load cinema details
+      try {
+        const cinemasList = await cinemas.getCinemas();
+        const cinema = Array.isArray(cinemasList)
+          ? cinemasList.find(c => (c.cinemaID || c.cinemaId || c.id) == cinemaId)
+          : null;
+        if (cinema) {
+          setCinemaDetails(cinema);
+        }
+      } catch (cinemaErr) {
+        console.error('Error loading cinema details:', cinemaErr);
+      }
+
+      // Load show time details
+      try {
+        const showTimesList = await shows.getShowTimes(cinemaId);
+        const showTime = Array.isArray(showTimesList)
+          ? showTimesList.find(s => (s.showID || s.showId || s.id) == showId)
+          : null;
+        if (showTime) {
+          setShowTimeDetails(showTime);
+        }
+      } catch (showTimeErr) {
+        console.error('Error loading show time details:', showTimeErr);
+      }
+
+    } catch (err) {
+      console.error('Error loading seat layout:', err);
+      if (err instanceof APIError) {
+        setError(err.message || 'Failed to load seat layout');
+      } else {
+        setError('An unexpected error occurred');
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const isDoubleRight = (row, col) => {
-    return doubleSeats.includes(`${row}${col - 1}-${row}${col}`);
+  // Map seatRow numbers to row letters (1=A, 3=B, 4=C, etc.)
+  const getRowLetter = (seatRow) => {
+    const rowMap = { 1: 'A', 3: 'B', 4: 'C', 5: 'D', 6: 'E', 7: 'F', 8: 'G', 9: 'H', 10: 'J', 11: 'K' };
+    return rowMap[seatRow] || String.fromCharCode(64 + seatRow);
   };
 
-  const subtotal = selectedSeats.length * ticketPrice;
-  const total = subtotal + tax;
+  // Build seat grid from API data
+  const buildSeatGrid = () => {
+    if (!seatsData || seatsData.length === 0) return {};
+
+    const grid = {};
+    const maxColumn = 15;
+
+    // Group seats by row
+    seatsData.forEach(seat => {
+      const rowLetter = getRowLetter(seat.seatRow);
+      if (!grid[rowLetter]) {
+        grid[rowLetter] = {};
+      }
+      grid[rowLetter][seat.seatColumn] = seat;
+    });
+
+    // Fill in missing columns with null for spacing
+    Object.keys(grid).forEach(rowLetter => {
+      for (let col = 1; col <= maxColumn; col++) {
+        if (!grid[rowLetter][col]) {
+          grid[rowLetter][col] = null;
+        }
+      }
+    });
+
+    return grid;
+  };
+
+  const seatGrid = buildSeatGrid();
+  const rowLetters = Object.keys(seatGrid).sort();
+
+  // Get priceID for a seat based on ticket type mapping
+  const getPriceIDForSeat = (seatIndex) => {
+    if (!ticketData?.priceDetails || !selectedTickets) return 0;
+    
+    // Map seats to ticket types based on order
+    // For simplicity, we'll use the first available ticket type
+    // In a real scenario, you might want to map seats to specific ticket types
+    const ticketTypeEntries = Object.entries(selectedTickets);
+    if (ticketTypeEntries.length === 0) return 0;
+    
+    // Find which ticket type this seat belongs to based on index
+    let currentIndex = 0;
+    for (const [ticketTypeID, count] of ticketTypeEntries) {
+      const ticketTypeIDNum = parseInt(ticketTypeID);
+      const priceDetail = ticketData.priceDetails.find(p => p.ticketTypeID === ticketTypeIDNum);
+      
+      if (priceDetail && seatIndex >= currentIndex && seatIndex < currentIndex + count) {
+        return priceDetail.priceID || 0;
+      }
+      currentIndex += count;
+    }
+    
+    // Default to first ticket type's priceID
+    const firstTicketTypeID = parseInt(ticketTypeEntries[0][0]);
+    const firstPriceDetail = ticketData.priceDetails.find(p => p.ticketTypeID === firstTicketTypeID);
+    return firstPriceDetail?.priceID || 0;
+  };
+
+  // Lock seats via API
+  const lockSeat = async (seats) => {
+    if (!seats || seats.length === 0) return null;
+
+    setIsLocking(true);
+    setError(''); // Clear previous errors
+    
+    try {
+      // Get current selected seats count to determine seat index
+      const currentSelectedCount = selectedSeats.length;
+      
+      // Format: [{ seatID: 0, priceID: 0 }]
+      const seatData = seats.map((seat, index) => {
+        const seatID = typeof seat === 'object' ? seat.seatID : seat;
+        // Calculate seat index based on current selection + this seat's position
+        const seatIndex = currentSelectedCount + index;
+        const priceID = typeof seat === 'object' && seat.priceID !== undefined 
+          ? seat.priceID 
+          : getPriceIDForSeat(seatIndex);
+        
+        return {
+          seatID: seatID,
+          priceID: priceID
+        };
+      });
+      
+      console.log('Locking seats with data:', seatData);
+      
+      const response = await booking.lockSeats(cinemaId, showId, 0, seatData);
+      const referenceNo = response?.referenceNo || response?.reference || response?.data?.referenceNo || response?.ReferenceNo;
+      
+      if (!referenceNo) {
+        console.warn('No reference number in lock response:', response);
+      }
+      
+      // Store the full response including lockedSeats array
+      setLockSeatResponse(response);
+      
+      return referenceNo;
+    } catch (err) {
+      console.error('Error locking seats:', err);
+      if (err instanceof APIError) {
+        setError(err.message || 'Failed to lock seats. Please try again.');
+      } else {
+        setError('Failed to lock seats. Please try again.');
+      }
+      return null;
+    } finally {
+      setIsLocking(false);
+    }
+  };
+
+  // Release seat lock via API
+  const releaseSeatLock = async (cinemaId, showId, referenceNo) => {
+    if (!referenceNo) return;
+    
+    setIsReleasing(true);
+    try {
+      await booking.releaseLockedSeats(cinemaId, showId, referenceNo, 0);
+    } catch (err) {
+      console.error('Error releasing seat lock:', err);
+      // Don't show error to user for release failures
+    } finally {
+      setIsReleasing(false);
+    }
+  };
+
+  // Toggle seat selection - NO API CALL, just local state
+  const toggleSeat = (seat) => {
+    if (!seat || seat.seatStatus !== 0) return; // Can't select occupied or invalid seats
+    
+    const seatNo = seat.seatNo;
+    
+    // Handle double seats - if selecting one, select both
+    if (seat.seatType === 2 && seat.partnerSeatID) {
+      const partnerSeat = seatsData.find(s => s.seatID === seat.partnerSeatID);
+      if (partnerSeat && partnerSeat.seatStatus === 0) {
+        const bothSeats = [seatNo, partnerSeat.seatNo].sort();
+        
+        setSelectedSeats(prev => {
+          const hasBoth = bothSeats.every(s => prev.includes(s));
+          if (hasBoth) {
+            // Deselect both - just remove from selection (no API call)
+            return prev.filter(s => !bothSeats.includes(s));
+          } else {
+            // Check if we can select (2 seats for double)
+            if (prev.length + 2 > maxSeats) {
+              return prev; // Can't select, already at max
+            }
+            // Select both seats - just add to selection (no API call)
+            return [...prev, ...bothSeats];
+          }
+        });
+      }
+    } else {
+      // Single seat
+      setSelectedSeats(prev => {
+        const isSelected = prev.includes(seatNo);
+        if (isSelected) {
+          // Deselect - just remove from selection (no API call)
+          return prev.filter(s => s !== seatNo);
+        } else {
+          // Check if we can select
+          if (prev.length >= maxSeats) {
+            return prev; // Can't select, already at max
+          }
+          // Select seat - just add to selection (no API call)
+          return [...prev, seatNo];
+        }
+      });
+    }
+  };
+
+  const isSeatSelected = (seat) => {
+    if (!seat) return false;
+    return selectedSeats.includes(seat.seatNo);
+  };
+
+  const isSeatOccupied = (seat) => {
+    if (!seat) return false;
+    return seat.seatStatus !== 0; // Assuming 0 = available, 1+ = occupied
+  };
+
+  const isDoubleSeat = (seat) => {
+    return seat && seat.seatType === 2;
+  };
+
+  const isPartnerSeat = (seat) => {
+    if (!seat || !seat.partnerSeatID) return false;
+    return seatsData.some(s => s.seatID === seat.partnerSeatID && s.seatColumn < seat.seatColumn);
+  };
+
+  const handleGoBack = async () => {
+    // Release locked seats if they were locked
+    if (lockReferenceNo) {
+      try {
+        await releaseSeatLock(cinemaId, showId, lockReferenceNo);
+        setLockReferenceNo(null);
+        setLockSeatResponse(null);
+      } catch (e) {
+        console.error('Error releasing seats on back:', e);
+      }
+    }
+    
+    // Stop timer
+    setTimerActive(false);
+    
+    // Clear selected seats when going back
+    setSelectedSeats([]);
+    localStorage.removeItem('selectedSeats');
+    localStorage.removeItem('lockedSeats');
+    localStorage.removeItem('bookingData');
+    router.back();
+  };
+
+  // Calculate total ticket price
+  const calculateTotalPrice = () => {
+    if (!ticketData?.priceDetails || selectedSeats.length === 0) return { netPrice: 0, tax: 0, total: 0 };
+    
+    // Map selected seats to ticket types
+    // For now, we'll use the first ticket type price for each seat
+    // In a real scenario, you'd map seats to specific ticket types
+    let netPrice = 0;
+    let tax = 0;
+    
+    // Get ticket counts from selectedTickets
+    const ticketTypeCounts = {};
+    Object.entries(selectedTickets).forEach(([ticketTypeID, count]) => {
+      ticketTypeCounts[parseInt(ticketTypeID)] = count;
+    });
+    
+    // Calculate price based on ticket types
+    ticketData.priceDetails.forEach((price) => {
+      const count = ticketTypeCounts[price.ticketTypeID] || 0;
+      if (count > 0) {
+        const pricePerTicket = price.price || 0;
+        const taxPerTicket = price.entertainmentTax || 0;
+        netPrice += pricePerTicket * count;
+        tax += taxPerTicket * count;
+      }
+    });
+    
+    const total = netPrice + tax;
+    
+    return {
+      netPrice: netPrice.toFixed(2),
+      tax: tax.toFixed(2),
+      total: total.toFixed(2)
+    };
+  };
+
+  const handleBookSeat = async () => {
+    // Check if all seats are selected
+    if (selectedSeats.length !== maxSeats) {
+      setError(`Please select all ${maxSeats} seat(s) before booking.`);
+      return;
+    }
+    
+    if (selectedSeats.length === 0) {
+      setError('Please select at least one seat.');
+      return;
+    }
+    
+    setIsLocking(true);
+    setError('');
+    
+    try {
+      // Get seat objects for selected seats
+      const seatObjects = selectedSeats.map((seatNo, index) => {
+        const seat = seatsData.find(s => s.seatNo === seatNo);
+        if (!seat) return null;
+        
+        return {
+          seatID: seat.seatID,
+          priceID: getPriceIDForSeat(index)
+        };
+      }).filter(Boolean);
+      
+      if (seatObjects.length === 0) {
+        setError('Invalid seat selection. Please try again.');
+        setIsLocking(false);
+        return;
+      }
+      
+      // Call lockSeat API
+      const referenceNo = await lockSeat(seatObjects);
+      
+      if (!referenceNo) {
+        setError('Failed to lock seats. Please try again.');
+        setIsLocking(false);
+        return;
+      }
+      
+      // Store reference number and start timer
+      setLockReferenceNo(referenceNo);
+      setTimeLeft(170); // Reset to 2:50 minutes
+      setTimerActive(true);
+      
+      // Initialize form data with user data if available
+      const userData = getUserData();
+      setFormData({
+        name: userData?.name || userData?.Name || '',
+        email: userData?.email || userData?.Email || '',
+        passportNo: userData?.passportNo || userData?.PassportNo || '',
+        mobile: userData?.mobile || userData?.Mobile || userData?.mobileNo || userData?.MobileNo || '',
+        membershipNo: userData?.membershipNo || userData?.MembershipNo || ''
+      });
+      setFormErrors({});
+      
+      // Show booking summary modal
+      setShowBookingSummary(true);
+    } catch (err) {
+      console.error('Error locking seats:', err);
+      setError('Failed to lock seats. Please try again.');
+    } finally {
+      setIsLocking(false);
+    }
+  };
+
+  const handleInputChange = (field, value) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+    // Clear error for this field when user starts typing
+    if (formErrors[field]) {
+      setFormErrors(prev => ({
+        ...prev,
+        [field]: ''
+      }));
+    }
+  };
+
+  const validateForm = () => {
+    const errors = {};
+    
+    if (!formData.name.trim()) {
+      errors.name = 'Name is required';
+    }
+    
+    if (!formData.email.trim()) {
+      errors.email = 'Email is required';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      errors.email = 'Please enter a valid email address';
+    }
+    
+    if (!formData.mobile.trim()) {
+      errors.mobile = 'Mobile number is required';
+    }
+    
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleProceedToPayment = async () => {
+    // Validate form
+    if (!validateForm()) {
+      setError('Please fill in all required fields correctly.');
+      return;
+    }
+
+    // Use the reference number from lockSeat API
+    if (!lockReferenceNo) {
+      setError('Seats are not locked. Please try selecting seats again.');
+      return;
+    }
+    
+    // Stop timer since we're proceeding
+    setTimerActive(false);
+
+    setIsConfirming(true);
+    setError('');
+    setFormErrors({});
+
+    try {
+      // Check membership validity if membershipNo is provided
+      let membershipId = 0;
+      if (formData.membershipNo && formData.membershipNo.trim()) {
+        try {
+          const membershipResponse = await booking.isValidMember(formData.membershipNo.trim());
+          // Assuming API returns a valid response if membership is valid
+          // Adjust based on actual API response structure
+          if (membershipResponse) {
+            membershipId = formData.membershipNo.trim();
+          } else {
+            setFormErrors(prev => ({ ...prev, membershipNo: 'Invalid membership number' }));
+            setIsConfirming(false);
+            return;
+          }
+        } catch (membershipErr) {
+          console.error('Membership validation error:', membershipErr);
+          setFormErrors(prev => ({ ...prev, membershipNo: 'Invalid membership number' }));
+          setIsConfirming(false);
+          return;
+        }
+      }
+
+      // Get user info - use 0 for guest, otherwise from auth
+      const userData = getUserData();
+      const userId = userData?.userID || userData?.userId || userData?.id || 0;
+      const paymentVia = 0; // Default payment method
+
+      // Confirm locked seats with form data
+      const confirmResponse = await booking.confirmLockedSeats(
+        showId,
+        lockReferenceNo,
+        userId,
+        formData.email.trim(),
+        membershipId,
+        paymentVia,
+        {
+          name: formData.name.trim(),
+          passportNo: formData.passportNo.trim(),
+          mobileNo: formData.mobile.trim()
+        }
+      );
+
+      // Store confirmed reference number (might be same or different from lock reference)
+      const confirmedRef = confirmResponse?.referenceNo || confirmResponse?.reference || lockReferenceNo;
+      setConfirmedReferenceNo(confirmedRef);
+
+      // Store booking data for payment gateway
+      const priceInfo = calculateDetailedPrice();
+      const bookingData = {
+        cinemaId,
+        showId,
+        movieId,
+        seats: selectedSeats,
+        ticketData,
+        selectedTickets,
+        priceInfo,
+        referenceNo: lockReferenceNo,
+        confirmedReferenceNo: confirmedRef,
+        confirmResponse,
+        membershipId,
+        formData: formData
+      };
+      
+      localStorage.setItem('bookingData', JSON.stringify(bookingData));
+      
+      // Redirect to payment gateway (Razer)
+      // Note: Payment gateway URL should be obtained from confirmResponse or API config
+      // For now, storing data and redirecting - actual payment gateway integration would go here
+      const paymentUrl = confirmResponse?.paymentUrl || confirmResponse?.paymentGatewayUrl;
+      if (paymentUrl) {
+        window.location.href = paymentUrl;
+      } else {
+        // Fallback: navigate to payment page if gateway URL not provided
+        router.push(`/payment?cinemaId=${cinemaId}&showId=${showId}&movieId=${movieId}&referenceNo=${confirmedRef}`);
+      }
+    } catch (err) {
+      console.error('Error confirming locked seats:', err);
+      if (err instanceof APIError) {
+        setError(err.message || 'Failed to confirm seats. Please try again.');
+      } else {
+        setError('Failed to confirm seats. Please try again.');
+      }
+    } finally {
+      setIsConfirming(false);
+    }
+  };
+
+  // Map seats to ticket types
+  const getSeatsByTicketType = () => {
+    // Use lockedSeats data from API response if available
+    if (lockSeatResponse?.lockedSeats && Array.isArray(lockSeatResponse.lockedSeats) && lockSeatResponse.lockedSeats.length > 0) {
+      // Group seats by ticket type name
+      const seatsByTypeMap = {};
+      
+      lockSeatResponse.lockedSeats.forEach((seat) => {
+        const ticketTypeName = seat.ticketTypeName || 'ADULT';
+        if (!seatsByTypeMap[ticketTypeName]) {
+          seatsByTypeMap[ticketTypeName] = {
+            ticketTypeName: ticketTypeName,
+            seats: [],
+            totalPrice: 0,
+            totalTax: 0
+          };
+        }
+        seatsByTypeMap[ticketTypeName].seats.push(seat.seatNo);
+        seatsByTypeMap[ticketTypeName].totalPrice += seat.price || 0;
+        seatsByTypeMap[ticketTypeName].totalTax += (seat.entertainmentTax || 0) + (seat.govtTax || 0);
+      });
+      
+      return Object.values(seatsByTypeMap);
+    }
+    
+    // Fallback to old calculation if lockedSeats data not available
+    if (!selectedSeats.length || !ticketData?.priceDetails || !selectedTickets) {
+      return [];
+    }
+
+    const seatsByType = [];
+    let seatIndex = 0;
+    
+    // Get ticket type entries in order
+    const ticketTypeEntries = Object.entries(selectedTickets).filter(([_, count]) => count > 0);
+    
+    ticketTypeEntries.forEach(([ticketTypeID, count]) => {
+      const ticketTypeIDNum = parseInt(ticketTypeID);
+      const priceDetail = ticketData.priceDetails.find(p => p.ticketTypeID === ticketTypeIDNum);
+      
+      if (priceDetail) {
+        const seatsForThisType = selectedSeats.slice(seatIndex, seatIndex + count);
+        if (seatsForThisType.length > 0) {
+          seatsByType.push({
+            ticketTypeName: priceDetail.ticketTypeName || 'ADULT',
+            seats: seatsForThisType,
+            priceID: priceDetail.priceID,
+            ticketTypeID: ticketTypeIDNum
+          });
+        }
+        seatIndex += count;
+      }
+    });
+    
+    return seatsByType;
+  };
+
+  // Calculate detailed pricing
+  const calculateDetailedPrice = () => {
+    // Use lockedSeats data from API response if available
+    if (lockSeatResponse?.lockedSeats && Array.isArray(lockSeatResponse.lockedSeats) && lockSeatResponse.lockedSeats.length > 0) {
+      let netPrice = 0;
+      let entertainmentTax = 0;
+      let govtTax = 0;
+      let onlineCharge = 0;
+      let totalTicketPrice = 0;
+      
+      // Calculate totals from lockedSeats array
+      lockSeatResponse.lockedSeats.forEach((seat) => {
+        netPrice += seat.price || 0;
+        entertainmentTax += seat.entertainmentTax || 0;
+        govtTax += seat.govtTax || 0;
+        onlineCharge += seat.onlineCharge || 0;
+        totalTicketPrice += seat.totalTicketPrice || 0;
+      });
+      
+      // totalTicketPrice already includes all charges (price + entertainmentTax + govtTax + onlineCharge)
+      return {
+        netPrice: parseFloat(netPrice.toFixed(2)),
+        tax: parseFloat((entertainmentTax + govtTax).toFixed(2)),
+        entertainmentTax: parseFloat(entertainmentTax.toFixed(2)),
+        govtTax: parseFloat(govtTax.toFixed(2)),
+        onlineCharge: parseFloat(onlineCharge.toFixed(2)),
+        totalTicketPrice: parseFloat(totalTicketPrice.toFixed(2)),
+        reservationFee: parseFloat(onlineCharge.toFixed(2)), // onlineCharge serves as reservation fee
+        grandTotal: parseFloat(totalTicketPrice.toFixed(2)) // totalTicketPrice already includes all charges
+      };
+    }
+    
+    // Fallback to old calculation if lockedSeats data not available
+    if (!ticketData?.priceDetails || selectedSeats.length === 0) {
+      return {
+        netPrice: 0,
+        tax: 0,
+        totalTicketPrice: 0,
+        reservationFee: 2.10,
+        grandTotal: 0
+      };
+    }
+    
+    let netPrice = 0;
+    let tax = 0;
+    
+    // Get ticket counts from selectedTickets
+    const ticketTypeCounts = {};
+    Object.entries(selectedTickets).forEach(([ticketTypeID, count]) => {
+      ticketTypeCounts[parseInt(ticketTypeID)] = count;
+    });
+    
+    // Calculate price based on ticket types
+    ticketData.priceDetails.forEach((price) => {
+      const count = ticketTypeCounts[price.ticketTypeID] || 0;
+      if (count > 0) {
+        const pricePerTicket = price.price || 0;
+        const taxPerTicket = price.entertainmentTax || 0;
+        netPrice += pricePerTicket * count;
+        tax += taxPerTicket * count;
+      }
+    });
+    
+    const totalTicketPrice = netPrice + tax;
+    const reservationFee = 2.10; // Could come from API or config
+    const grandTotal = totalTicketPrice + reservationFee;
+    
+    return {
+      netPrice: parseFloat(netPrice.toFixed(2)),
+      tax: parseFloat(tax.toFixed(2)),
+      totalTicketPrice: parseFloat(totalTicketPrice.toFixed(2)),
+      reservationFee: parseFloat(reservationFee.toFixed(2)),
+      grandTotal: parseFloat(grandTotal.toFixed(2))
+    };
+  };
+
+  // Format show date and time
+  const formatShowDateTime = () => {
+    if (showTimeDetails?.showTime) {
+      try {
+        const date = new Date(showTimeDetails.showTime);
+        const dateStr = date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+        const timeStr = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+        return `${dateStr}, ${timeStr}`;
+      } catch (e) {
+        return showTimeDetails.showTime;
+      }
+    }
+    return 'Show Time';
+  };
+
+  const movieTitle = movieDetails?.movieName?.replace(/^\./, '') || 'Movie Title';
+  const movieGenre = movieDetails?.genre || 'N/A';
+  const movieDuration = movieDetails?.duration || 'N/A';
+  const movieLanguage = movieDetails?.language || 'N/A';
+  const movieImage = movieDetails?.imageURL || 'img/banner.jpg';
+  const cinemaName = cinemaDetails?.displayName || cinemaDetails?.name || `Cinema ${cinemaId}`;
+  const experienceType = movieDetails?.type || '2D';
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[#1c1c1c]">
+        <Loader fullScreen={true} size="large" />
+      </div>
+    );
+  }
+
+  if (error || !seatGrid || Object.keys(seatGrid).length === 0) {
+    return (
+      <div className="min-h-screen bg-[#1c1c1c] text-white flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-red-400 mb-4">{error || 'Failed to load seat layout'}</p>
+          <button
+            onClick={loadData}
+            className="px-4 py-2 bg-[#FFCA20] text-black rounded hover:bg-[#FFCA20]/90"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Format timer display (MM:SS)
+  const formatTimer = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-white pb-10">
+    <div className="min-h-screen bg-[#1c1c1c] text-white pb-10">
+      {/* Countdown Timer */}
+      {timerActive && lockReferenceNo && (
+        <div className="bg-[#FFCA20] text-black px-4 py-2 text-center font-bold text-sm">
+          Time remaining: {formatTimer(timeLeft)}
+        </div>
+      )}
+      
       {/* Header */}
       <div className="relative">
         <div className="absolute top-5 left-5 z-10">
-          <button className="flex items-center gap-2 text-white/70 hover:text-white text-sm">
+          <button 
+            className="flex items-center gap-2 text-white/70 hover:text-white text-sm" 
+            onClick={handleGoBack}
+          >
             <ChevronLeft className="w-4 h-4" />
             <span>Back</span>
           </button>
         </div>
 
-        <div className="absolute top-5 right-5 z-10">
+        {/* Breadcrumb */}
+        <div className="absolute top-5 right-3 sm:right-5 z-10 hidden sm:block">
           <div className="flex items-center gap-2 text-xs text-white/50">
-            <span className="hover:text-white cursor-pointer">Select Cinema</span>
+            <span className="hover:text-white cursor-pointer">Select cinema</span>
             <span>›</span>
-            <span className="hover:text-white cursor-pointer">Your Seat</span>
+            <span className="hover:text-white cursor-pointer">Ticket type</span>
             <span>›</span>
-            <span className="text-white">Select Seat</span>
+            <span className="text-white font-medium">Select seat</span>
             <span>›</span>
             <span className="hover:text-white cursor-pointer">Payment</span>
           </div>
         </div>
 
-        <div className="relative h-48 overflow-hidden">
+        {/* Hero Image */}
+        <div className="relative h-56 overflow-hidden">
           <img 
-            src="img/banner.jpg" 
-            alt="Predator Badlands"
+            src={movieImage} 
+            alt={movieTitle}
             className="absolute inset-0 w-full h-full object-cover object-center"
+            onError={(e) => {
+              e.target.src = 'img/banner.jpg';
+            }}
           />
-          <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-[#0a0a0a]/80 to-[#0a0a0a]" />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-[#1c1c1c]/70 to-[#1c1c1c]" />
           
-          <div className="absolute bottom-4 left-8">
-            <h1 className="text-2xl font-bold mb-1">Predator: Badlands</h1>
-            <div className="flex items-center gap-3 text-xs text-white/70">
-              <span>Action, Sci-Fi</span>
+          {/* Movie Info */}
+          <div className="absolute bottom-5 left-8">
+            <h1 className="text-3xl font-bold mb-1.5">{movieTitle}</h1>
+            <div className="flex items-center gap-3 text-xs text-white/70 mb-3">
+              <span>{movieGenre}</span>
               <span>|</span>
-              <span>1 hr 30 mins</span>
+              <span>{movieDuration}</span>
               <span>|</span>
-              <span>English</span>
+              <span>{movieLanguage}</span>
             </div>
-            <div className="flex items-center gap-3 text-xs text-white/70 mt-1">
-              <span>📍 Kampar, Putra</span>
-              <span className="bg-white/10 px-2 py-0.5 rounded">IMAX</span>
-              <span>🕐 13 Nov 2025, 1:30 PM</span>
+            <div className="flex items-center gap-4 text-xs text-white/80">
+              <div className="flex items-center gap-1.5">
+                <MapPin className="w-3.5 h-3.5" />
+                <span>{cinemaName}</span>
+              </div>
+              <div className="flex items-center gap-1.5 bg-white/10 px-2 py-1 rounded">
+                <span className="font-medium">{experienceType}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5" />
+                <span>{formatShowDateTime()}</span>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="max-w-5xl mx-auto px-8 mt-8">
-        {/* Seat Type Legend */}
-        <div className="flex items-center justify-center gap-6 mb-8 text-xs">
-          {seatTypes.map(type => (
-            <div key={type.id} className="flex items-center gap-2">
-              <div className={`w-5 h-5 rounded border ${type.color} ${type.id === 'available' ? 'border-2 border-gray-600' : type.id === 'single' ? 'border-2' : type.id === 'double' ? 'border-2' : ''}`}></div>
-              <span className="text-white/70">{type.label}</span>
+      <div className="max-w-5xl mx-auto px-4 sm:px-8 mt-4 sm:mt-8">
+        {/* Seat Legend */}
+        <div className="flex items-center justify-center flex-wrap gap-3 sm:gap-6 mb-4 sm:mb-8 text-[10px] sm:text-xs">
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <div className="w-4 h-4 sm:w-5 sm:h-5 rounded border-2 border-gray-600 bg-transparent"></div>
+            <span className="text-white/70">Available</span>
+          </div>
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <div className="w-4 h-4 sm:w-5 sm:h-5 rounded bg-[#FFCA20]"></div>
+            <span className="text-white/70">Selected</span>
+          </div>
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <div className="w-4 h-4 sm:w-5 sm:h-5 rounded bg-gray-700"></div>
+            <span className="text-white/70">Occupied</span>
+          </div>
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <div className="w-4 h-4 sm:w-5 sm:h-5 rounded border-2 border-gray-600 bg-transparent"></div>
+            <span className="text-white/70">Single</span>
+          </div>
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <div className="flex gap-0.5">
+              <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-l border-2 border-gray-600 bg-transparent"></div>
+              <div className="w-4 h-4 sm:w-5 sm:h-5 rounded-r border-2 border-l-0 border-gray-600 bg-transparent"></div>
             </div>
-          ))}
+            <span className="text-white/70">Double</span>
+          </div>
         </div>
 
         {/* Screen */}
-        <div className="mb-8">
-          <div className="bg-gradient-to-b from-gray-600 to-gray-700 h-1.5 rounded-t-3xl mx-auto w-3/4 opacity-50"></div>
-          <p className="text-center text-xs text-white/40 mt-2">Screen</p>
+        <div className="mb-8 relative">
+          <svg width="100%" height="65" viewBox="0 0 898 65" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-auto" preserveAspectRatio="xMidYMid meet">
+            <defs>
+              <filter id="filter0_d_screen" x="0" y="0" width="898" height="62.5001" filterUnits="userSpaceOnUse" colorInterpolationFilters="sRGB">
+                <feFlood floodOpacity="0" result="BackgroundImageFix"/>
+                <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
+                <feOffset dy="4"/>
+                <feGaussianBlur stdDeviation="8.5"/>
+                <feComposite in2="hardAlpha" operator="out"/>
+                <feColorMatrix type="matrix" values="0 0 0 0 0.941176 0 0 0 0 0.941176 0 0 0 0 0.941176 0 0 0 1 0"/>
+                <feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_2065_2204"/>
+                <feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow_2065_2204" result="shape"/>
+              </filter>
+            </defs>
+            <g filter="url(#filter0_d_screen)">
+              <path d="M19 39.5C19 39.5 280.919 15 449 15C617.081 15 879 39.5 879 39.5" stroke="#F0F0F0" strokeWidth="4" strokeLinecap="round"/>
+            </g>
+            <path d="M428.961 58.598C428.308 58.598 427.72 58.486 427.197 58.262C426.674 58.0287 426.264 57.702 425.965 57.282C425.666 56.862 425.517 56.372 425.517 55.812H427.225C427.262 56.232 427.426 56.5773 427.715 56.848C428.014 57.1187 428.429 57.254 428.961 57.254C429.512 57.254 429.941 57.1233 430.249 56.862C430.557 56.5913 430.711 56.246 430.711 55.826C430.711 55.4993 430.613 55.2333 430.417 55.028C430.23 54.8227 429.992 54.664 429.703 54.552C429.423 54.44 429.031 54.3187 428.527 54.188C427.892 54.02 427.374 53.852 426.973 53.684C426.581 53.5067 426.245 53.236 425.965 52.872C425.685 52.508 425.545 52.0227 425.545 51.416C425.545 50.856 425.685 50.366 425.965 49.946C426.245 49.526 426.637 49.204 427.141 48.98C427.645 48.756 428.228 48.644 428.891 48.644C429.834 48.644 430.604 48.882 431.201 49.358C431.808 49.8247 432.144 50.4687 432.209 51.29H430.445C430.417 50.9353 430.249 50.632 429.941 50.38C429.633 50.128 429.227 50.002 428.723 50.002C428.266 50.002 427.892 50.1187 427.603 50.352C427.314 50.5853 427.169 50.9213 427.169 51.36C427.169 51.6587 427.258 51.906 427.435 52.102C427.622 52.2887 427.855 52.438 428.135 52.55C428.415 52.662 428.798 52.7833 429.283 52.914C429.927 53.0913 430.45 53.2687 430.851 53.446C431.262 53.6233 431.607 53.8987 431.887 54.272C432.176 54.636 432.321 55.126 432.321 55.742C432.321 56.2367 432.186 56.7033 431.915 57.142C431.654 57.5807 431.266 57.9353 430.753 58.206C430.249 58.4673 429.652 58.598 428.961 58.598ZM433.672 54.636C433.672 53.8427 433.831 53.1473 434.148 52.55C434.475 51.9433 434.923 51.4767 435.492 51.15C436.062 50.8233 436.715 50.66 437.452 50.66C438.386 50.66 439.156 50.884 439.762 51.332C440.378 51.7707 440.794 52.4007 441.008 53.222H439.286C439.146 52.8393 438.922 52.5407 438.614 52.326C438.306 52.1113 437.919 52.004 437.452 52.004C436.799 52.004 436.276 52.2373 435.884 52.704C435.502 53.1613 435.31 53.8053 435.31 54.636C435.31 55.4667 435.502 56.1153 435.884 56.582C436.276 57.0487 436.799 57.282 437.452 57.282C438.376 57.282 438.988 56.876 439.286 56.064H441.008C440.784 56.848 440.364 57.4733 439.748 57.94C439.132 58.3973 438.367 58.626 437.452 58.626C436.715 58.626 436.062 58.4627 435.492 58.136C434.923 57.8 434.475 57.3333 434.148 56.736C433.831 56.1293 433.672 55.4293 433.672 54.636ZM444.195 51.906C444.428 51.514 444.736 51.2107 445.119 50.996C445.511 50.772 445.973 50.66 446.505 50.66V52.312H446.099C445.473 52.312 444.997 52.4707 444.671 52.788C444.353 53.1053 444.195 53.656 444.195 54.44V58.5H442.599V50.786H444.195V51.906ZM455.042 54.454C455.042 54.7433 455.023 55.0047 454.986 55.238H449.092C449.139 55.854 449.367 56.3487 449.778 56.722C450.189 57.0953 450.693 57.282 451.29 57.282C452.149 57.282 452.755 56.9227 453.11 56.204H454.832C454.599 56.9133 454.174 57.4967 453.558 57.954C452.951 58.402 452.195 58.626 451.29 58.626C450.553 58.626 449.89 58.4627 449.302 58.136C448.723 57.8 448.266 57.3333 447.93 56.736C447.603 56.1293 447.44 55.4293 447.44 54.636C447.44 53.8427 447.599 53.1473 447.916 52.55C448.243 51.9433 448.695 51.4767 449.274 51.15C449.862 50.8233 450.534 50.66 451.29 50.66C452.018 50.66 452.667 50.8187 453.236 51.136C453.805 51.4533 454.249 51.9013 454.566 52.48C454.883 53.0493 455.042 53.7073 455.042 54.454ZM453.376 53.95C453.367 53.362 453.157 52.8907 452.746 52.536C452.335 52.1813 451.827 52.004 451.22 52.004C450.669 52.004 450.198 52.1813 449.806 52.536C449.414 52.8813 449.181 53.3527 449.106 53.95H453.376ZM463.683 54.454C463.683 54.7433 463.664 55.0047 463.627 55.238H457.733C457.779 55.854 458.008 56.3487 458.419 56.722C458.829 57.0953 459.333 57.282 459.931 57.282C460.789 57.282 461.396 56.9227 461.751 56.204H463.472C463.239 56.9133 462.815 57.4967 462.199 57.954C461.592 58.402 460.836 58.626 459.931 58.626C459.193 58.626 458.531 58.4627 457.943 58.136C457.364 57.8 456.907 57.3333 456.571 56.736C456.244 56.1293 456.081 55.4293 456.081 54.636C456.081 53.8427 456.239 53.1473 456.557 52.55C456.883 51.9433 457.336 51.4767 457.915 51.15C458.503 50.8233 459.175 50.66 459.931 50.66C460.659 50.66 461.307 50.8187 461.877 51.136C462.446 51.4533 462.889 51.9013 463.207 52.48C463.524 53.0493 463.683 53.7073 463.683 54.454ZM462.017 53.95C462.007 53.362 461.797 52.8907 461.387 52.536C460.976 52.1813 460.467 52.004 459.861 52.004C459.31 52.004 458.839 52.1813 458.447 52.536C458.055 52.8813 457.821 53.3527 457.747 53.95H462.017ZM469.145 50.66C469.752 50.66 470.293 50.786 470.769 51.038C471.254 51.29 471.632 51.6633 471.903 52.158C472.174 52.6527 472.309 53.25 472.309 53.95V58.5H470.727V54.188C470.727 53.4973 470.554 52.97 470.209 52.606C469.864 52.2327 469.392 52.046 468.795 52.046C468.198 52.046 467.722 52.2327 467.367 52.606C467.022 52.97 466.849 53.4973 466.849 54.188V58.5H465.253V50.786H466.849V51.668C467.11 51.3507 467.442 51.1033 467.843 50.926C468.254 50.7487 468.688 50.66 469.145 50.66Z" fill="#FAFAFA"/>
+          </svg>
         </div>
 
         {/* Seat Map */}
-        <div className="bg-[#1a1a1a] rounded-lg p-6">
-          <div className="flex flex-col gap-2">
-            {rows.map((row) => (
-              <div key={row} className="flex items-center justify-center gap-2">
+        <div className="bg-[#1a1a1a] rounded-lg p-3 sm:p-6 md:p-8 mb-6 overflow-x-auto">
+          <div className="flex flex-col gap-2 sm:gap-3 min-w-max sm:min-w-0">
+            {rowLetters.map((rowLetter) => {
+              const rowSeats = seatGrid[rowLetter];
+              const maxColumn = 15;
+              
+              return (
+                <div key={rowLetter} className="flex items-center gap-2 sm:gap-3 md:gap-4 px-2 sm:px-4 md:px-6">
                 {/* Row Label Left */}
-                <span className="text-xs text-white/40 w-6 text-center font-medium">{row}</span>
+                  <span className="text-[10px] sm:text-xs text-white/40 w-6 sm:w-8 text-center font-medium flex-shrink-0">{rowLetter}</span>
                 
-                {/* Seats */}
-                <div className="flex gap-1">
-                  {Array.from({ length: seatsPerRow }, (_, i) => {
-                    const seatNum = i + 1;
-                    const seatId = `${row}${seatNum}`;
-                    const isOccupied = occupiedSeats.includes(seatId);
-                    const isSelected = selectedSeats.includes(seatId);
-                    const isSingle = isSingleSeat(seatId);
-                    const isDoubleL = isDoubleLeft(row, seatNum);
-                    const isDoubleR = isDoubleRight(row, seatNum);
+                {/* Seats - Horizontal Scrollable Container */}
+                <div className="flex gap-1.5 sm:gap-2 md:gap-3 items-center flex-shrink-0">
+                    {Array.from({ length: maxColumn }, (_, i) => {
+                      const column = i + 1;
+                      const seat = rowSeats[column];
+                      
+                      if (!seat) {
+                        // Empty space - maintain spacing
+                        return <div key={`${rowLetter}-${column}`} className="w-6 h-5 sm:w-7 sm:h-6 md:w-8 md:h-7 flex-shrink-0"></div>;
+                      }
+
+                      const isSelected = isSeatSelected(seat);
+                      const isOccupied = isSeatOccupied(seat);
+                      const isDouble = isDoubleSeat(seat);
+                      const isPartner = isPartnerSeat(seat);
+                      
+                      // Extract seat number from seatNo (e.g., "A10" -> "10")
+                      const seatNumber = seat.seatNo.replace(rowLetter, '');
                     
-                    // Add gaps for J row (couple seats)
-                    const isJRow = row === 'J';
-                    const showGap = (seatNum === 2 || seatNum === 5 || seatNum === 8 || seatNum === 11 || seatNum === 14) && isJRow;
+                      // For double seats, render as pairs
+                      if (isDouble && !isPartner) {
+                        const partnerSeat = seatsData.find(s => s.seatID === seat.partnerSeatID);
+                        const partnerIsSelected = partnerSeat ? isSeatSelected(partnerSeat) : false;
+                        const partnerIsOccupied = partnerSeat ? isSeatOccupied(partnerSeat) : false;
+                        const bothSelected = isSelected && partnerIsSelected;
 
                     return (
-                      <React.Fragment key={seatId}>
-                        {isJRow && seatNum <= 14 ? (
-                          // J row - pairs of seats
-                          seatNum % 2 === 1 && (
-                            <div className="flex">
+                          <div key={`${rowLetter}-${column}`} className="flex items-center shrink-0">
                               <button
-                                onClick={() => toggleSeat(seatId)}
-                                disabled={isOccupied}
-                                className={`w-7 h-6 rounded-l text-[9px] flex items-center justify-center transition-all border
-                                  ${isSelected 
-                                    ? 'bg-[#f5c118] text-black font-semibold border-[#f5c118]' 
-                                    : isOccupied 
+                              onClick={() => toggleSeat(seat)}
+                              disabled={isOccupied || partnerIsOccupied}
+                              className={`w-6 h-5 sm:w-7 sm:h-6 md:w-8 md:h-7 rounded-l text-[8px] sm:text-[9px] md:text-[10px] flex items-center justify-center transition-all border-2 shrink-0 ${
+                                bothSelected
+                                  ? 'bg-[#FFCA20] text-black font-semibold border-[#FFCA20]' 
+                                  : isOccupied || partnerIsOccupied
                                     ? 'bg-gray-700 text-gray-500 cursor-not-allowed border-gray-700' 
                                     : 'border-gray-600 bg-[#2a2a2a] text-white/60 hover:border-gray-500 hover:bg-gray-800/50'
                                   }`}
                               >
-                                {seatNum}
+                              {seatNumber}
                               </button>
+                            {partnerSeat && (
                               <button
-                                onClick={() => toggleSeat(`${row}${seatNum + 1}`)}
-                                disabled={occupiedSeats.includes(`${row}${seatNum + 1}`)}
-                                className={`w-7 h-6 rounded-r text-[9px] flex items-center justify-center transition-all border border-l-0
-                                  ${selectedSeats.includes(`${row}${seatNum + 1}`)
-                                    ? 'bg-[#f5c118] text-black font-semibold border-[#f5c118]' 
-                                    : occupiedSeats.includes(`${row}${seatNum + 1}`)
+                                onClick={() => toggleSeat(partnerSeat)}
+                                disabled={isOccupied || partnerIsOccupied}
+                                className={`w-6 h-5 sm:w-7 sm:h-6 md:w-8 md:h-7 rounded-r text-[8px] sm:text-[9px] md:text-[10px] flex items-center justify-center transition-all border-2 border-l-0 shrink-0 ${
+                                  bothSelected
+                                    ? 'bg-[#FFCA20] text-black font-semibold border-[#FFCA20]' 
+                                    : isOccupied || partnerIsOccupied
                                     ? 'bg-gray-700 text-gray-500 cursor-not-allowed border-gray-700' 
                                     : 'border-gray-600 bg-[#2a2a2a] text-white/60 hover:border-gray-500 hover:bg-gray-800/50'
                                   }`}
                               >
-                                {seatNum + 1}
+                                {partnerSeat.seatNo.replace(rowLetter, '')}
                               </button>
+                            )}
                             </div>
-                          )
-                        ) : (
-                          // Regular rows
+                        );
+                      } else if (isPartner) {
+                        // Skip partner seats (already rendered with main seat)
+                        return null;
+                      } else {
+                        // Single seat
+                        return (
                           <button
-                            onClick={() => toggleSeat(seatId)}
+                            key={`${rowLetter}-${column}`}
+                            onClick={() => toggleSeat(seat)}
                             disabled={isOccupied}
-                            className={`w-7 h-6 text-[9px] flex items-center justify-center transition-all border
-                              ${isSelected 
-                                ? 'bg-[#f5c118] text-black font-semibold border-[#f5c118] rounded' 
+                            className={`w-6 h-5 sm:w-7 sm:h-6 md:w-8 md:h-7 rounded text-[8px] sm:text-[9px] md:text-[10px] flex items-center justify-center transition-all border-2 shrink-0 ${
+                              isSelected 
+                                ? 'bg-[#FFCA20] text-black font-semibold border-[#FFCA20]' 
                                 : isOccupied 
-                                ? 'bg-gray-700 text-gray-500 cursor-not-allowed border-gray-700 rounded' 
-                                : isSingle
-                                ? 'border-purple-500 bg-[#2a2a2a] text-white/60 hover:bg-purple-500/20 rounded'
-                                : isDoubleL || isDoubleR
-                                ? 'border-orange-500 bg-[#2a2a2a] text-white/60 hover:bg-orange-500/20'
-                                : 'border-gray-600 bg-[#2a2a2a] text-white/60 hover:border-gray-500 hover:bg-gray-800/50 rounded'
-                              }
-                              ${isDoubleL ? 'rounded-l rounded-r-none' : ''}
-                              ${isDoubleR ? 'rounded-r rounded-l-none' : ''}
-                            `}
+                                ? 'bg-gray-700 text-gray-500 cursor-not-allowed border-gray-700' 
+                                : 'border-gray-600 bg-[#2a2a2a] text-white/60 hover:border-gray-500 hover:bg-gray-800/50'
+                            }`}
                           >
-                            {seatNum}
+                            {seatNumber}
                           </button>
-                        )}
-                        {showGap && <div className="w-3"></div>}
-                      </React.Fragment>
                     );
+                      }
                   })}
                 </div>
                 
                 {/* Row Label Right */}
-                <span className="text-xs text-white/40 w-6 text-center font-medium">{row}</span>
+                <span className="text-[10px] sm:text-xs text-white/40 w-6 sm:w-8 text-center font-medium flex-shrink-0">{rowLetter}</span>
               </div>
-            ))}
-          </div>
+            );
+          })}
         </div>
+      </div>
 
-        {/* Selected Info Bar */}
-        <div className="mt-6 bg-[#1a1a1a] rounded-lg p-4">
+        {/* Footer - Selected Seats and Book Button */}
+        <div className="bg-[#1a1a1a] rounded-lg p-4">
           <div className="flex flex-col items-center gap-3">
             <div className="text-sm text-center">
-              <span className="text-white/50">Your seats: </span>
-              <span className="text-[#f5c118] font-bold">{selectedSeats.join(', ') || 'None'}</span>
+              <span className="text-white/50">Your seats </span>
+              <span className="text-white font-medium">
+                {selectedSeats.length > 0 ? selectedSeats.sort().join(',') : 'None'}
+              </span>
             </div>
+
             <button 
-              onClick={() => selectedSeats.length > 0 && setShowSummary(true)}
-              className={`px-8 py-2.5 rounded font-bold text-sm transition ${
-                selectedSeats.length > 0
-                  ? 'bg-[#f5c118] text-black hover:bg-[#f5c118]/90' 
-                  : 'bg-[#f5c118]/30 text-black/50 cursor-not-allowed'
+              onClick={handleBookSeat}
+              disabled={selectedSeats.length !== maxSeats || isLocking}
+              className={`px-8 py-2.5 rounded font-medium text-sm transition ${
+                selectedSeats.length === maxSeats && !isLocking
+                  ? 'bg-[#FFCA20] text-black hover:bg-[#FFCA20]/90' 
+                  : 'bg-[#FFCA20]/30 text-black/50 cursor-not-allowed'
               }`}
-              disabled={selectedSeats.length === 0}
             >
-              Book seat
+              {isLocking ? 'Locking seats...' : 'Book seat'}
             </button>
+
+            {error && (
+              <div className="text-xs text-red-400 text-center mt-1">{error}</div>
+            )}
           </div>
         </div>
       </div>
 
       {/* Booking Summary Modal */}
-      {showSummary && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="bg-[#1a1a1a] rounded-lg w-full max-w-xs relative">
+      {showBookingSummary && (() => {
+        const priceInfo = calculateDetailedPrice();
+        const seatsByType = getSeatsByTicketType();
+        const movieTitle = movieDetails?.movieName || movieDetails?.title || 'Movie';
+        const movieImage = movieDetails?.imageURL || 'img/banner.jpg';
+        const movieGenre = movieDetails?.genre || 'N/A';
+        const movieDuration = movieDetails?.duration || 'N/A';
+        const movieLanguage = movieDetails?.language || 'N/A';
+        const cinemaName = cinemaDetails?.displayName || cinemaDetails?.name || `Cinema ${cinemaId}`;
+        const experienceType = movieDetails?.type || '2D';
+        
+        const formatShowDateTime = () => {
+          if (showTimeDetails?.showTime) {
+            try {
+              const date = new Date(showTimeDetails.showTime);
+              const dateStr = date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+              const timeStr = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+              return `${dateStr}, ${timeStr}`;
+            } catch (e) {
+              return showTimeDetails.showTime;
+            }
+          }
+          return 'N/A';
+        };
+
+        return (
+          <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 overflow-y-auto">
+            <div className="bg-[#1a1a1a] rounded-lg w-full max-w-6xl relative max-h-[90vh] overflow-y-auto">
+              {/* Close Button */}
             <button 
-              onClick={() => setShowSummary(false)}
-              className="absolute top-3 right-3 text-white/50 hover:text-white"
+                onClick={async () => {
+                  // Release locked seats when closing modal
+                  if (lockReferenceNo) {
+                    try {
+                      await releaseSeatLock(cinemaId, showId, lockReferenceNo);
+                      setLockReferenceNo(null);
+                      setLockSeatResponse(null);
+                      setTimerActive(false);
+                      setSelectedSeats([]);
+                    } catch (e) {
+                      console.error('Error releasing seats on modal close:', e);
+                    }
+                  }
+                  setShowBookingSummary(false);
+                }}
+                className="absolute top-4 right-4 text-white/70 hover:text-white z-10"
             >
-              <X className="w-4 h-4" />
+                <X className="w-5 h-5" />
             </button>
 
-            <div className="p-3 border-b border-gray-800">
-              <h2 className="text-base font-bold text-white">Booking Summary</h2>
+              {/* Header */}
+              <div className="p-6 border-b border-[#2a2a2a]">
+                <h2 className="text-2xl font-bold text-white">Booking Details</h2>
             </div>
 
-            <div className="p-3">
-              <div className="flex gap-2 mb-3">
-                <img 
-                  src="img/banner.jpg" 
-                  alt="Movie poster"
-                  className="w-16 h-22 object-cover rounded"
+              {/* Two Column Layout */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 p-6">
+                {/* Left Column - Form */}
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-lg font-semibold text-white mb-4">Customer Information</h3>
+                    <div className="space-y-4">
+                      {/* Name */}
+                      <div>
+                        <label className="block text-sm font-medium text-white/80 mb-2">
+                          Name <span className="text-red-400">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.name}
+                          onChange={(e) => handleInputChange('name', e.target.value)}
+                          className={`w-full px-4 py-2.5 bg-[#2a2a2a] border rounded-lg text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-[#FFCA20] ${
+                            formErrors.name ? 'border-red-500' : 'border-[#3a3a3a]'
+                          }`}
+                          placeholder="Enter your name"
+                        />
+                        {formErrors.name && (
+                          <p className="text-xs text-red-400 mt-1">{formErrors.name}</p>
+                        )}
+                      </div>
+
+                      {/* Email */}
+                      <div>
+                        <label className="block text-sm font-medium text-white/80 mb-2">
+                          Email <span className="text-red-400">*</span>
+                        </label>
+                        <input
+                          type="email"
+                          value={formData.email}
+                          onChange={(e) => handleInputChange('email', e.target.value)}
+                          className={`w-full px-4 py-2.5 bg-[#2a2a2a] border rounded-lg text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-[#FFCA20] ${
+                            formErrors.email ? 'border-red-500' : 'border-[#3a3a3a]'
+                          }`}
+                          placeholder="Enter your email"
+                        />
+                        {formErrors.email && (
+                          <p className="text-xs text-red-400 mt-1">{formErrors.email}</p>
+                        )}
+                      </div>
+
+                      {/* Passport No */}
+                      <div>
+                        <label className="block text-sm font-medium text-white/80 mb-2">
+                          Passport No
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.passportNo}
+                          onChange={(e) => handleInputChange('passportNo', e.target.value)}
+                          className="w-full px-4 py-2.5 bg-[#2a2a2a] border border-[#3a3a3a] rounded-lg text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-[#FFCA20]"
+                          placeholder="Enter passport number (optional)"
+                        />
+                        {formErrors.passportNo && (
+                          <p className="text-xs text-red-400 mt-1">{formErrors.passportNo}</p>
+                        )}
+                      </div>
+
+                      {/* Mobile */}
+                      <div>
+                        <label className="block text-sm font-medium text-white/80 mb-2">
+                          Mobile <span className="text-red-400">*</span>
+                        </label>
+                        <input
+                          type="tel"
+                          value={formData.mobile}
+                          onChange={(e) => handleInputChange('mobile', e.target.value)}
+                          className={`w-full px-4 py-2.5 bg-[#2a2a2a] border rounded-lg text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-[#FFCA20] ${
+                            formErrors.mobile ? 'border-red-500' : 'border-[#3a3a3a]'
+                          }`}
+                          placeholder="Enter mobile number"
+                        />
+                        {formErrors.mobile && (
+                          <p className="text-xs text-red-400 mt-1">{formErrors.mobile}</p>
+                        )}
+                      </div>
+
+                      {/* Membership No */}
+                      <div>
+                        <label className="block text-sm font-medium text-white/80 mb-2">
+                          Membership No
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.membershipNo}
+                          onChange={(e) => handleInputChange('membershipNo', e.target.value)}
+                          className={`w-full px-4 py-2.5 bg-[#2a2a2a] border rounded-lg text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-[#FFCA20] ${
+                            formErrors.membershipNo ? 'border-red-500' : 'border-[#3a3a3a]'
+                          }`}
+                          placeholder="Enter membership number (optional)"
+                        />
+                        {formErrors.membershipNo && (
+                          <p className="text-xs text-red-400 mt-1">{formErrors.membershipNo}</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right Column - Summary */}
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-lg font-semibold text-white mb-4">Booking Summary</h3>
+                    
+                {/* Movie Details */}
+                    <div className="flex gap-4 mb-6 pb-6 border-b border-[#2a2a2a]">
+                  <img
+                    src={movieImage}
+                    alt={movieTitle}
+                    className="w-24 h-36 object-cover rounded"
+                    onError={(e) => {
+                      e.target.src = 'img/banner.jpg';
+                    }}
                 />
                 <div className="flex-1">
-                  <h3 className="font-bold text-white text-xs mb-1">PREDATOR: BADLANDS</h3>
-                  <div className="text-[10px] text-white/60 space-y-0.5">
-                    <p>Kampar, PUTRA | IMAX</p>
-                    <p>1 hr 30 mins | English</p>
-                    <p>13 Nov 2025, 1:30 PM</p>
+                        <h4 className="text-lg font-bold text-white mb-2">{movieTitle}</h4>
+                    <div className="text-xs text-white/70 space-y-1">
+                      <p>{movieGenre}</p>
+                      <p>{movieDuration}</p>
+                      <p>{movieLanguage}</p>
+                      <p>{cinemaName}</p>
+                      <p>{experienceType}</p>
+                      <p>{formatShowDateTime()}</p>
                   </div>
                 </div>
               </div>
 
-              <div className="bg-[#0a0a0a] rounded p-2 mb-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] text-white/60">Seat NO:</span>
+                {/* Seat Info */}
+                    <div className="mb-6 pb-6 border-b border-[#2a2a2a]">
+                  <h4 className="text-sm font-semibold text-white mb-3">Seat info</h4>
+                  <div className="space-y-2">
+                    {seatsByType.map((item, index) => (
+                      <div key={index} className="flex items-center gap-2">
+                            <span className="text-xs text-white/70 min-w-[80px]">{item.ticketTypeName}</span>
                   <div className="flex gap-1 flex-wrap">
-                    {selectedSeats.map((seat) => (
-                      <span key={seat} className="bg-gray-800 px-1.5 py-0.5 rounded text-[10px] text-white">
-                        {seat}
+                          {item.seats.map((seatNo, idx) => (
+                            <span
+                              key={idx}
+                              className="bg-[#FFCA20] text-black text-xs font-medium px-2 py-1 rounded"
+                            >
+                              {seatNo}
                       </span>
+                          ))}
+                        </div>
+                      </div>
                     ))}
                   </div>
                 </div>
-              </div>
 
-              <div className="mb-3">
-                <h4 className="text-xs font-semibold text-white mb-1.5">TICKETS</h4>
-                <div className="text-[10px] space-y-1">
-                  <div className="flex justify-between text-white/60">
-                    <span>Wed 13 Nov {selectedSeats.length} Ticket(s)</span>
-                    <span>RM {subtotal.toFixed(2)}</span>
+                {/* Tickets */}
+                    <div className="mb-6 pb-6 border-b border-[#2a2a2a]">
+                  <h4 className="text-sm font-semibold text-white mb-3">Tickets</h4>
+                      <div className="space-y-2 text-sm">
+                    <div className="flex justify-between text-white/70">
+                      <span>Net Price ({selectedSeats.length} X Ticket(s))</span>
+                      <span className="text-white">RM {priceInfo.netPrice.toFixed(2)}</span>
+                    </div>
+                    {priceInfo.entertainmentTax !== undefined && priceInfo.entertainmentTax > 0 && (
+                      <div className="flex justify-between text-white/70">
+                        <span>Entertainment Tax</span>
+                        <span className="text-white">RM {priceInfo.entertainmentTax.toFixed(2)}</span>
+                      </div>
+                    )}
+                    {priceInfo.govtTax !== undefined && priceInfo.govtTax > 0 && (
+                      <div className="flex justify-between text-white/70">
+                        <span>Government Tax</span>
+                        <span className="text-white">RM {priceInfo.govtTax.toFixed(2)}</span>
+                      </div>
+                    )}
+                    {priceInfo.onlineCharge !== undefined && priceInfo.onlineCharge > 0 && (
+                      <div className="flex justify-between text-white/70">
+                        <span>Online Charge</span>
+                        <span className="text-white">RM {priceInfo.onlineCharge.toFixed(2)}</span>
+                      </div>
+                    )}
+                    {priceInfo.tax !== undefined && priceInfo.tax > 0 && (!priceInfo.entertainmentTax && !priceInfo.govtTax) && (
+                    <div className="flex justify-between text-white/70">
+                      <span>Tax</span>
+                      <span className="text-white">RM {priceInfo.tax.toFixed(2)}</span>
+              </div>
+                    )}
+                    <div className="flex justify-between text-white font-semibold pt-2 border-t border-[#2a2a2a]">
+                      <span>Total Ticket Price</span>
+                      <span>RM {priceInfo.totalTicketPrice.toFixed(2)}</span>
                   </div>
                 </div>
               </div>
 
-              <div className="mb-3">
-                <h4 className="text-xs font-semibold text-white mb-1.5">Payment details</h4>
-                <div className="text-[10px] space-y-1">
-                  <div className="flex justify-between text-white/60">
-                    <span>Sub Total</span>
-                    <span>RM {subtotal.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between text-white/60">
-                    <span>Tax</span>
-                    <span>RM {tax.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between text-white/60">
-                    <span>RESERVATION FEE</span>
-                    <span>RM 0.00</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-[#f5c118] rounded p-2 mb-3">
+                {/* Grand Total */}
+                    <div className="bg-[#FFCA20] rounded-lg p-4 mb-6">
                 <div className="flex justify-between items-center">
-                  <span className="text-xs font-bold text-black">GRAND TOTAL</span>
-                  <span className="text-base font-bold text-black">RM {total.toFixed(2)}</span>
+                        <span className="text-base font-bold text-black">Grand Total</span>
+                        <span className="text-xl font-bold text-black">RM {priceInfo.grandTotal.toFixed(2)}</span>
                 </div>
               </div>
 
+                {/* Proceed to Payment Button */}
               <button 
-                onClick={() => {
-                  setShowSummary(false);
-                  setShowConfirmation(true);
-                }}
-                className="w-full bg-[#f5c118] text-black font-bold py-2 text-sm rounded hover:bg-[#f5c118]/90 transition"
+                  onClick={handleProceedToPayment}
+                  disabled={isConfirming}
+                  className={`w-full bg-[#FFCA20] text-black font-bold py-3 rounded-lg transition ${
+                    isConfirming 
+                      ? 'opacity-50 cursor-not-allowed' 
+                      : 'hover:bg-[#FFCA20]/90'
+                  }`}
               >
-                Proceed to Payment
+                      {isConfirming ? 'Processing...' : 'Proceed to Payment'}
               </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Booking Confirmation Modal */}
-      {showConfirmation && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="bg-[#2a2a2a] rounded-lg w-full max-w-xs relative p-6 text-center">
-            <button 
-              onClick={() => setShowConfirmation(false)}
-              className="absolute top-3 right-3 text-white/50 hover:text-white"
-            >
-              <X className="w-4 h-4" />
-            </button>
-
-            <div className="flex justify-center mb-4">
-              <div className="w-16 h-16 bg-[#f5c118] rounded-full flex items-center justify-center">
-                <svg className="w-8 h-8 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                </svg>
-              </div>
-            </div>
-
-            <h3 className="text-white font-bold text-lg mb-2">Booking Confirmed!</h3>
-            <p className="text-white/60 text-sm mb-6">Your ticket has been successfully booked</p>
-
-            <div className="space-y-2">
-              <button 
-                onClick={() => {
-                  setShowConfirmation(false);
-                  setShowTicket(true);
-                }}
-                className="w-full bg-[#f5c118] text-black font-bold py-2.5 text-sm rounded hover:bg-[#f5c118]/90 transition"
-              >
-                View Ticket
-              </button>
-              <button 
-                onClick={() => setShowConfirmation(false)}
-                className="w-full bg-transparent border border-white/20 text-white font-medium py-2.5 text-sm rounded hover:bg-white/5 transition"
-              >
-                Back to Home
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Ticket Modal */}
-      {showTicket && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="bg-[#2a2a2a] rounded-lg w-full max-w-xs relative">
-            <button 
-              onClick={() => setShowTicket(false)}
-              className="absolute top-3 right-3 text-white/50 hover:text-white z-10"
-            >
-              <X className="w-4 h-4" />
-            </button>
-
-            <div className="p-3 border-b border-gray-700">
-              <h2 className="text-base font-bold text-white">Ticket</h2>
-            </div>
-
-            <div className="p-3">
-              <div className="relative mb-3 rounded overflow-hidden">
-                <img 
-                  src="img/banner.jpg" 
-                  alt="Movie poster"
-                  className="w-full h-32 object-cover"
-                />
-              </div>
-
-              <div className="mb-3">
-                <h3 className="font-bold text-white text-sm mb-2">Predator: Badlands</h3>
-                <div className="text-[10px] text-white/60 space-y-1">
-                  <p>Action, Sci-Fi | 1 hr 30 mins | English</p>
-                </div>
-              </div>
-
-              <div className="bg-[#1a1a1a] rounded p-2 mb-3">
-                <div className="text-[10px] text-white/80 space-y-1">
-                  <p className="font-semibold">Kampar putra</p>
-                  <p>Nov 13 2025 • 1:30 PM</p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2 mb-3 text-[10px]">
-                <div>
-                  <p className="text-white/60 mb-1">Seat</p>
-                  <div className="flex gap-1 flex-wrap">
-                    {selectedSeats.map((seat) => (
-                      <span key={seat} className="bg-[#1a1a1a] px-2 py-1 rounded text-white font-medium">
-                        {seat}
-                      </span>
-                    ))}
+              
+              {error && (
+                <div className="text-xs text-red-400 text-center mt-2">{error}</div>
+              )}
                   </div>
                 </div>
-                <div>
-                  <p className="text-white/60 mb-1">Screen Hall</p>
-                  <p className="text-white font-medium">2</p>
-                </div>
-                <div>
-                  <p className="text-white/60 mb-1">Booking ID</p>
-                  <p className="text-white font-medium">TXB0110084455</p>
-                </div>
-                <div>
-                  <p className="text-white/60 mb-1">PAYMENT/PRICE</p>
-                  <p className="text-white font-medium">RM {total.toFixed(2)}</p>
-                </div>
-              </div>
-
-              <div className="bg-white p-3 rounded mb-3 flex justify-center">
-                <svg width="200" height="60" viewBox="0 0 200 60">
-                  {[5, 8, 12, 15, 20, 23, 28, 31, 35, 38, 43, 46, 50, 53, 58, 61, 66, 69, 73, 76, 81, 84, 88, 91, 95, 98, 103, 106, 110, 113, 118, 121, 125, 128, 133, 136, 140, 143, 148, 151, 155, 158, 163, 166, 170, 173, 178, 181, 185, 188, 193].map((x, i) => (
-                    <rect key={i} x={x} y="5" width={i % 3 === 0 ? "3" : "2"} height="45" fill="black"/>
-                  ))}
-                </svg>
-              </div>
-
-              <button className="w-full bg-[#f5c118] text-black font-bold py-2 text-sm rounded hover:bg-[#f5c118]/90 transition">
-                Download Ticket
-              </button>
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
     </div>
   );
 }

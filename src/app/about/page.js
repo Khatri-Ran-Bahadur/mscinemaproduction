@@ -1,197 +1,139 @@
-'use client';
+"use client";
 
 import React from 'react';
-import { Phone, Mail, MapPin, Facebook, Instagram, Youtube } from 'lucide-react';
+import { Phone, Mail, MapPin } from 'lucide-react';
+import Header from '@/components/header';
+import Footer from '@/components/footer';
 
 export default function AboutUsPage() {
     return (
-        <div className="min-h-screen bg-black text-white">
-            {/* Navigation */}
-            <nav className="fixed top-0 left-0 right-0 bg-black/90 backdrop-blur-sm z-50 border-b border-gray-800">
-                <div className="container mx-auto px-6 py-4 flex items-center justify-between">
-                    <div className="flex items-center gap-8">
-                        <div className="text-2xl font-bold text-yellow-500">MS CINEMAS</div>
-                        <div className="hidden md:flex gap-6 text-sm">
-                            <a href="#" className="text-white hover:text-yellow-500 transition">Home</a>
-                            <a href="#" className="text-white hover:text-yellow-500 transition">Movies</a>
-                            <a href="#" className="text-white hover:text-yellow-500 transition">Food & Drinks</a>
-                            <a href="#" className="text-white hover:text-yellow-500 transition">Hall booking</a>
-                            <a href="#" className="text-yellow-500 border-b-2 border-yellow-500 pb-1">About us</a>
-                        </div>
-                    </div>
-                    <button className="bg-yellow-500 text-black px-6 py-2 rounded-lg font-semibold hover:bg-yellow-400 transition">
-                        Sign In
-                    </button>
-                </div>
-            </nav>
+        <div className="min-h-screen bg-black text-[#FAFAFA]">
+            <Header />
 
             {/* Hero Section */}
-            <section className="relative h-[50vh] overflow-hidden pt-16">
+            <section className="relative h-[70vh] sm:h-[65vh] md:h-[75vh] overflow-hidden pt-16 sm:pt-20 md:pt-24">
                 <div className="absolute inset-0">
                     <img 
-                        src="https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=1920&q=80" 
-                        alt="Cinema Hall" 
+                        src="img/about-banner.jpg" 
+                        alt="About MS Cinemas" 
                         className="w-full h-full object-cover"
+                        onError={(e) => { e.target.src = 'img/banner1.jpg'; }}
                     />
-                    <div className="absolute inset-0 bg-black/60"></div>
+                    {/* Bottom Gradient Overlay - Desktop: from bottom */}
+                    <div 
+                        className="absolute inset-0 hidden md:block"
+                        style={{
+                            background: 'linear-gradient(180deg, rgba(34, 34, 34, 0) 42.53%, rgba(34, 34, 34, 0.5) 71.27%, #222222 100%)'
+                        }}
+                    />
+                    {/* Top Gradient Overlay - Mobile: from top */}
+                    <div 
+                        className="absolute inset-0 md:hidden"
+                        style={{
+                            background: 'linear-gradient(180deg, rgba(17, 17, 17, 0) 46.79%, rgba(17, 17, 17, 0.5) 68.08%, #111111 94.68%)'
+                        }}
+                    />
+                    {/* Bottom Gradient Overlay - Mobile: from bottom */}
+                    <div 
+                        className="absolute inset-0 md:hidden"
+                        style={{
+                            background: 'linear-gradient(180deg, rgba(17, 17, 17, 0) 46.79%, rgba(17, 17, 17, 0.5) 68.08%, #111111 94.68%)'
+                        }}
+                    />
                 </div>
 
-                <div className="relative container mx-auto px-6 h-full flex flex-col justify-center z-10">
-                    <h1 className="text-5xl md:text-6xl font-bold mb-4">About us</h1>
-                    <p className="text-gray-300 text-lg mb-8 max-w-lg">
+                {/* MS CINEMAS Logo on Screen */}
+                <div className="absolute inset-0 flex items-center justify-center z-10">
+                    <div className="text-[#FFCA20] text-6xl md:text-8xl font-bold opacity-30">
+                        MS CINEMAS
+                    </div>
+                </div>
+
+                <div className="relative container mx-auto px-4 sm:px-6 h-full flex flex-col justify-end pb-6 sm:pb-8 md:pb-12 z-20">
+                    <h1 className="text-5xl md:text-6xl font-bold mb-4 text-[#FAFAFA]">About us</h1>
+                    <p className="text-[#D3D3D3] text-lg md:text-xl mb-8 max-w-2xl">
                         Book your preferred experience and stay connected with us
                     </p>
-                    <button className="bg-yellow-500 text-black px-8 py-3 rounded-lg font-semibold hover:bg-yellow-400 transition w-fit">
-                        Contact Now
+                    <button className="bg-[#FFCA20] text-black px-8 py-3 rounded-lg font-semibold hover:bg-[#FFCA20]/90 transition w-fit">
+                        Contact now
                     </button>
                 </div>
             </section>
 
-            {/* About MS Cinemas Section */}
-            <section className="container mx-auto px-6 py-16">
-                <h2 className="text-3xl font-bold mb-8">About MS Cinemas</h2>
-                
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
-                    {/* Image */}
-                    <div className="rounded-xl overflow-hidden">
-                        <img 
-                            src="https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=800&q=80" 
-                            alt="Cinema Interior" 
-                            className="w-full h-full object-cover"
-                        />
-                    </div>
+            {/* Main Section with Gradient Background */}
+            <section 
+                style={{
+                    background: 'linear-gradient(180deg, #0a0a0a 0%, #1a1a1a 30%, #2a2a2a 50%, rgba(103, 80, 2, 0.7) 70%, rgba(103, 80, 2, 0.6) 100%)'
+                }}
+            >
+                {/* About MS Cinemas Section */}
+                <div className="py-16">
+                    <div className="container mx-auto px-6">
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+                            {/* Image */}
+                            <div className="rounded-xl overflow-hidden">
+                                <img 
+                                    src="img/about-mid-section.jpg" 
+                                    alt="Cinema Interior" 
+                                    className="w-full h-full object-cover"
+                                    onError={(e) => { e.target.src = 'img/hall_booking2.jpg'; }}
+                                />
+                            </div>
 
-                    {/* Text Content */}
-                    <div className="text-gray-300 space-y-4 leading-relaxed">
-                        <p>
-                            Welcome to MS Cinemas, a place where cinema meets comfort in the most spectacular way. Established with the vision to redefine the movie-watching experience, we are committed to bringing you world-class entertainment wrapped in luxury and innovation.
-                        </p>
-                        <p>
-                            At MS Cinemas, we believe that going to the movies is more than just watching a film—it's an experience to be cherished. Our state-of-the-art screens, cutting-edge sound systems, and plush seating are designed to transport you into the heart of every story. Whether you're catching the latest blockbuster, an indie gem, or a timeless classic, we ensure that every visit is memorable.
-                        </p>
-                        <p>
-                            Beyond movies, we offer a range of services like hall bookings for celebrations, corporate events, and more. Paired with our gourmet food and beverage options, MS Cinemas provides a complete entertainment experience, ensuring that your time with us is nothing short of extraordinary.
-                        </p>
-                        <p>
-                            Join us as we continue to set new benchmarks in entertainment. At MS Cinemas, every seat is the best seat, and every screening is a grand event.
-                        </p>
+                            {/* Text Content */}
+                            <div className="space-y-6">
+                                <h2 className="text-3xl md:text-4xl font-bold text-[#FAFAFA]">About MS Cinemas</h2>
+                                <div className="space-y-4 text-[#FAFAFA] leading-relaxed">
+                                    <p>
+                                        Located in the heart of Kampar, Perak, MS Cinemas is the ultimate destination for movie lovers seeking a complete and immersive cinematic experience. Featuring 8 state-of-the-art screens, our cinema offers the perfect blend of comfort, technology, and entertainment. Whether you're catching the latest Hollywood blockbuster, a heartwarming local film, or an international release, MS Cinemas provides crystal-clear visuals, powerful surround sound, and cozy seating to ensure every visit is memorable.
+                                    </p>
+                                    <p>
+                                        At MS Cinemas, we believe that watching a movie is more than just seeing a film - it's about creating moments, sharing emotions, and enjoying the magic of cinema together.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Contact Information Section */}
+                <div className="py-16">
+                    <div className="container mx-auto px-6">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            {/* Contact Number Card */}
+                            <div className="bg-[#2a2a2a] rounded-xl p-6 border border-[#3a3a3a]">
+                                <div className="w-12 h-12 bg-[#FFCA20] rounded-full flex items-center justify-center mb-4">
+                                    <Phone size={24} className="text-black" />
+                                </div>
+                                <h3 className="text-xl font-semibold mb-2 text-[#FAFAFA]">Contact number</h3>
+                                <p className="text-[#D3D3D3]">+60 5467 0962</p>
+                            </div>
+
+                            {/* Email Card */}
+                            <div className="bg-[#2a2a2a] rounded-xl p-6 border border-[#3a3a3a]">
+                                <div className="w-12 h-12 bg-[#FFCA20] rounded-full flex items-center justify-center mb-4">
+                                    <Mail size={24} className="text-black" />
+                                </div>
+                                <h3 className="text-xl font-semibold mb-2 text-[#FAFAFA]">Email</h3>
+                                <p className="text-[#D3D3D3]">msckampar@mscinemas.my</p>
+                            </div>
+
+                            {/* Location Card */}
+                            <div className="bg-[#2a2a2a] rounded-xl p-6 border border-[#3a3a3a]">
+                                <div className="w-12 h-12 bg-[#FFCA20] rounded-full flex items-center justify-center mb-4">
+                                    <MapPin size={24} className="text-black" />
+                                </div>
+                                <h3 className="text-xl font-semibold mb-2 text-[#FAFAFA]">Location</h3>
+                                <p className="text-[#D3D3D3] text-sm leading-relaxed">
+                                    TK1701, Terminal Kampar Putra, PT53493 & PT53494, Jalan Putra Permata 9, Taman Kampar, 31900 Kampar, Perak Malaysia
+                                </p>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </section>
 
-            {/* Contact Cards Section */}
-            <section className="container mx-auto px-6 pb-16">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    {/* Contact Number Card */}
-                    <div className="bg-gradient-to-br from-yellow-600 to-yellow-700 rounded-xl p-6">
-                        <div className="w-12 h-12 bg-yellow-500 rounded-full flex items-center justify-center mb-4">
-                            <Phone size={24} className="text-black" />
-                        </div>
-                        <h3 className="text-xl font-semibold mb-2 text-black">Contact number</h3>
-                        <p className="text-black/80">+91-XXX-XXX-XXXX</p>
-                    </div>
-
-                    {/* Email Card */}
-                    <div className="bg-gradient-to-br from-yellow-600 to-yellow-700 rounded-xl p-6">
-                        <div className="w-12 h-12 bg-yellow-500 rounded-full flex items-center justify-center mb-4">
-                            <Mail size={24} className="text-black" />
-                        </div>
-                        <h3 className="text-xl font-semibold mb-2 text-black">Email</h3>
-                        <p className="text-black/80">mscinemas@example.com</p>
-                    </div>
-
-                    {/* Location Card */}
-                    <div className="bg-gradient-to-br from-yellow-600 to-yellow-700 rounded-xl p-6">
-                        <div className="w-12 h-12 bg-yellow-500 rounded-full flex items-center justify-center mb-4">
-                            <MapPin size={24} className="text-black" />
-                        </div>
-                        <h3 className="text-xl font-semibold mb-2 text-black">Location</h3>
-                        <p className="text-black/80">No:10, Sample Street, PO Box 16122, 
-                        CD Road, 2XXX, Ernakulam / Near Perumbavoor, Kochi-Kerala</p>
-                    </div>
-                </div>
-            </section>
-
-            {/* Footer */}
-            <footer className="bg-black border-t border-gray-800">
-                <div className="container mx-auto px-6 py-12">
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
-                        {/* Column 1 */}
-                        <div>
-                            <h4 className="text-white font-semibold mb-4">Home</h4>
-                            <ul className="space-y-2 text-gray-400 text-sm">
-                                <li><a href="#" className="hover:text-white transition">About us</a></li>
-                                <li><a href="#" className="hover:text-white transition">Food & Drinks</a></li>
-                                <li><a href="#" className="hover:text-white transition">Hall Booking</a></li>
-                            </ul>
-                        </div>
-
-                        {/* Column 2 */}
-                        <div>
-                            <h4 className="text-white font-semibold mb-4">About us</h4>
-                            <ul className="space-y-2 text-gray-400 text-sm">
-                                <li><a href="#" className="hover:text-white transition">Our Story</a></li>
-                                <li><a href="#" className="hover:text-white transition">Contact us</a></li>
-                            </ul>
-                        </div>
-
-                        {/* Column 3 */}
-                        <div>
-                            <h4 className="text-white font-semibold mb-4">Connect with us</h4>
-                            <div className="flex gap-4">
-                                <a href="#" className="w-10 h-10 bg-gray-800 rounded-full flex items-center justify-center hover:bg-yellow-500 hover:text-black transition">
-                                    <Facebook size={18} />
-                                </a>
-                                <a href="#" className="w-10 h-10 bg-gray-800 rounded-full flex items-center justify-center hover:bg-yellow-500 hover:text-black transition">
-                                    <Instagram size={18} />
-                                </a>
-                                <a href="#" className="w-10 h-10 bg-gray-800 rounded-full flex items-center justify-center hover:bg-yellow-500 hover:text-black transition">
-                                    <Youtube size={18} />
-                                </a>
-                                <a href="#" className="w-10 h-10 bg-gray-800 rounded-full flex items-center justify-center hover:bg-yellow-500 hover:text-black transition">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                                        <path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-5.2 1.74 2.89 2.89 0 012.31-4.64 2.93 2.93 0 01.88.13V9.4a6.84 6.84 0 00-1-.05A6.33 6.33 0 005 20.1a6.34 6.34 0 0010.86-4.43v-7a8.16 8.16 0 004.77 1.52v-3.4a4.85 4.85 0 01-1-.1z"/>
-                                    </svg>
-                                </a>
-                            </div>
-                        </div>
-
-                        {/* Column 4 - App Download */}
-                        <div>
-                            <div className="space-y-3">
-                                <a href="#" className="block">
-                                    <img 
-                                        src="https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg" 
-                                        alt="App Store" 
-                                        className="h-10"
-                                    />
-                                </a>
-                                <a href="#" className="block">
-                                    <img 
-                                        src="https://upload.wikimedia.org/wikipedia/commons/7/78/Google_Play_Store_badge_EN.svg" 
-                                        alt="Google Play" 
-                                        className="h-10"
-                                    />
-                                </a>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Bottom Footer */}
-                    <div className="border-t border-gray-800 pt-6">
-                        <div className="flex flex-col md:flex-row justify-between items-center gap-4 text-gray-400 text-xs">
-                            <div className="flex gap-6">
-                                <a href="#" className="hover:text-white transition">Terms & Conditions</a>
-                                <a href="#" className="hover:text-white transition">Privacy Policy</a>
-                                <a href="#" className="hover:text-white transition">Disclaimer</a>
-                                <a href="#" className="hover:text-white transition">Cookie Policy</a>
-                                <a href="#" className="hover:text-white transition">FAQ</a>
-                            </div>
-                            <p>Copyright © 2025 MS Cinemas. All rights reserved</p>
-                        </div>
-                    </div>
-                </div>
-            </footer>
+            <Footer />
         </div>
     );
 }

@@ -1,19 +1,26 @@
-'use client';
+"use client";
 
 import { useState } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { auth } from '@/services/api';
+import { APIError } from '@/services/api';
 
 export default function SignupPage() {
+  const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [showSuccessMessage, setShowSuccessMessage] = useState(false);
+  const [registeredEmail, setRegisteredEmail] = useState('');
   const [formData, setFormData] = useState({
-    username: '',
-    age: '',
-    mobileNumber: '',
+    firstName: '',
     email: '',
     password: '',
-    confirmPassword: '',
-    dob: '',
+    passportNo: '',
+    mobile: '',
+    imageURL: '',
     terms: false
   });
 
@@ -23,132 +30,247 @@ export default function SignupPage() {
       ...formData,
       [name]: type === 'checkbox' ? checked : value
     });
+    if (error) setError('');
   };
 
-  const handleSubmit = () => {
-    console.log('Form submitted:', formData);
-    alert('Sign up successful!');
+  const validateForm = () => {
+    if (!formData.firstName) {
+      setError('Please enter your first name');
+      return false;
+    }
+    if (!formData.email) {
+      setError('Please enter your email');
+      return false;
+    }
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      setError('Please enter a valid email address');
+      return false;
+    }
+    if (!formData.password) {
+      setError('Please enter your password');
+      return false;
+    }
+    if (formData.password.length > 8) {
+      setError('Password length less than or equal to 8 characters');
+      return false;
+    }
+    if (!formData.mobile) {
+      setError('Please enter your mobile number');
+      return false;
+    }
+    if (!formData.terms) {
+      setError('Please accept the Terms of Use and Privacy Policy');
+      return false;
+    }
+    return true;
+  };
+
+  const handleSubmit = async () => {
+    if (!validateForm()) {
+      return;
+    }
+
+    setIsLoading(true);
+    setError('');
+
+    try {
+      const response = await auth.registerUser({
+        Name: formData.firstName,
+        Email: formData.email,
+        Password: formData.password,
+        PassportNo: formData.passportNo || '', // Optional field
+        Mobile: formData.mobile,
+        ImageURL: formData.imageURL || '', // Optional field
+      });
+      
+      // Check registration response
+      // Response format: { userID, name, email, status, remarks }
+      const userStatus = response?.status || response?.Status;
+      const userID = response?.userID || response?.userId || response?.UserID;
+      
+      // Registration successful - backend will send activation email
+      // Show success message with instruction to check email
+      setRegisteredEmail(formData.email);
+      setShowSuccessMessage(true);
+      
+      // Note: The backend (Developer) sends activation email with activation link
+      // User needs to click the link in the email to activate their account
+    } catch (err) {
+      if (err instanceof APIError) {
+        setError(err.message || 'Registration failed. Please try again.');
+      } else {
+        setError('An unexpected error occurred. Please try again.');
+      }
+      console.error('Registration error:', err);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
-    <div className="flex min-h-screen">
-      {/* Left Side - Image Section */}
-      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden">
-        <div className="absolute inset-0">
-          <img 
-            src="img/sing.jpg" 
-            alt="Popcorn"
-            className="w-full h-full object-cover"
-          />
-        </div>
+    <div className="min-h-screen flex flex-col md:flex-row">
+      {/* Left Side - Image (2/3 width on desktop, hidden on mobile) */}
+      <div className="hidden md:block md:w-2/3 relative overflow-hidden">
+        <img
+          src="/img/sing.jpg"
+          alt="Popcorn"
+          className="w-full h-full object-cover"
+        />
       </div>
 
-      {/* Right Side - Form Section */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center bg-gray-900 p-8">
-        <div className="w-full max-w-md">
-          <h2 className="text-white text-3xl font-bold mb-2">Sign up</h2>
-          <p className="text-gray-400 mb-6">
-            Already have an account? <span className="text-yellow-400 hover:underline cursor-pointer">Log In</span>
-          </p>
+      {/* Right Side - Sign Up Form (Full width on mobile, 1/3 on desktop) */}
+      <div className="w-full md:w-1/3 bg-[#1a1a1a] flex items-center justify-center p-6 md:p-8 min-h-screen">
+        <div className="w-full max-w-sm">
+          {/* Header */}
+          <div className="mb-6 md:mb-8">
+            <h2 className="text-3xl md:text-2xl font-bold text-[#FAFAFA] mb-3">Sign up</h2>
+            <p className="text-sm text-[#D3D3D3]">
+              Already have an account?{' '}
+              <Link href="/sign-in" className="text-[#FFCA20] hover:underline">
+                Sign in
+              </Link>
+            </p>
+          </div>
 
+          {/* Error Message */}
+          {error && (
+            <div className="mb-4 p-3 bg-red-500/10 border border-red-500/50 rounded text-sm text-red-400">
+              {error}
+            </div>
+          )}
+
+          {/* Success Message - Activation Email Sent */}
+          {showSuccessMessage && (
+            <div className="mb-4 p-4 bg-green-500/10 border border-green-500/50 rounded">
+              <h3 className="text-lg font-semibold text-green-400 mb-2">Registration Successful!</h3>
+              <p className="text-sm text-green-300 mb-3">
+                An activation link has been sent to <strong>{registeredEmail}</strong>. 
+                Please check your email and click on the activation link to activate your account.
+              </p>
+              <div className="flex gap-3">
+                <Link
+                  href="/sign-in"
+                  className="flex-1 bg-[#FFCA20] text-black font-semibold py-2 px-4 rounded text-center text-sm hover:bg-[#FFCA20]/90 transition"
+                >
+                  Go to Sign In
+                </Link>
+                <button
+                  onClick={() => {
+                    setShowSuccessMessage(false);
+                    setFormData({
+                      firstName: '',
+                      email: '',
+                      password: '',
+                      passportNo: '',
+                      mobile: '',
+                      imageURL: '',
+                      terms: false
+                    });
+                  }}
+                  className="flex-1 bg-[#2a2a2a] border border-[#3a3a3a] text-[#FAFAFA] font-semibold py-2 px-4 rounded text-sm hover:bg-[#3a3a3a] transition"
+                >
+                  Register Another
+                </button>
+              </div>
+            </div>
+          )}
+
+          {!showSuccessMessage && (
           <div className="space-y-4">
-            {/* Username */}
+            {/* First Name */}
             <div>
+              <label className="block text-sm text-[#D3D3D3] mb-2">First name</label>
               <input
                 type="text"
-                name="username"
-                placeholder="Username"
-                value={formData.username}
+                name="firstName"
+                placeholder="First name"
+                value={formData.firstName}
                 onChange={handleChange}
-                className="w-full bg-gray-800 text-white px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400 placeholder-gray-500"
-              />
-            </div>
-
-            {/* Age and Mobile Number */}
-            <div className="flex gap-4">
-              <select
-                name="age"
-                value={formData.age}
-                onChange={handleChange}
-                className="w-1/3 bg-gray-800 text-gray-400 px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400"
-              >
-                <option value="">Age</option>
-                {Array.from({ length: 83 }, (_, i) => i + 18).map(age => (
-                  <option key={age} value={age}>{age}</option>
-                ))}
-              </select>
-              <input
-                type="tel"
-                name="mobileNumber"
-                placeholder="Mobile number"
-                value={formData.mobileNumber}
-                onChange={handleChange}
-                className="flex-1 bg-gray-800 text-white px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400 placeholder-gray-500"
+                className="w-full bg-[#2a2a2a] border border-[#3a3a3a] rounded px-4 py-3 text-[#FAFAFA] text-sm focus:outline-none focus:border-[#FFCA20] transition placeholder-[#D3D3D3]/50"
               />
             </div>
 
             {/* Email */}
             <div>
+              <label className="block text-sm text-[#D3D3D3] mb-2">Email</label>
               <input
                 type="email"
                 name="email"
                 placeholder="Email"
                 value={formData.email}
                 onChange={handleChange}
-                className="w-full bg-gray-800 text-white px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400 placeholder-gray-500"
+                className="w-full bg-[#2a2a2a] border border-[#3a3a3a] rounded px-4 py-3 text-[#FAFAFA] text-sm focus:outline-none focus:border-[#FFCA20] transition placeholder-[#D3D3D3]/50"
               />
             </div>
 
             {/* Password */}
-            <div className="relative">
-              <input
-                type={showPassword ? "text" : "password"}
-                name="password"
-                placeholder="Password"
-                value={formData.password}
-                onChange={handleChange}
-                className="w-full bg-gray-800 text-white px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400 pr-12 placeholder-gray-500"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white"
-              >
-                {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-              </button>
-            </div>
-
-            {/* Confirm Password */}
-            <div className="relative">
-              <input
-                type={showConfirmPassword ? "text" : "password"}
-                name="confirmPassword"
-                placeholder="Confirm password"
-                value={formData.confirmPassword}
-                onChange={handleChange}
-                className="w-full bg-gray-800 text-white px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400 pr-12 placeholder-gray-500"
-              />
-              <button
-                type="button"
-                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white"
-              >
-                {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-              </button>
-            </div>
-
-            {/* Date of Birth */}
             <div>
+              <label className="block text-sm text-[#D3D3D3] mb-2">Password</label>
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  name="password"
+                  placeholder="Password"
+                  value={formData.password}
+                  onChange={handleChange}
+                  className="w-full bg-[#2a2a2a] border border-[#3a3a3a] rounded px-4 py-3 text-[#FAFAFA] text-sm focus:outline-none focus:border-[#FFCA20] transition pr-12 placeholder-[#D3D3D3]/50"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-[#D3D3D3] hover:text-[#FAFAFA] transition"
+                >
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+              </div>
+            </div>
+
+            {/* Passport Number (Optional) */}
+            <div>
+              <label className="block text-sm text-[#D3D3D3] mb-2">
+                Passport Number <span className="text-[#D3D3D3]/50">(Optional)</span>
+              </label>
+                <input
+                type="text"
+                name="passportNo"
+                placeholder="Passport number"
+                value={formData.passportNo}
+                  onChange={handleChange}
+                className="w-full bg-[#2a2a2a] border border-[#3a3a3a] rounded px-4 py-3 text-[#FAFAFA] text-sm focus:outline-none focus:border-[#FFCA20] transition placeholder-[#D3D3D3]/50"
+                />
+              </div>
+
+            {/* Mobile */}
+            <div>
+              <label className="block text-sm text-[#D3D3D3] mb-2">Mobile</label>
               <input
-                type="date"
-                name="dob"
-                value={formData.dob}
+                type="tel"
+                name="mobile"
+                placeholder="Mobile number"
+                value={formData.mobile}
                 onChange={handleChange}
-                className="w-full bg-gray-800 text-gray-400 px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                className="w-full bg-[#2a2a2a] border border-[#3a3a3a] rounded px-4 py-3 text-[#FAFAFA] text-sm focus:outline-none focus:border-[#FFCA20] transition placeholder-[#D3D3D3]/50"
               />
             </div>
 
-            {/* Terms Checkbox */}
+            {/* Image URL (Optional) */}
+            <div>
+              <label className="block text-sm text-[#D3D3D3] mb-2">
+                Image URL <span className="text-[#D3D3D3]/50">(Optional)</span>
+              </label>
+                <input
+                type="url"
+                name="imageURL"
+                placeholder="Image URL"
+                value={formData.imageURL}
+                  onChange={handleChange}
+                className="w-full bg-[#2a2a2a] border border-[#3a3a3a] rounded px-4 py-3 text-[#FAFAFA] text-sm focus:outline-none focus:border-[#FFCA20] transition placeholder-[#D3D3D3]/50"
+                />
+            </div>
+
+            {/* Terms and Conditions */}
             <div className="flex items-start gap-2">
               <input
                 type="checkbox"
@@ -156,22 +278,31 @@ export default function SignupPage() {
                 name="terms"
                 checked={formData.terms}
                 onChange={handleChange}
-                className="mt-1 w-4 h-4 accent-yellow-400"
+                className="mt-1 w-4 h-4 rounded border-[#3a3a3a] bg-[#2a2a2a] text-[#FFCA20] focus:ring-[#FFCA20] focus:ring-offset-0 cursor-pointer"
               />
-              <label htmlFor="terms" className="text-gray-400 text-sm">
-                I have read the <span className="text-yellow-400 hover:underline cursor-pointer">Terms of Use</span> and{' '}
-                <span className="text-yellow-400 hover:underline cursor-pointer">Privacy Policy</span>
+              <label htmlFor="terms" className="text-sm text-[#D3D3D3] leading-relaxed">
+                I have read and agreed to MS cinemas{' '}
+                <Link href="#" className="text-[#FFCA20] hover:underline font-medium">Terms of Use</Link>
+                {' '}and{' '}
+                <Link href="#" className="text-[#FFCA20] hover:underline font-medium">Privacy Policy</Link>
+                , and information provided is accurate.
               </label>
             </div>
 
-            {/* Submit Button */}
+            {/* Sign Up Button */}
             <button
               onClick={handleSubmit}
-              className="w-full bg-yellow-400 text-gray-900 font-bold py-3 rounded-lg hover:bg-yellow-500 transition-colors"
+              disabled={isLoading}
+              className={`w-full bg-[#FFCA20] text-black font-semibold py-3 rounded transition ${
+                isLoading 
+                  ? 'opacity-50 cursor-not-allowed' 
+                  : 'hover:bg-[#FFCA20]/90'
+              }`}
             >
-              Sign Up
+              {isLoading ? 'Signing up...' : 'Sign up'}
             </button>
           </div>
+          )}
         </div>
       </div>
     </div>
