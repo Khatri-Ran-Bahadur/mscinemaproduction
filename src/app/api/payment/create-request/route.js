@@ -191,7 +191,7 @@ export async function POST(request) {
     // Generate vcode (verification code/signature) for MOLPay Seamless
     // Signature is generated using MD5: amount + merchantid + orderid + verifykey (matching process_order.php line 25)
     // Note: Domain is NOT included in vcode calculation for seamless API
-    const vcodeString = `${params.mpsamount}${params.mpsmerchantid}${params.mpsorderid}${FIUU_CONFIG.verifyKey}`;
+    const vcodeString = `${params.mpsamount}${params.mpsmerchantid}${params.mpsorderid}${FIUU_CONFIG.verifyKey}${params.mpscurrency}`;
     const vcode = crypto.createHash('md5').update(vcodeString, 'utf8').digest('hex');
 
     // this md5 generated code match
