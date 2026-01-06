@@ -7,18 +7,20 @@ export default function TestPaymentPage() {
   const router = useRouter();
   const formRef = useRef(null);
   const [formData, setFormData] = useState({
-    billingFirstName: 'Test',
-    billingLastName: 'User',
-    billingEmail: 'test@example.com',
-    billingMobile: '0123456789',
-    billingAddress: 'Test Address',
+    billingFirstName: '',
+    billingLastName: '',
+    billingEmail: '',
+    billingMobile: '',
+    billingAddress: '',
     currency: 'MYR',
     total_amount: '1.01',
-    molpaytimer: '3',
-    molpaytimerbox: '#counter',
+    paymentChannel: '', // Empty = show all methods, or specify channel like 'fpx_mb2u', 'creditAN', etc.
+    molpaytimer: '',
+    molpaytimerbox: '',
   });
   const [isReady, setIsReady] = useState(false);
   const [error, setError] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
   const scriptsLoadedRef = useRef(false);
   const loadingScriptsRef = useRef(false);
 
@@ -57,7 +59,8 @@ export default function TestPaymentPage() {
 
       console.log('Loading jQuery...');
       const jQueryScript = document.createElement('script');
-      jQueryScript.src = 'https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js';
+      // Official Fiuu documentation requires jQuery 3.5.1
+      jQueryScript.src = 'https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js';
       jQueryScript.async = false;
       jQueryScript.onload = () => {
         console.log('jQuery script loaded');
@@ -118,11 +121,11 @@ export default function TestPaymentPage() {
 
       console.log('Loading MOLPay Seamless script...');
       const molpayScript = document.createElement('script');
-      // Use sandbox for testing, production for live
-      // Update this URL when switching to production:
-      // Production: 'https://www.onlinepayment.com.my/MOLPay/API/seamless/3.28/js/MOLPay_seamless.deco.js'
-      // Sandbox: 'https://sandbox.merchant.razer.com/RMS/API/seamless/3.28/js/MOLPay_seamless.deco.js'
-      molpayScript.src = 'https://sandbox.merchant.razer.com/RMS/API/seamless/3.28/js/MOLPay_seamless.deco.js';
+      // Official Fiuu Seamless Integration v3.28 - Production
+      // Documentation: https://github.com/FiuuPayment/Integration-Fiuu_JavaScript_Seamless_Integration/wiki/Fiuu-Seamless-Integration-v3.28-(non-PCI)
+      // Production: 'https://pay.fiuu.com/RMS/API/seamless/3.28/js/MOLPay_seamless.deco.js'
+      // Sandbox (for testing): 'https://sandbox.merchant.razer.com/RMS/API/seamless/3.28/js/MOLPay_seamless.deco.js'
+      molpayScript.src = 'https://pay.fiuu.com/RMS/API/seamless/3.28/js/MOLPay_seamless.deco.js';
       molpayScript.async = false;
       molpayScript.onload = () => {
         console.log('MOLPay Seamless script loaded, waiting for plugin initialization...');
@@ -161,14 +164,11 @@ export default function TestPaymentPage() {
   };
 
   const handleFormSubmit = (e) => {
-    // Don't prevent default - let MOLPay plugin intercept the form submission
-    if (!window.jQuery || !window.jQuery.fn.MOLPaySeamless) {
-      e.preventDefault();
-      setError('Payment gateway is still loading. Please wait a moment and try again.');
-      return;
-    }
-
-    // Validate form before submitting
+    // Official Fiuu demo pattern: Form has role="molpayseamless"
+    // The MOLPay plugin automatically intercepts form submission when role="molpayseamless" is set
+    // It will submit to action URL via AJAX, get JSON response, and process payment automatically
+    
+    // Validate form before allowing submission
     if (!formRef.current?.checkValidity()) {
       e.preventDefault();
       alert("Please fill in all required fields.");
@@ -180,13 +180,33 @@ export default function TestPaymentPage() {
       return;
     }
 
-    console.log('Form submitting - MOLPay plugin will intercept and show all available payment methods');
-    // Don't prevent default - let the plugin handle it
-    // The plugin will:
-    // 1. Submit form to /api/payment/create-request
-    // 2. Get payment parameters
-    // 3. Show modal with ALL available payment methods from Razer Merchant Services
-    // 4. User selects their preferred payment method
+    // Prevent multiple simultaneous submissions
+    if (isProcessing) {
+      e.preventDefault();
+      return;
+    }
+
+    if (!window.jQuery || !window.jQuery.fn.MOLPaySeamless) {
+      e.preventDefault();
+      setError('Payment gateway is still loading. Please wait a moment and try again.');
+      return;
+    }
+
+    // Set processing state - plugin will handle the rest
+    setIsProcessing(true);
+    setError(''); // Clear previous errors
+    
+    // The MOLPay plugin with role="molpayseamless" will:
+    // 1. Prevent default form submission
+    // 2. Submit form data to action URL (/api/payment/create-request) via AJAX
+    // 3. Get JSON response with payment parameters
+    // 4. Initialize payment modal automatically
+    // We don't need to manually handle the submission - plugin does it all
+    
+    // Reset processing state after delay (plugin handles payment flow)
+    setTimeout(() => {
+      setIsProcessing(false);
+    }, 2000);
   };
 
   return (
@@ -194,11 +214,11 @@ export default function TestPaymentPage() {
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg p-6 mb-6">
-          <h1 className="text-2xl font-bold mb-2">Razer Merchant Services Seamless Payment Test</h1>
-          <p className="text-white/60 text-sm">Version 3.28 - Seamless Integration - Sandbox Mode</p>
-          <p className="text-yellow-400 text-xs mt-2">
-            Merchant ID: MScinema_Dev | Amount: RM {formData.total_amount}
-          </p>
+            <h1 className="text-2xl font-bold mb-2">Razer Merchant Services Seamless Payment Test</h1>
+            <p className="text-white/60 text-sm">Version 3.28 - Seamless Integration - Production Mode</p>
+            <p className="text-yellow-400 text-xs mt-2">
+              Merchant ID: {process.env.NEXT_PUBLIC_FIUU_MERCHANT_ID || 'MScinema_Dev'} | Amount: RM {formData.total_amount}
+            </p>
         </div>
 
         {/* Error Message */}
@@ -208,12 +228,14 @@ export default function TestPaymentPage() {
           </div>
         )}
 
-        {/* Form with role="molpayseamless" - This is key for MOLPay plugin */}
+        {/* Form - MOLPay plugin will intercept form submission */}
+        {/* Official Fiuu demo pattern: form has role="molpayseamless" and action pointing to backend */}
         <form
           ref={formRef}
-          method="POST"
-          action="/api/payment/create-request"
+          id="paymentForm"
           role="molpayseamless"
+          action="/api/payment/create-request"
+          method="POST"
           onSubmit={handleFormSubmit}
           className="space-y-6"
         >
@@ -227,7 +249,7 @@ export default function TestPaymentPage() {
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-white/70">Price:</span>
-                <span className="text-white">{formData.currency} {formData.total_amount}</span>
+                <span className="text-white">RM {formData.total_amount}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-white/70">Quantity:</span>
@@ -236,7 +258,7 @@ export default function TestPaymentPage() {
               <div className="border-t border-[#2a2a2a] pt-3 mt-3">
                 <div className="flex justify-between items-center">
                   <span className="text-lg font-semibold">Order Total:</span>
-                  <span className="text-xl font-bold text-[#FFCA20]">{formData.currency} {formData.total_amount}</span>
+                  <span className="text-xl font-bold text-[#FFCA20]">RM {formData.total_amount}</span>
                 </div>
               </div>
             </div>
@@ -314,6 +336,52 @@ export default function TestPaymentPage() {
             </div>
           </div>
 
+          {/* Payment Channel Selection */}
+          <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg p-6">
+            <h2 className="text-lg font-semibold mb-4">Payment Method</h2>
+            <div>
+              <label className="block text-sm text-white/70 mb-2">
+                Payment Channel (Optional)
+              </label>
+              <select
+                className="w-full px-4 py-2 bg-[#2a2a2a] border border-[#3a3a3a] rounded-lg text-white focus:outline-none focus:border-[#FFCA20]"
+                name="payment_options"
+                value={formData.paymentChannel}
+                onChange={(e) => handleInputChange('paymentChannel', e.target.value)}
+              >
+                <option value="">Show All Payment Methods (Recommended)</option>
+                <optgroup label="FPX Online Banking (MYR)">
+                  <option value="fpx">MyClear FPX B2C (All Banks)</option>
+                  <option value="fpx_mb2u">FPX Maybank (Maybank2u)</option>
+                  <option value="fpx_cimbclicks">FPX CIMB Clicks</option>
+                  <option value="fpx_hlb">FPX Hong Leong Bank</option>
+                  <option value="fpx_pbb">FPX Public Bank</option>
+                  <option value="fpx_rhb">FPX RHB Bank</option>
+                  <option value="fpx_bimb">FPX Bank Islam</option>
+                  <option value="fpx_ocbc">FPX OCBC Bank</option>
+                  <option value="fpx_uob">FPX UOB</option>
+                </optgroup>
+                <optgroup label="Credit/Debit Cards">
+                  <option value="creditAN">Credit Card (MYR, SGD)</option>
+                  <option value="credit">Credit Card (MYR)</option>
+                  <option value="credit5">Credit Card (MYR)</option>
+                  <option value="credit18">Credit Card (MYR)</option>
+                </optgroup>
+                <optgroup label="e-Wallets (MYR)">
+                  <option value="GrabPay">GrabPay</option>
+                  <option value="TNG-EWALLET">Touch 'N Go e-Wallet</option>
+                  <option value="BOOST">Boost e-Wallet</option>
+                  <option value="ShopeePay">ShopeePay</option>
+                  <option value="RPP_DuitNowQR">DuitNow QR</option>
+                  <option value="AlipayPlus">Alipay+</option>
+                </optgroup>
+              </select>
+              <p className="text-xs text-white/50 mt-2">
+                <strong>Note:</strong> "maybank2u" is deprecated (removed 2025/03/12). Use "fpx_mb2u" for FPX Maybank. Leave empty to show all available payment methods.
+              </p>
+            </div>
+          </div>
+
           {/* Payment Button */}
           <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg p-6">
             <h2 className="text-lg font-semibold mb-2">Payment</h2>
@@ -326,34 +394,33 @@ export default function TestPaymentPage() {
                 <strong>How it works:</strong>
               </p>
               <ul className="text-xs text-blue-200/80 space-y-1 list-disc list-inside">
+                <li>Select a payment channel above (or leave empty to see all options)</li>
                 <li>Click "Proceed to Payment" below</li>
-                <li>The payment modal will open showing ALL payment methods enabled in your Razer Merchant Services account</li>
-                <li>Select your preferred payment method (Credit Card, FPX, eWallets, etc.)</li>
+                <li>The payment modal will open with your selected payment method (or all methods if none selected)</li>
                 <li>Complete the payment securely</li>
               </ul>
             </div>
 
             <button
+              id="payButton"
               type="submit"
-              disabled={!isReady}
+              disabled={!isReady || isProcessing}
               className={`w-full px-8 py-3 rounded-lg font-medium transition ${
-                isReady
+                isReady && !isProcessing
                   ? 'bg-[#FFCA20] text-black hover:bg-[#FFCA20]/90' 
                   : 'bg-[#FFCA20]/30 text-black/50 cursor-not-allowed'
               }`}
             >
-              {isReady ? 'Proceed to Payment' : 'Loading Payment Gateway...'}
+              {isProcessing ? 'Processing...' : isReady ? 'Proceed to Payment' : 'Loading Payment Gateway...'}
             </button>
           </div>
 
-          {/* Hidden Fields - Required for MOLPay plugin */}
-          {/* Note: payment_options is optional for seamless - plugin will show all available methods */}
-          <input type="hidden" name="payment_options" value="credit" />
+          {/* Hidden Fields - Sent to API to generate payment parameters */}
           <input type="hidden" name="currency" value={formData.currency} />
           <input type="hidden" name="total_amount" value={formData.total_amount} />
           <input type="hidden" name="molpaytimer" value={formData.molpaytimer} />
           <input type="hidden" name="molpaytimerbox" value={formData.molpaytimerbox} />
-          <input type="hidden" name="returnUrl" value={`${typeof window !== 'undefined' ? window.location.origin : ''}/payment/return`} />
+          <input type="hidden" name="returnUrl" value={`${typeof window !== 'undefined' ? window.location.origin : ''}/molpay_return`} />
           <input type="hidden" name="cancelUrl" value={`${typeof window !== 'undefined' ? window.location.origin : ''}/payment/failed`} />
         </form>
 

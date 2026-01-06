@@ -62,9 +62,9 @@ export async function POST(request) {
       }
     }
     
-    // Extract fields matching process_order.php format
+    // Extract fields matching process_order.php format (official Fiuu demo)
     const {
-      payment_options, // payment channel (e.g., 'credit', 'maybank2u', 'fpx')
+      payment_options, // payment channel (e.g., 'credit', 'fpx_mb2u', 'fpx', 'creditAN')
       total_amount, // amount as string
       billingFirstName,
       billingLastName,
@@ -74,6 +74,7 @@ export async function POST(request) {
       currency = 'MYR',
       molpaytimer = '',
       molpaytimerbox = '',
+      razertimer = '', // Alternative name used in demo
       cancelUrl,
       returnUrl,
       notifyUrl = '',
@@ -96,8 +97,9 @@ export async function POST(request) {
       );
     }
 
-    // Use default payment option if not provided (for seamless, plugin will show all methods anyway)
-    const selectedPaymentOption = payment_options || 'credit';
+    // For seamless API, channel can be empty or omitted to show all payment methods
+    // Some sandbox accounts may not support specific channels, so we'll let the plugin show all
+    const selectedPaymentOption = payment_options || ''; // Empty string lets MOLPay show all methods
 
     // Build bill name from first and last name
     const billName = `${billingFirstName || ''} ${billingLastName || ''}`.trim() || 'Customer';
@@ -119,46 +121,98 @@ export async function POST(request) {
       );
     }
 
-    // Build payment parameters for MOLPay Seamless (using mps prefix) - matching process_order.php
+    // Get request origin for URLs
+    const requestOrigin = new URL(request.url).origin;
+    
+    // Check if sandbox mode
+    const isSandbox = FIUU_CONFIG.merchantId.includes('_Dev') || FIUU_CONFIG.merchantId.includes('_Test') || FIUU_CONFIG.merchantId.includes('_Sandbox');
+    
+    // Currency validation - ensure it's supported
+    const upperCurrency = currency.toUpperCase();
+    const supportedCurrencies = ['MYR', 'USD', 'SGD', 'THB', 'PHP', 'IDR', 'VND', 'CNY', 'HKD', 'JPY', 'KRW', 'EUR', 'GBP', 'AUD', 'NZD'];
+    if (!supportedCurrencies.includes(upperCurrency)) {
+      console.warn(`[Payment] Currency ${upperCurrency} might not be supported. Using MYR as fallback.`);
+    }
+    
+    // Build payment parameters for MOLPay Seamless (using mps prefix)
+    // NOTE: Based on WooCommerce implementation, mpsdomain is NOT required for seamless API
+    // The seamless plugin handles domain automatically
     const params = {
       mpsmerchantid: FIUU_CONFIG.merchantId,
-      mpschannel: selectedPaymentOption, // Use selected payment option (plugin will still show all methods)
       mpsamount: amount.toFixed(2), // Format amount to 2 decimal places
       mpsorderid: orderId,
       mpsbill_name: billName,
       mpsbill_email: billEmail,
       mpsbill_mobile: billMobile,
       mpsbill_desc: billDesc,
-      mpscountry: 'MY',
-      mpscurrency: currency,
+      mpscountry: 'MY', // Malaysia
+      mpscurrency: upperCurrency, // Ensure currency is uppercase (MYR not myr)
+      // mpsdomain is NOT included - WooCommerce seamless doesn't use it
       mpsvcode: '', // Will be generated below
       mpsreturnurl: returnUrl,
-      mpscancelurl: cancelUrl || `${new URL(request.url).origin}/payment/failed`,
+      mpscancelurl: cancelUrl || `${requestOrigin}/payment/failed`,
       mpslangcode: 'en',
-      mpstimer: molpaytimer,
-      mpstimerbox: molpaytimerbox,
       mpsapiversion: '3.28' // Updated to match official SDK documentation
     };
+    
+    // mpschannel is MANDATORY according to documentation
+    // Channel codes must match Fiuu documentation (updated 2025/03/12)
+    // Note: "maybank2u" is deprecated - use "fpx_mb2u" instead
+    // If not specified, use empty string (which should show all methods)
+    if (selectedPaymentOption && selectedPaymentOption.trim() !== '') {
+      let channelCode = selectedPaymentOption.trim();
+      
+      // Map deprecated channel codes to current ones
+      const deprecatedChannels = {
+        'maybank2u': 'fpx_mb2u', // Deprecated 2025/03/12 - use fpx_mb2u
+      };
+      
+      if (deprecatedChannels[channelCode]) {
+        console.warn(`[Payment] Deprecated channel code "${channelCode}" mapped to "${deprecatedChannels[channelCode]}"`);
+        channelCode = deprecatedChannels[channelCode];
+      }
+      
+      params.mpschannel = channelCode;
+    } else {
+      // Use empty string to show all methods
+      params.mpschannel = ''; // Empty = show all methods
+    }
+    
+    // Only add timer if specified (matching demo: razertimer or molpaytimer)
+    const timerValue = razertimer || molpaytimer;
+    if (timerValue && timerValue.trim() !== '') {
+      params.mpstimer = parseInt(timerValue) || timerValue;
+    }
+    const timerBoxValue = molpaytimerbox;
+    if (timerBoxValue && timerBoxValue.trim() !== '') {
+      params.mpstimerbox = timerBoxValue;
+    }
 
     // Generate vcode (verification code/signature) for MOLPay Seamless
     // Signature is generated using MD5: amount + merchantid + orderid + verifykey (matching process_order.php line 25)
+    // Note: Domain is NOT included in vcode calculation for seamless API
     const vcodeString = `${params.mpsamount}${params.mpsmerchantid}${params.mpsorderid}${FIUU_CONFIG.verifyKey}`;
     const vcode = crypto.createHash('md5').update(vcodeString, 'utf8').digest('hex');
+
+    // this md5 generated code match
+
     params.mpsvcode = vcode;
     
-    console.log('Payment request parameters:', {
-      merchantId: params.mpsmerchantid,
-      channel: params.mpschannel,
-      amount: params.mpsamount,
-      orderId: params.mpsorderid,
-      vcodeLength: vcode.length
-    });
+    
+    if (isSandbox) {
+      console.warn('[Payment] WARNING: Merchant ID contains "_Dev" but using production endpoint.');
+      console.warn('  Ensure your merchant account is active and configured for production.');
+      console.warn('  If issues occur, verify:');
+      console.warn('    1. Currency "' + upperCurrency + '" is enabled for your merchant account');
+      console.warn('    2. Merchant account "' + FIUU_CONFIG.merchantId + '" is active in production');
+      console.warn('    3. Return URL domain is registered: ' + requestOrigin.replace(/^https?:\/\//, ''));
+    }
 
     // Return response in format matching process_order.php (index2.html style)
-    return NextResponse.json({
+    // Include ALL parameters including mpschannel (which is mandatory)
+    const responseData = {
       status: true,
       mpsmerchantid: params.mpsmerchantid,
-      mpschannel: params.mpschannel,
       mpsamount: params.mpsamount,
       mpsorderid: params.mpsorderid,
       mpsbill_name: params.mpsbill_name,
@@ -168,13 +222,23 @@ export async function POST(request) {
       mpscountry: params.mpscountry,
       mpsvcode: params.mpsvcode,
       mpscurrency: params.mpscurrency,
+      mpschannel: params.mpschannel || '', // Always include (mandatory field)
+      // mpsdomain not included - seamless API doesn't require it
       mpslangcode: params.mpslangcode,
-      mpstimer: params.mpstimer,
-      mpstimerbox: params.mpstimerbox,
       mpscancelurl: params.mpscancelurl,
       mpsreturnurl: params.mpsreturnurl,
-      mpsapiversion: params.mpsapiversion
-    });
+      mpsapiversion: params.mpsapiversion,
+    };
+    
+    // Only include timer if specified
+    if (params.mpstimer) {
+      responseData.mpstimer = params.mpstimer;
+    }
+    if (params.mpstimerbox) {
+      responseData.mpstimerbox = params.mpstimerbox;
+    }
+    
+    return NextResponse.json(responseData);
   } catch (error) {
     console.error('Error creating payment request:', error);
     return NextResponse.json(

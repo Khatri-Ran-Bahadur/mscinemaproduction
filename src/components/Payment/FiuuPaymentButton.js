@@ -165,6 +165,7 @@ export default function FiuuPaymentButton({
           mpsbill_desc: params.mpsbill_desc || billDesc,
           mpscountry: params.mpscountry || country,
           mpscurrency: params.mpscurrency || currency,
+          // mpsdomain not included - WooCommerce seamless doesn't use it
           mpsvcode: params.mpsvcode || '',
           mpsreturnurl: params.mpsreturnurl || `${window.location.origin}/payment/success`,
           mpscancelurl: `${window.location.origin}/payment/failed`,
@@ -187,6 +188,7 @@ export default function FiuuPaymentButton({
           button.setAttribute('data-mpsbill_desc', options.mpsbill_desc);
           button.setAttribute('data-mpscountry', options.mpscountry);
           button.setAttribute('data-mpscurrency', options.mpscurrency);
+          // mpsdomain not included - WooCommerce seamless doesn't use it
           button.setAttribute('data-mpsvcode', options.mpsvcode);
           button.setAttribute('data-mpsreturnurl', options.mpsreturnurl);
           button.setAttribute('data-mpscancelurl', options.mpscancelurl);
