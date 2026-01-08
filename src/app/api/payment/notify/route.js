@@ -6,6 +6,7 @@
 
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
+import { API_BASE_URL } from '@/config/api';
 
 // Razer Merchant Services Configuration from environment variables
 const RMS_CONFIG = {
@@ -13,6 +14,55 @@ const RMS_CONFIG = {
   verifyKey: process.env.FIUU_VERIFY_KEY || '',
   secretKey: process.env.FIUU_SECRET_KEY || '',
 };
+
+/**
+ * Call ReserveBooking API
+ * Note: In server-to-server notification, we don't have access to localStorage
+ * We need to extract booking info from orderid or use a database/cache
+ * For now, we'll try to extract reference number from orderid format
+ */
+async function callReserveBooking(orderid, tranID, channel, amount, currency) {
+  try {
+    // Extract booking info from orderid
+    // OrderID format: MS{timestamp}{random} or may contain reference number
+    // We need to get booking data - this should ideally be stored in a database
+    // For now, we'll log and skip if we can't extract the info
+    
+    // TODO: Implement proper booking data storage/retrieval
+    // Options:
+    // 1. Store booking data in database with orderid as key
+    // 2. Encode reference number in orderid format
+    // 3. Use Redis/cache to store orderid -> booking data mapping
+    
+    console.log('[Payment Notify] ReserveBooking - Order:', orderid, 'Transaction:', tranID);
+    console.warn('[Payment Notify] ReserveBooking requires booking data - implement storage/retrieval');
+    
+    // For now, we'll skip the API call if we can't get booking data
+    // The return URL handler will handle the ReserveBooking call
+    return { success: false, message: 'Booking data not available in server context' };
+  } catch (error) {
+    console.error('[Payment Notify] ReserveBooking error:', error);
+    throw error;
+  }
+}
+
+/**
+ * Call CancelBooking API
+ */
+async function callCancelBooking(orderid, tranID, channel, errorDesc) {
+  try {
+    // Similar to ReserveBooking, we need booking data
+    // For now, we'll log and skip
+    console.log('[Payment Notify] CancelBooking - Order:', orderid, 'Transaction:', tranID);
+    console.warn('[Payment Notify] CancelBooking requires booking data - implement storage/retrieval');
+    
+    // The return URL handler will handle the CancelBooking call
+    return { success: false, message: 'Booking data not available in server context' };
+  } catch (error) {
+    console.error('[Payment Notify] CancelBooking error:', error);
+    throw error;
+  }
+}
 
 /**
  * Verify payment notification signature (skey)
@@ -116,9 +166,14 @@ export async function POST(request) {
       // Payment successful - update booking status
       console.log(`[Payment Notify] Payment successful - Order: ${orderid}, Transaction: ${tranID}, Amount: ${amount}, Channel: ${channel}`);
       
-      // TODO: Update booking status in database
-      // Example: await updateBookingStatus(orderid, 'confirmed', tranID);
-      // You can also do further checking on the paydate as well
+      // Call ReserveBooking API
+      try {
+        await callReserveBooking(orderid, tranID, channel, amount, currency);
+      } catch (err) {
+        console.error('[Payment Notify] Error calling ReserveBooking:', err);
+        // Continue to return success to RazerMS even if ReserveBooking fails
+        // This ensures RazerMS knows we received the notification
+      }
       
       // Return success response to Razer Merchant Services
       // Merchant is recommended to implement IPN once received the payment status
@@ -131,10 +186,13 @@ export async function POST(request) {
       // Payment failed or pending
       console.log(`[Payment Notify] Payment failed - Order: ${orderid}, Status: ${status}, Error: ${error_desc || 'Unknown'}`);
       
-      // TODO: Update booking status in database
-      // Example: await updateBookingStatus(orderid, 'failed', tranID);
-      // Merchant might send query to RazerMS using Merchant requery
-      // to double check payment status for that particular order
+      // Call CancelBooking API
+      try {
+        await callCancelBooking(orderid, tranID, channel, error_desc || 'Payment failed');
+      } catch (err) {
+        console.error('[Payment Notify] Error calling CancelBooking:', err);
+        // Continue to return success to RazerMS even if CancelBooking fails
+      }
       
       return NextResponse.json({
         status: 'RECEIVEOK',

@@ -35,11 +35,128 @@ export default function PaymentFailedPage() {
           error: errorMsg,
           timestamp: new Date().toISOString(),
         }));
+
+        // Get booking data for log
+        const bookingDataStr = localStorage.getItem('bookingData');
+        let bookingData = null;
+        try {
+          bookingData = bookingDataStr ? JSON.parse(bookingDataStr) : null;
+        } catch (e) {
+          console.warn('[Payment Failed] Could not parse booking data:', e);
+        }
+
+        // Save payment log to JSON file (for testing)
+        const orderid = responseData.orderid || responseData.orderId || '';
+        if (orderid) {
+          try {
+            await fetch('/api/payment/save-log', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                orderId: orderid,
+                status: 'failed',
+                data: {
+                  ...responseData,
+                  error: errorMsg,
+                  bookingData: bookingData,
+                },
+              }),
+            });
+          } catch (logError) {
+            console.warn('[Payment Failed] Failed to save payment log:', logError);
+            // Don't block the flow if log saving fails
+          }
+        }
+
+        // Call CancelBooking API
+        await callCancelBooking(responseData);
       } catch (err) {
         console.error('Payment failure processing error:', err);
         setError('An error occurred processing your payment failure.');
       } finally {
         setIsVerifying(false);
+      }
+    };
+
+    const callCancelBooking = async (responseData) => {
+      try {
+        const orderid = responseData.orderid || responseData.orderId || '';
+        const tranID = responseData.tranID || responseData.tranId || '';
+        const cardType = responseData.cardType || 'card';
+        const errorDesc = responseData.error_desc || responseData.error || 'Payment failed';
+
+        // Get booking data from localStorage
+        const bookingDataStr = localStorage.getItem('bookingData');
+        if (!bookingDataStr) {
+          console.warn('[Payment Failed] Booking data not found, skipping CancelBooking');
+          return;
+        }
+
+        const bookingData = JSON.parse(bookingDataStr);
+        const {
+          cinemaId,
+          showId,
+          confirmedReferenceNo,
+          referenceNo
+        } = bookingData;
+
+        if (!cinemaId || !showId || !confirmedReferenceNo) {
+          console.warn('[Payment Failed] Missing booking information, skipping CancelBooking');
+          return;
+        }
+
+        // Call CancelBooking API - Direct call with authentication
+        const { API_BASE_URL } = await import('@/config/api');
+
+        // Get authentication token - use stored token or fetch new one
+        const { getPublicToken, getToken } = await import('@/utils/storage');
+        const { getPublicToken: fetchPublicToken } = await import('@/services/api/auth');
+        
+        let token = getToken() || getPublicToken();
+        
+        // If no token or expired, fetch new one
+        if (!token) {
+          try {
+            const tokenData = await fetchPublicToken();
+            token = tokenData?.token || tokenData?.Token;
+          } catch (err) {
+            console.warn('[Payment Failed] Could not get token, proceeding without auth:', err);
+          }
+        }
+
+        const queryParams = new URLSearchParams();
+        queryParams.append('TransactionNo', tranID || orderid);
+        queryParams.append('CardType', cardType);
+        queryParams.append('Remarks', errorDesc);
+
+        const url = `${API_BASE_URL}/Booking/CancelBooking/${cinemaId}/${showId}/${confirmedReferenceNo}?${queryParams.toString()}`;
+
+        console.log('[Payment Failed] Calling CancelBooking:', url);
+
+        const headers = {
+          'accept': '*/*',
+          'Content-Type': 'application/json',
+        };
+
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+
+        const response = await fetch(url, {
+          method: 'POST',
+          headers,
+        });
+
+        const data = await response.json();
+        console.log('[Payment Failed] CancelBooking response:', data);
+
+        // Clear booking data after cancellation
+        localStorage.removeItem('bookingData');
+      } catch (err) {
+        console.error('[Payment Failed] CancelBooking error:', err);
+        // Don't show error to user, just log it
       }
     };
 
@@ -87,7 +204,7 @@ export default function PaymentFailedPage() {
 
               <Link
                 href="/"
-                className="inline-block w-full bg-[#3a3a3a] text-white font-semibold py-3 px-6 rounded hover:bg-[#4a4a4a] transition flex items-center justify-center gap-2"
+                className="w-full bg-[#3a3a3a] text-white font-semibold py-3 px-6 rounded hover:bg-[#4a4a4a] transition flex items-center justify-center gap-2"
               >
                 <ArrowLeft className="w-4 h-4" />
                 Back to Home

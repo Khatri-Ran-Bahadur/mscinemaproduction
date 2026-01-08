@@ -34,16 +34,16 @@ export default function MovieBooking() {
   const hasLoadedMovieDetails = useRef(false);
   const hasLoadedCinemas = useRef(false);
   const hasLoadedShowTimes = useRef(false);
+  const hasLoadedShowDates = useRef(false);
   const lastMovieId = useRef(null);
 
   useEffect(() => {
-    generateDates(); // Generate dates locally (today to 1 week)
-    
     // Reset refs when movieId actually changes
     if (movieId && lastMovieId.current !== movieId) {
       hasLoadedMovieDetails.current = false;
       hasLoadedCinemas.current = false;
       hasLoadedShowTimes.current = false;
+      hasLoadedShowDates.current = false;
       lastMovieId.current = movieId;
     }
     
@@ -81,7 +81,12 @@ export default function MovieBooking() {
         await loadMovieDetails(allMoviesData);
       }
       
-      // Step 3: Load cinemas and show times (only once per movieId)
+      // Step 3: Load show dates for the movie (if not already loaded)
+      if (movieId && cinemaId && !hasLoadedShowDates.current) {
+        await loadShowDatesForMovie();
+      }
+      
+      // Step 4: Load cinemas and show times (only once per movieId)
       if (movieId && (!hasLoadedCinemas.current || !hasLoadedShowTimes.current)) {
         hasLoadedCinemas.current = true; // Set immediately to prevent duplicate calls
         hasLoadedShowTimes.current = true; // Set immediately to prevent duplicate calls
@@ -94,7 +99,7 @@ export default function MovieBooking() {
     
     loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [movieId]);
+  }, [movieId, cinemaId]);
 
   // Auto-select experience when movie details are loaded
   useEffect(() => {
@@ -130,40 +135,88 @@ export default function MovieBooking() {
 
   // This useEffect is now handled by the one below that includes movieId and selectedExperience
 
-  // Generate next 7 days for date selection (today to 1 week)
-  const generateDates = () => {
-    const dates = [];
-    const today = new Date();
-    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+  // Load show dates from API and filter by movie and cinema
+  const loadShowDatesForMovie = async () => {
+    if (!movieId || !cinemaId || hasLoadedShowDates.current) return;
     
-    // Generate dates from today to 1 week (7 days total)
-    for (let i = 0; i < 7; i++) {
-      const date = new Date(today);
-      date.setDate(today.getDate() + i);
-      date.setHours(0, 0, 0, 0);
+    try {
+      hasLoadedShowDates.current = true;
+      setError('');
       
-      // Format date as YYYY-MM-DD using local date (not UTC)
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const day = String(date.getDate()).padStart(2, '0');
-      const fullDate = `${year}-${month}-${day}`;
+      // Fetch all show dates from API
+      const allShowDates = await shows.getShowDates();
       
-      dates.push({
-        day: date.getDate().toString(),
-        date: days[date.getDay()],
-        month: months[date.getMonth()],
-        fullDate: fullDate, 
-        dateObj: date
+      if (!Array.isArray(allShowDates) || allShowDates.length === 0) {
+        setAvailableDates([]);
+        return;
+      }
+
+      // Filter show dates for current movie and cinema
+      const movieIdNum = parseInt(movieId);
+      const cinemaIdNum = parseInt(cinemaId);
+      
+      const filteredShowDates = allShowDates.filter(item => {
+        const itemMovieId = parseInt(item.movieID || item.movieId || 0);
+        const itemCinemaId = parseInt(item.cinemaID || item.cinemaId || 0);
+        
+        return itemMovieId === movieIdNum && itemCinemaId === cinemaIdNum;
       });
-    }
-    
-    setAvailableDates(dates);
-    
-    // Auto-select today's date if no date is selected
-    if (!selectedDate && dates.length > 0) {
-      setSelectedDate(dates[0].day);
-      setSelectedDateObj(dates[0].dateObj);
+
+      // Process show dates and convert to display format
+      const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+      
+      // Extract unique dates and convert format
+      const uniqueDatesMap = new Map();
+      
+      filteredShowDates.forEach(item => {
+        const showDateStr = item.showDate || item.ShowDate || item.date;
+        if (!showDateStr) return;
+        
+        // Parse DD-MM-YYYY format to Date object
+        const dateParts = showDateStr.split('-');
+        if (dateParts.length === 3) {
+          const day = parseInt(dateParts[0], 10);
+          const month = parseInt(dateParts[1], 10) - 1; // Month is 0-indexed
+          const year = parseInt(dateParts[2], 10);
+          
+          const dateObj = new Date(year, month, day);
+          dateObj.setHours(0, 0, 0, 0);
+          
+          // Use YYYY-MM-DD as key for uniqueness
+          const fullDate = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+          
+          if (!uniqueDatesMap.has(fullDate)) {
+            uniqueDatesMap.set(fullDate, {
+              day: day.toString(),
+              date: days[dateObj.getDay()],
+              month: months[dateObj.getMonth()],
+              fullDate: fullDate,
+              dateObj: dateObj,
+              showDate: showDateStr // Keep original format
+            });
+          }
+        }
+      });
+      
+      // Convert map to array and sort chronologically
+      const dates = Array.from(uniqueDatesMap.values()).sort((a, b) => a.dateObj - b.dateObj);
+      
+      setAvailableDates(dates);
+      
+      // Auto-select first available date if no date is selected
+      if (!selectedDate && dates.length > 0) {
+        setSelectedDate(dates[0].day);
+        setSelectedDateObj(dates[0].dateObj);
+      }
+      
+      console.log('Loaded show dates for movie', movieId, 'cinema', cinemaId, ':', dates.length, dates);
+    } catch (err) {
+      console.error('Error loading show dates:', err);
+      hasLoadedShowDates.current = false; // Reset on error to allow retry
+      setError('Failed to load show dates. Please try again.');
+      // Fallback to empty dates array
+      setAvailableDates([]);
     }
   };
 
@@ -353,10 +406,8 @@ export default function MovieBooking() {
         
         setAllShowTimes(transformedShowTimes);
         
-        // Update available dates based on show times (extend range if needed)
-        if (transformedShowTimes.length > 0) {
-          updateAvailableDatesFromShowTimes(transformedShowTimes);
-        }
+        // Note: Available dates are now loaded from getShowDates() API
+        // They are not updated based on show times anymore
         
         // Filter will be applied by useEffect when date is selected
       }
@@ -372,61 +423,9 @@ export default function MovieBooking() {
     }
   };
   
-  // Update available dates based on show times (limit to 7 days total: today + 6 more days)
-  const updateAvailableDatesFromShowTimes = (showTimes) => {
-    if (!showTimes || showTimes.length === 0) return;
-    
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
-    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
-    
-    // Extract unique dates from show times that are within the next 7 days
-    const showDatesSet = new Set();
-    showTimes.forEach(show => {
-      if (show.showDate) {
-        const dateStr = show.showDate.split('T')[0]; // Get YYYY-MM-DD format
-        const showDate = new Date(dateStr + 'T00:00:00');
-        const maxDate = new Date(today);
-        maxDate.setDate(today.getDate() + 6); // 6 days from today = 7 days total
-        
-        // Only include dates from today to maxDate (7 days total)
-        if (showDate >= today && showDate <= maxDate) {
-          showDatesSet.add(dateStr);
-        }
-      }
-    });
-    
-    // Generate exactly 7 days from today (today + 6 more days)
-    const newDates = [];
-    for (let i = 0; i < 7; i++) {
-      const currentDate = new Date(today);
-      currentDate.setDate(today.getDate() + i);
-      
-      // Format date as YYYY-MM-DD using local date (not UTC)
-      const year = currentDate.getFullYear();
-      const month = String(currentDate.getMonth() + 1).padStart(2, '0');
-      const day = String(currentDate.getDate()).padStart(2, '0');
-      const fullDate = `${year}-${month}-${day}`;
-      
-      newDates.push({
-        day: currentDate.getDate().toString(),
-        date: days[currentDate.getDay()],
-        month: months[currentDate.getMonth()],
-        fullDate: fullDate,
-        dateObj: new Date(currentDate)
-      });
-    }
-    
-    setAvailableDates(newDates);
-    
-    // Auto-select today's date if no date is selected
-    if (!selectedDate && newDates.length > 0) {
-      setSelectedDate(newDates[0].day);
-      setSelectedDateObj(newDates[0].dateObj);
-    }
-  };
+  // Note: This function is kept for backward compatibility but show dates 
+  // are now loaded from API via loadShowDatesForMovie()
+  // Show dates are determined by API response, not by show times
 
   // Extract YouTube video ID from URL
   const proceedToTicketType = () => {
@@ -773,7 +772,7 @@ export default function MovieBooking() {
                           : 'Available'}
                       >
                         <div className="text-sm font-semibold">{show.time}</div>
-                        <div className="text-xs mt-1 opacity-70">{show.hallName || movieType}</div>
+                        <div className="text-xs mt-1 opacity-70">{show.hallName || 'HALL - 1'}</div>
                       </button>
                     );
                   })}

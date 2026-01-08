@@ -107,21 +107,12 @@ export const registerUser = async (userData) => {
     const encodedEmail = encodeURIComponent(Email);
     const encodedPassword = encodeURIComponent(Password);
     
-    // Build endpoint with path parameters (use placeholder strings if empty, matching Swagger format)
-    // Format: /User/RegisterUser/{Name}/{Email}/{Password}/{PassportNo}/{Mobile}/{ImageURL}
-    const encodedPassportNo = PassportNo && PassportNo.trim() 
-      ? encodeURIComponent(PassportNo.trim()) 
-      : 'PassportNo';
-    const encodedMobile = Mobile && Mobile.trim() 
-      ? encodeURIComponent(Mobile.trim()) 
-      : 'Mobile';
-    const encodedImageURL = ImageURL && ImageURL.trim() 
-      ? encodeURIComponent(ImageURL.trim()) 
-      : 'ImageURL';
+    // Build endpoint with path parameters
+    // Format: /User/RegisterUser/{Name}/{Email}/{Password}/PassportNo/Mobile/ImageURL
+    // Note: PassportNo, Mobile, ImageURL are literal strings in the path, actual values go in query params
+    let endpoint = `/User/RegisterUser/${encodedName}/${encodedEmail}/${encodedPassword}/PassportNo/Mobile/ImageURL`;
     
-    let endpoint = `/User/RegisterUser/${encodedName}/${encodedEmail}/${encodedPassword}/${encodedPassportNo}/${encodedMobile}/${encodedImageURL}`;
-    
-    // Add optional parameters as query parameters if they're provided (matching Swagger format)
+    // Add optional parameters as query parameters if they're provided
     // Format: ?PassportNo={PassportNo}&Mobile={Mobile}&ImageURL={ImageURL}
     const queryParams = new URLSearchParams();
     if (PassportNo && PassportNo.trim()) {
@@ -139,7 +130,8 @@ export const registerUser = async (userData) => {
     }
     
     // POST request with empty body (parameters are in the path and query)
-    const response = await post(endpoint, {});
+    // Pass null to ensure no body is sent (not even "{}")
+    const response = await post(endpoint, null);
     
     return response;
   } catch (error) {
@@ -269,14 +261,9 @@ export const getMaintenanceModeAndAppVersionById = async (id = 1) => {
  */
 export const getPublicToken = async () => {
   try {
-    // Import client to get the USE_LIVE_API flag and credentials
-    // Note: This function uses the same credentials as ensurePublicToken in client.js
-    // Test: Admin/Admin@11
-    // Live: ONlineMS/cMSol@81
-    const USE_LIVE_API = false; // Should match client.js
-    const credentials = USE_LIVE_API 
-      ? { UserName: 'ONlineMS', UserPassword: 'cMSol@81' }
-      : { UserName: 'Admin', UserPassword: 'Admin@11' };
+    // Import centralized config for credentials
+    const { GUEST_CREDENTIALS } = await import('@/config/api');
+    const credentials = GUEST_CREDENTIALS;
     
     const response = await post('/APIUser/GetToken', credentials);
 

@@ -436,13 +436,16 @@ export default function TicketSelection() {
               <span>|</span>
               <span>{movieLanguage}</span>
             </div>
-            <div className="flex items-center gap-4 text-xs text-white/80">
+            <div className="flex items-center gap-4 text-xs text-white/80 flex-wrap">
               <div className="flex items-center gap-1.5">
                 <MapPin className="w-3.5 h-3.5" />
                 <span>{cinemaName}</span>
               </div>
               <div className="flex items-center gap-1.5 bg-white/10 px-2 py-1 rounded">
                 <span className="font-medium">{displayExperienceType}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="font-medium">{hallName}</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <Clock className="w-3.5 h-3.5" />

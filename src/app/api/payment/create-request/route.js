@@ -78,10 +78,22 @@ export async function POST(request) {
       cancelUrl,
       returnUrl,
       notifyUrl = '',
+      referenceNo = '', // Booking reference number (optional)
     } = paymentData;
 
     // Generate order ID if not provided (like process_order.php does)
-    const orderId = paymentData.orderId || `TEST${Date.now()}${Math.random().toString(36).substr(2, 9)}`;
+    // Include reference number in orderid if provided for easier tracking
+    let orderId = paymentData.orderId;
+    if (!orderId) {
+      const timestamp = Date.now();
+      const random = Math.random().toString(36).substr(2, 9);
+      if (referenceNo) {
+        // Include reference number in orderid: MS{timestamp}{random}_{refNo}
+        orderId = `MS${timestamp}${random}_${referenceNo}`;
+      } else {
+        orderId = `MS${timestamp}${random}`;
+      }
+    }
 
     // Validate required fields (matching process_order.php logic)
     // Note: payment_options is optional for seamless - plugin will show all available methods
@@ -106,7 +118,7 @@ export async function POST(request) {
     const billEmail = billingEmail;
     const billMobile = billingMobile || '';
     const billDesc = billingAddress || 'Payment';
-    const amount = parseFloat(total_amount);
+    const amount = 1.01;// parseFloat(total_amount);
 
     // Validate amount
     if (isNaN(amount) || amount <= 0) {

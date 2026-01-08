@@ -14,64 +14,185 @@ export default function PaymentSuccessPage() {
   const [error, setError] = useState('');
   const [paymentData, setPaymentData] = useState(null);
   const [orderId, setOrderId] = useState('');
+  const [isReserving, setIsReserving] = useState(false);
+  const [reserveError, setReserveError] = useState('');
 
   useEffect(() => {
     const verifyPayment = async () => {
       try {
-        // Get order ID from URL or localStorage
-        const urlOrderId = searchParams?.get('orderId');
-        const storedPayment = localStorage.getItem('paymentResult');
-        let storedData = null;
-        
-        if (storedPayment) {
-          try {
-            storedData = JSON.parse(storedPayment);
-            if (storedData.status === 'success') {
-              setOrderId(storedData.orderId || urlOrderId || '');
-            }
-          } catch (e) {
-            console.error('Error parsing stored payment:', e);
-          }
-        }
-
         // Get payment response parameters from URL
         const responseData = {};
         searchParams?.forEach((value, key) => {
           responseData[key] = value;
         });
 
-        // If we have URL parameters, verify the signature
-        if (Object.keys(responseData).length > 0) {
-          const isValidSignature = await payment.verifyPaymentResponse(responseData);
-          
-          if (isValidSignature) {
-            setIsValid(true);
-            setPaymentData(responseData);
-            setOrderId(responseData.orderid || responseData.OrderID || urlOrderId || '');
-            
-            // Store payment result
-            localStorage.setItem('paymentResult', JSON.stringify({
-              status: 'success',
-              orderId: responseData.orderid || responseData.OrderID || urlOrderId,
-              data: responseData,
-              timestamp: new Date().toISOString(),
-            }));
-          } else {
-            setError('Payment verification failed. Please contact support.');
-          }
-        } else if (storedData && storedData.status === 'success') {
-          // Use stored payment result if no URL params
+        const orderid = responseData.orderid || responseData.orderId || '';
+        const tranID = responseData.tranID || responseData.tranId || '';
+        const status = responseData.status || '';
+        const amount = responseData.amount || '';
+        const currency = responseData.currency || 'MYR';
+        const channel = responseData.channel || '';
+        const cardType = responseData.cardType || 'card';
+
+        // Get booking data for log
+        const bookingDataStr = localStorage.getItem('bookingData');
+        let bookingData = null;
+        try {
+          bookingData = bookingDataStr ? JSON.parse(bookingDataStr) : null;
+        } catch (e) {
+          console.warn('[Payment Success] Could not parse booking data:', e);
+        }
+
+        if (status === '00' && orderid) {
           setIsValid(true);
-          setPaymentData(storedData.data || {});
-          setOrderId(storedData.orderId || '');
+          setPaymentData(responseData);
+          setOrderId(orderid);
+          
+          // Store payment result
+          localStorage.setItem('paymentResult', JSON.stringify({
+            status: 'success',
+            orderId: orderid,
+            data: responseData,
+            timestamp: new Date().toISOString(),
+          }));
+
+          // Save payment log to JSON file (for testing)
+          try {
+            await fetch('/api/payment/save-log', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                orderId: orderid,
+                status: 'success',
+                data: {
+                  ...responseData,
+                  bookingData: bookingData,
+                },
+              }),
+            });
+          } catch (logError) {
+            console.warn('[Payment Success] Failed to save payment log:', logError);
+            // Don't block the flow if log saving fails
+          }
+
+          // Call ReserveBooking API
+          await callReserveBooking(orderid, tranID, cardType, channel);
         } else {
-          setError('No payment data received');
+          setError('Invalid payment status or missing order ID.');
         }
       } catch (err) {
         console.error('Payment verification error:', err);
         setError('Error verifying payment. Please contact support.');
       } finally {
         setIsVerifying(false);
+      }
+    };
+
+    const callReserveBooking = async (orderid, tranID, cardType, channel) => {
+      try {
+        setIsReserving(true);
+        setReserveError('');
+
+        // Get booking data from localStorage
+        const bookingDataStr = localStorage.getItem('bookingData');
+        if (!bookingDataStr) {
+          throw new Error('Booking data not found');
+        }
+
+        const bookingData = JSON.parse(bookingDataStr);
+        const {
+          cinemaId,
+          showId,
+          confirmedReferenceNo,
+          referenceNo,
+          membershipId = 0
+        } = bookingData;
+
+        if (!cinemaId || !showId || !confirmedReferenceNo) {
+          throw new Error('Missing booking information');
+        }
+
+        // Determine authorizeId from channel or cardType
+        let authorizeId = tranID || '';
+        if (channel && (channel.includes('credit') || channel.includes('Credit'))) {
+          authorizeId = tranID || '';
+        }
+
+        // Determine card type from channel
+        let finalCardType = cardType;
+        if (channel) {
+          if (channel.toLowerCase().includes('visa')) {
+            finalCardType = 'visa';
+          } else if (channel.toLowerCase().includes('master')) {
+            finalCardType = 'master';
+          } else if (channel.toLowerCase().includes('credit')) {
+            finalCardType = 'credit';
+          } else {
+            finalCardType = channel.toLowerCase();
+          }
+        }
+
+        // Call ReserveBooking API - Direct call with authentication
+        const { API_BASE_URL } = await import('@/config/api');
+
+        // Get authentication token - use stored token or fetch new one
+        const { getPublicToken, getToken } = await import('@/utils/storage');
+        const { getPublicToken: fetchPublicToken } = await import('@/services/api/auth');
+        
+        let token = getToken() || getPublicToken();
+        
+        // If no token or expired, fetch new one
+        if (!token) {
+          try {
+            const tokenData = await fetchPublicToken();
+            token = tokenData?.token || tokenData?.Token;
+          } catch (err) {
+            console.warn('[Payment Success] Could not get token, proceeding without auth:', err);
+          }
+        }
+
+        const queryParams = new URLSearchParams();
+        queryParams.append('TransactionNo', tranID || orderid);
+        queryParams.append('CardType', finalCardType);
+        if (authorizeId) {
+          queryParams.append('AuthorizeId', authorizeId);
+        }
+        queryParams.append('Remarks', `Payment successful via ${channel || 'payment gateway'}`);
+
+        const url = `${API_BASE_URL}/Booking/ReserveBooking/${cinemaId}/${showId}/${confirmedReferenceNo}/${membershipId}?${queryParams.toString()}`;
+
+        console.log('[Payment Success] Calling ReserveBooking:', url);
+
+        const headers = {
+          'accept': '*/*',
+          'Content-Type': 'application/json',
+        };
+
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+
+        const response = await fetch(url, {
+          method: 'POST',
+          headers,
+        });
+
+        const data = await response.json();
+        console.log('[Payment Success] ReserveBooking response:', data);
+
+        if (!response.ok) {
+          throw new Error(data.message || 'Failed to reserve booking');
+        }
+
+        // Clear booking data after successful reservation
+        localStorage.removeItem('bookingData');
+      } catch (err) {
+        console.error('[Payment Success] ReserveBooking error:', err);
+        setReserveError(err.message || 'Failed to complete booking reservation. Please contact support.');
+      } finally {
+        setIsReserving(false);
       }
     };
 
@@ -97,31 +218,54 @@ export default function PaymentSuccessPage() {
           </>
         ) : isValid ? (
           <>
-            <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-6" />
-            <h1 className="text-2xl font-bold mb-3">Payment Successful!</h1>
-            <p className="text-white/70 mb-2">Your payment has been processed successfully.</p>
-            
-            {paymentData?.orderid && (
-              <div className="mt-4 p-4 bg-[#2a2a2a] rounded text-left">
-                <p className="text-sm text-white/60 mb-1">Order ID:</p>
-                <p className="text-white font-semibold">{paymentData.orderid}</p>
-              </div>
+            {isReserving ? (
+              <>
+                <Loader2 className="w-12 h-12 text-[#FFCA20] animate-spin mx-auto mb-6" />
+                <h1 className="text-2xl font-bold mb-3">Completing Booking...</h1>
+                <p className="text-white/70">Please wait while we finalize your booking.</p>
+              </>
+            ) : (
+              <>
+                <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-6" />
+                <h1 className="text-2xl font-bold mb-3">Payment Successful!</h1>
+                <p className="text-white/70 mb-2">Your payment has been processed successfully.</p>
+                
+                {reserveError && (
+                  <div className="mt-4 p-4 bg-yellow-500/10 border border-yellow-500/50 rounded text-left">
+                    <p className="text-sm text-yellow-400">{reserveError}</p>
+                    <p className="text-xs text-white/60 mt-2">Your payment was successful. Please contact support to complete your booking.</p>
+                  </div>
+                )}
+                
+                {paymentData?.orderid && (
+                  <div className="mt-4 p-4 bg-[#2a2a2a] rounded text-left">
+                    <p className="text-sm text-white/60 mb-1">Order ID:</p>
+                    <p className="text-white font-semibold">{paymentData.orderid}</p>
+                    {paymentData.tranID && (
+                      <>
+                        <p className="text-sm text-white/60 mb-1 mt-2">Transaction ID:</p>
+                        <p className="text-white font-semibold">{paymentData.tranID}</p>
+                      </>
+                    )}
+                  </div>
+                )}
+
+                <button
+                  onClick={handleContinue}
+                  className="mt-6 w-full bg-[#FFCA20] text-black font-semibold py-3 px-6 rounded hover:bg-[#FFCA20]/90 transition flex items-center justify-center gap-2"
+                >
+                  View My Tickets
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+
+                <Link
+                  href="/"
+                  className="mt-4 inline-block text-white/60 hover:text-white text-sm transition"
+                >
+                  Back to Home
+                </Link>
+              </>
             )}
-
-            <button
-              onClick={handleContinue}
-              className="mt-6 w-full bg-[#FFCA20] text-black font-semibold py-3 px-6 rounded hover:bg-[#FFCA20]/90 transition flex items-center justify-center gap-2"
-            >
-              View My Tickets
-              <ArrowRight className="w-4 h-4" />
-            </button>
-
-            <Link
-              href="/"
-              className="mt-4 inline-block text-white/60 hover:text-white text-sm transition"
-            >
-              Back to Home
-            </Link>
           </>
         ) : (
           <>

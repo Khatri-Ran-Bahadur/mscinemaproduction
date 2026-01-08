@@ -53,17 +53,21 @@ export const releaseLockedSeats = async (cinemaId, showId, referenceNo) => {
 
 /**
  * Confirm locked seats
+ * API Signature based on curl example:
+ * /Booking/ConfirmLockedSeats/{ShowID}/{ReferenceNo}/{UserID}/{Email}/{MembershipID}/{PaymentVia}/Name/PassportNo/MobileNo?Name={Name}&MobileNo={MobileNo}&PassportNo={PassportNo}
+ * 
+ * Response: { "id": 0, "remarks": "Failed" } or { "id": 1, "remarks": "Success" }
+ * 
  * @param {number|string} showId - Show ID
  * @param {string} referenceNo - Reference number from lock response
- * @param {number|string} userId - User ID (0 for guest)
+ * @param {number|string} userId - User ID (0 for guest, -1 if no user)
  * @param {string} email - User email
  * @param {number|string} membershipId - Membership ID (0 if no membership)
- * @param {number|string} paymentVia - Payment method ID
- * @param {object} options - Optional parameters
- * @param {string} options.name - User name (optional)
- * @param {string} options.passportNo - Passport number (optional)
- * @param {string} options.mobileNo - Mobile number (optional)
- * @returns {Promise<object>} - Confirm locked seats response
+ * @param {number|string} paymentVia - Payment method ID (0 = RHB, 1 = HotWallet, 2 = RHB MPGS, 3 = Molpay)
+ * @param {string} name - User name
+ * @param {string} passportNo - Passport number (empty string if not provided)
+ * @param {string} mobileNo - Mobile number
+ * @returns {Promise<object>} - Confirm locked seats response with {id, remarks}
  */
 export const confirmLockedSeats = async (
   showId,
@@ -72,26 +76,31 @@ export const confirmLockedSeats = async (
   email = '',
   membershipId = 0,
   paymentVia = 0,
-  options = {}
+  name = '',
+  passportNo = '',
+  mobileNo = ''
 ) => {
   try {
-    const { name = '', passportNo = '', mobileNo = '' } = options;
-    
     // Encode path parameters
-    const encodedEmail = encodeURIComponent(email);
-    const encodedName = encodeURIComponent(name || '');
-    const encodedPassportNo = encodeURIComponent(passportNo || '');
-    const encodedMobileNo = encodeURIComponent(mobileNo || '');
+    const encodedShowId = encodeURIComponent(showId);
+    const encodedReferenceNo = encodeURIComponent(referenceNo);
+    const encodedUserId = encodeURIComponent(userId);
+    const encodedEmail = encodeURIComponent(email || '');
+    const encodedMembershipId = encodeURIComponent(membershipId);
+    const encodedPaymentVia = encodeURIComponent(paymentVia);
     
-    // Build endpoint: /Booking/ConfirmLockedSeats/{ShowID}/{referenceNo}/{UserID}/{Email}/{MembershipID}/{PaymentVia}/Name/PassportNo/MobileNo
-    // Name, PassportNo, MobileNo are query parameters based on API spec
+    // Build query parameters for Name, PassportNo, MobileNo
     const queryParams = new URLSearchParams();
     if (name) queryParams.append('Name', name);
-    if (passportNo) queryParams.append('PassportNo', passportNo);
     if (mobileNo) queryParams.append('MobileNo', mobileNo);
+    if (passportNo) queryParams.append('PassportNo', passportNo);
     
     const queryString = queryParams.toString();
-    const endpoint = `/Booking/ConfirmLockedSeats/${showId}/${referenceNo}/${userId}/${encodedEmail}/${membershipId}/${paymentVia}${queryString ? `?${queryString}` : ''}`;
+    
+    // Build endpoint: /Booking/ConfirmLockedSeats/{ShowID}/{ReferenceNo}/{UserID}/{Email}/{MembershipID}/{PaymentVia}/Name/PassportNo/MobileNo?Name=...&MobileNo=...&PassportNo=...
+    const endpoint = `/Booking/ConfirmLockedSeats/${encodedShowId}/${encodedReferenceNo}/${encodedUserId}/${encodedEmail}/${encodedMembershipId}/${encodedPaymentVia}/Name/PassportNo/MobileNo${queryString ? `?${queryString}` : ''}`;
+    
+    console.log('ConfirmLockedSeats endpoint:', endpoint);
     
     const response = await post(endpoint, {});
     return response;

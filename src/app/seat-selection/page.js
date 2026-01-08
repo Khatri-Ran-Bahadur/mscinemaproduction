@@ -7,6 +7,7 @@ import { shows, movies, cinemas, booking } from '@/services/api';
 import { APIError } from '@/services/api';
 import Loader from '@/components/Loader';
 import { getUserData } from '@/utils/storage';
+import SeatIcon from '@/components/SeatIcon';
 
 export default function SeatSelection() {
   const router = useRouter();
@@ -34,7 +35,7 @@ export default function SeatSelection() {
   const [isConfirming, setIsConfirming] = useState(false);
   const [confirmedReferenceNo, setConfirmedReferenceNo] = useState(null); // Store confirmed reference number
   const [lockReferenceNo, setLockReferenceNo] = useState(null); // Store referenceNo from lockSeat API
-  const [timeLeft, setTimeLeft] = useState(170);
+  const [timeLeft, setTimeLeft] = useState(120); // 2 minutes = 120 seconds
   // Form state for booking modal
   const [formData, setFormData] = useState({
     name: '',
@@ -43,10 +44,10 @@ export default function SeatSelection() {
     mobile: '',
     membershipNo: ''
   });
-  const [formErrors, setFormErrors] = useState({}); // 2:50 minutes = 170 seconds
+  const [formErrors, setFormErrors] = useState({});
   const [timerActive, setTimerActive] = useState(false); // Timer only active after locking seats
 
-  // Countdown timer effect
+  // Countdown timer effect - 2 minutes timer
   useEffect(() => {
     let interval = null;
     if (timerActive && timeLeft > 0) {
@@ -54,31 +55,49 @@ export default function SeatSelection() {
         setTimeLeft(time => {
           if (time <= 1) {
             setTimerActive(false);
-            // Timer expired - release locked seats
-            if (lockReferenceNo) {
+            // Timer expired - release seats and reload page
+            if (confirmedReferenceNo) {
+              // If confirmed, use ReleaseConfirmedLockedSeats
+              releaseConfirmedSeatLock(cinemaId, showId, confirmedReferenceNo);
+            } else if (lockReferenceNo) {
+              // If only locked, use ReleaseLockedSeats
               releaseSeatLock(cinemaId, showId, lockReferenceNo);
-              setLockReferenceNo(null);
-              setLockSeatResponse(null);
-              setSelectedSeats([]);
-              setShowBookingSummary(false);
             }
+            // Clear state and reload page
+            setLockReferenceNo(null);
+            setConfirmedReferenceNo(null);
+            setLockSeatResponse(null);
+            setSelectedSeats([]);
+            setShowBookingSummary(false);
+            // Reload page after 1 second
+            setTimeout(() => {
+              window.location.reload();
+            }, 1000);
             return 0;
           }
           return time - 1;
         });
       }, 1000);
-    } else if (timeLeft === 0 && lockReferenceNo) {
-      // Timer expired - release seats
-      releaseSeatLock(cinemaId, showId, lockReferenceNo);
+    } else if (timeLeft === 0) {
+      // Timer expired - release seats and reload
+      if (confirmedReferenceNo) {
+        releaseConfirmedSeatLock(cinemaId, showId, confirmedReferenceNo);
+      } else if (lockReferenceNo) {
+        releaseSeatLock(cinemaId, showId, lockReferenceNo);
+      }
       setLockReferenceNo(null);
+      setConfirmedReferenceNo(null);
       setLockSeatResponse(null);
       setSelectedSeats([]);
       setShowBookingSummary(false);
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
     }
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [timerActive, timeLeft, lockReferenceNo, cinemaId, showId]);
+  }, [timerActive, timeLeft, lockReferenceNo, confirmedReferenceNo, cinemaId, showId]);
 
   useEffect(() => {
     // Get total ticket count from localStorage (set by ticket-type page)
@@ -324,6 +343,20 @@ export default function SeatSelection() {
     }
   };
 
+  const releaseConfirmedSeatLock = async (cinemaId, showId, referenceNo) => {
+    if (!referenceNo) return;
+    
+    setIsReleasing(true);
+    try {
+      await booking.releaseConfirmedLockedSeats(cinemaId, showId, referenceNo);
+    } catch (err) {
+      console.error('Error releasing confirmed seat lock:', err);
+      // Don't show error to user for release failures
+    } finally {
+      setIsReleasing(false);
+    }
+  };
+
   // Toggle seat selection - NO API CALL, just local state
   const toggleSeat = (seat) => {
     if (!seat || seat.seatStatus !== 0) return; // Can't select occupied or invalid seats
@@ -492,8 +525,14 @@ export default function SeatSelection() {
       
       // Store reference number and start timer
       setLockReferenceNo(referenceNo);
-      setTimeLeft(170); // Reset to 2:50 minutes
+      setTimeLeft(120); // Reset to 2 minutes (120 seconds)
       setTimerActive(true);
+      
+      // Store timer start time (lock time) in localStorage for payment page
+      // This is the actual timestamp when seats were locked
+      const lockTime = Date.now();
+      localStorage.setItem('timerStartTime', lockTime.toString());
+      localStorage.setItem('lockTime', lockTime.toString()); // Also store as lockTime for clarity
       
       // Initialize form data with user data if available
       const userData = getUserData();
@@ -600,6 +639,7 @@ export default function SeatSelection() {
       const paymentVia = 0; // Default payment method
 
       // Confirm locked seats with form data
+      // API Signature: ShowID, ReferenceNo, UserID, Email, MembershipID, PaymentVia, Name, PassportNo, MobileNo
       const confirmResponse = await booking.confirmLockedSeats(
         showId,
         lockReferenceNo,
@@ -607,16 +647,38 @@ export default function SeatSelection() {
         formData.email.trim(),
         membershipId,
         paymentVia,
-        {
-          name: formData.name.trim(),
-          passportNo: formData.passportNo.trim(),
-          mobileNo: formData.mobile.trim()
-        }
+        formData.name.trim(),
+        formData.passportNo.trim(),
+        formData.mobile.trim()
       );
+      
+      // Check response - API returns {id: 0, remarks: "Failed"} or {id: 1, remarks: "Success"}
+      if (confirmResponse && confirmResponse.remarks === 'Failed') {
+        setError('Failed to confirm seats. Please try again.');
+        setIsConfirming(false);
+        return;
+      }
+
+      // Check if confirmation was successful
+      // API returns: {id: 0, remarks: "Failed"} on failure or {id: 1, remarks: "Success"} on success
+      const isSuccess = confirmResponse && confirmResponse.remarks !== 'Failed' && confirmResponse.id !== 0;
+      
+      if (!isSuccess) {
+        const errorMsg = confirmResponse?.remarks || 'Failed to confirm seats';
+        setError(errorMsg);
+        setIsConfirming(false);
+        return;
+      }
 
       // Store confirmed reference number (might be same or different from lock reference)
       const confirmedRef = confirmResponse?.referenceNo || confirmResponse?.reference || lockReferenceNo;
       setConfirmedReferenceNo(confirmedRef);
+      
+      // Update timer start time in localStorage for payment page (keep original lock time)
+      // Don't reset timer when confirming - continue from lock time
+      const lockTime = localStorage.getItem('timerStartTime') || Date.now().toString();
+      localStorage.setItem('timerStartTime', lockTime);
+      localStorage.setItem('confirmedReferenceNo', confirmedRef);
 
       // Store booking data for payment gateway
       const priceInfo = calculateDetailedPrice();
@@ -632,21 +694,20 @@ export default function SeatSelection() {
         confirmedReferenceNo: confirmedRef,
         confirmResponse,
         membershipId,
-        formData: formData
+        formData: formData,
+        // Include all details for payment page
+        movieDetails: movieDetails,
+        cinemaDetails: cinemaDetails,
+        showTimeDetails: showTimeDetails
       };
       
       localStorage.setItem('bookingData', JSON.stringify(bookingData));
       
-      // Redirect to payment gateway (Razer)
-      // Note: Payment gateway URL should be obtained from confirmResponse or API config
-      // For now, storing data and redirecting - actual payment gateway integration would go here
-      const paymentUrl = confirmResponse?.paymentUrl || confirmResponse?.paymentGatewayUrl;
-      if (paymentUrl) {
-        window.location.href = paymentUrl;
-      } else {
-        // Fallback: navigate to payment page if gateway URL not provided
-        router.push(`/payment?cinemaId=${cinemaId}&showId=${showId}&movieId=${movieId}&referenceNo=${confirmedRef}`);
-      }
+      // Close booking summary modal
+      setShowBookingSummary(false);
+      
+      // Redirect to payment page
+      router.push(`/payment?cinemaId=${cinemaId}&showId=${showId}&movieId=${movieId}&referenceNo=${confirmedRef}`);
     } catch (err) {
       console.error('Error confirming locked seats:', err);
       if (err instanceof APIError) {
@@ -814,6 +875,7 @@ export default function SeatSelection() {
   const movieImage = movieDetails?.imageURL || 'img/banner.jpg';
   const cinemaName = cinemaDetails?.displayName || cinemaDetails?.name || `Cinema ${cinemaId}`;
   const experienceType = movieDetails?.type || '2D';
+  const hallName = showTimeDetails?.hallName || seatLayout?.hallDetails?.hallName || 'HALL - 1';
 
   if (isLoading) {
     return (
@@ -902,13 +964,16 @@ export default function SeatSelection() {
               <span>|</span>
               <span>{movieLanguage}</span>
             </div>
-            <div className="flex items-center gap-4 text-xs text-white/80">
+            <div className="flex items-center gap-4 text-xs text-white/80 flex-wrap">
               <div className="flex items-center gap-1.5">
                 <MapPin className="w-3.5 h-3.5" />
                 <span>{cinemaName}</span>
               </div>
               <div className="flex items-center gap-1.5 bg-white/10 px-2 py-1 rounded">
                 <span className="font-medium">{experienceType}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="font-medium">{hallName}</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <Clock className="w-3.5 h-3.5" />
@@ -923,15 +988,15 @@ export default function SeatSelection() {
         {/* Seat Legend */}
         <div className="flex items-center justify-center flex-wrap gap-3 sm:gap-6 mb-4 sm:mb-8 text-[10px] sm:text-xs">
           <div className="flex items-center gap-1.5 sm:gap-2">
-            <div className="w-4 h-4 sm:w-5 sm:h-5 rounded border-2 border-gray-600 bg-transparent"></div>
+            <SeatIcon variant="outline" className="text-gray-400" />
             <span className="text-white/70">Available</span>
           </div>
           <div className="flex items-center gap-1.5 sm:gap-2">
-            <div className="w-4 h-4 sm:w-5 sm:h-5 rounded bg-[#FFCA20]"></div>
+            <SeatIcon variant="selected" />
             <span className="text-white/70">Selected</span>
           </div>
           <div className="flex items-center gap-1.5 sm:gap-2">
-            <div className="w-4 h-4 sm:w-5 sm:h-5 rounded bg-gray-700"></div>
+            <SeatIcon variant="occupied" />
             <span className="text-white/70">Occupied</span>
           </div>
           <div className="flex items-center gap-1.5 sm:gap-2">
@@ -1012,29 +1077,35 @@ export default function SeatSelection() {
                               <button
                               onClick={() => toggleSeat(seat)}
                               disabled={isOccupied || partnerIsOccupied}
-                              className={`w-6 h-5 sm:w-7 sm:h-6 md:w-8 md:h-7 rounded-l text-[8px] sm:text-[9px] md:text-[10px] flex items-center justify-center transition-all border-2 shrink-0 ${
+                              className={`rounded-l shrink-0 transition-all ${
                                 bothSelected
-                                  ? 'bg-[#FFCA20] text-black font-semibold border-[#FFCA20]' 
+                                  ? '' 
                                   : isOccupied || partnerIsOccupied
-                                    ? 'bg-gray-700 text-gray-500 cursor-not-allowed border-gray-700' 
-                                    : 'border-gray-600 bg-[#2a2a2a] text-white/60 hover:border-gray-500 hover:bg-gray-800/50'
+                                    ? 'cursor-not-allowed opacity-60' 
+                                    : 'hover:opacity-80'
                                   }`}
                               >
-                              {seatNumber}
+                              <SeatIcon 
+                                variant={bothSelected ? 'selected' : (isOccupied || partnerIsOccupied) ? 'occupied' : 'outline'}
+                                className={bothSelected ? '' : (isOccupied || partnerIsOccupied) ? '' : 'text-gray-400'}
+                              />
                               </button>
                             {partnerSeat && (
                               <button
                                 onClick={() => toggleSeat(partnerSeat)}
                                 disabled={isOccupied || partnerIsOccupied}
-                                className={`w-6 h-5 sm:w-7 sm:h-6 md:w-8 md:h-7 rounded-r text-[8px] sm:text-[9px] md:text-[10px] flex items-center justify-center transition-all border-2 border-l-0 shrink-0 ${
+                                className={`rounded-r shrink-0 transition-all ${
                                   bothSelected
-                                    ? 'bg-[#FFCA20] text-black font-semibold border-[#FFCA20]' 
+                                    ? '' 
                                     : isOccupied || partnerIsOccupied
-                                    ? 'bg-gray-700 text-gray-500 cursor-not-allowed border-gray-700' 
-                                    : 'border-gray-600 bg-[#2a2a2a] text-white/60 hover:border-gray-500 hover:bg-gray-800/50'
+                                    ? 'cursor-not-allowed opacity-60' 
+                                    : 'hover:opacity-80'
                                   }`}
                               >
-                                {partnerSeat.seatNo.replace(rowLetter, '')}
+                                <SeatIcon 
+                                  variant={bothSelected ? 'selected' : (isOccupied || partnerIsOccupied) ? 'occupied' : 'outline'}
+                                  className={bothSelected ? '' : (isOccupied || partnerIsOccupied) ? '' : 'text-gray-400'}
+                                />
                               </button>
                             )}
                             </div>
@@ -1049,15 +1120,18 @@ export default function SeatSelection() {
                             key={`${rowLetter}-${column}`}
                             onClick={() => toggleSeat(seat)}
                             disabled={isOccupied}
-                            className={`w-6 h-5 sm:w-7 sm:h-6 md:w-8 md:h-7 rounded text-[8px] sm:text-[9px] md:text-[10px] flex items-center justify-center transition-all border-2 shrink-0 ${
+                            className={`rounded shrink-0 transition-all ${
                               isSelected 
-                                ? 'bg-[#FFCA20] text-black font-semibold border-[#FFCA20]' 
+                                ? '' 
                                 : isOccupied 
-                                ? 'bg-gray-700 text-gray-500 cursor-not-allowed border-gray-700' 
-                                : 'border-gray-600 bg-[#2a2a2a] text-white/60 hover:border-gray-500 hover:bg-gray-800/50'
+                                ? 'cursor-not-allowed opacity-60' 
+                                : 'hover:opacity-80'
                             }`}
                           >
-                            {seatNumber}
+                            <SeatIcon 
+                              variant={isSelected ? 'selected' : isOccupied ? 'occupied' : 'outline'}
+                              className={isSelected ? '' : isOccupied ? '' : 'text-gray-400'}
+                            />
                           </button>
                     );
                       }
@@ -1263,7 +1337,18 @@ export default function SeatSelection() {
                 {/* Right Column - Summary */}
                 <div className="space-y-6">
                   <div>
-                    <h3 className="text-lg font-semibold text-white mb-4">Booking Summary</h3>
+                    <div className="flex justify-between items-center mb-4">
+                      <h3 className="text-lg font-semibold text-white">Booking Summary</h3>
+                      {/* Timer Display */}
+                      {timerActive && timeLeft > 0 && (
+                        <div className="flex items-center gap-2 bg-red-500/10 border border-red-500/50 rounded-lg px-3 py-1">
+                          <Clock className="w-4 h-4 text-red-400" />
+                          <span className="text-sm font-mono text-red-400">
+                            Time Remaining: {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')}
+                          </span>
+                        </div>
+                      )}
+                    </div>
                     
                 {/* Movie Details */}
                     <div className="flex gap-4 mb-6 pb-6 border-b border-[#2a2a2a]">
@@ -1283,6 +1368,7 @@ export default function SeatSelection() {
                       <p>{movieLanguage}</p>
                       <p>{cinemaName}</p>
                       <p>{experienceType}</p>
+                      <p>{hallName}</p>
                       <p>{formatShowDateTime()}</p>
                   </div>
                 </div>

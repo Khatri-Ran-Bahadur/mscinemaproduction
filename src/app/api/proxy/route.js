@@ -4,12 +4,10 @@
  */
 
 import { NextResponse } from 'next/server';
+import { API_CONFIG } from '@/config/api';
 
-// API Configuration - Switch between test and live (must match client.js)
-const USE_LIVE_API = true; // Set to false for test API, true for live API
-const TEST_API_URL = 'http://cinemaapi5.ddns.net/api';
-const LIVE_API_URL = 'https://apiv5.mscinemas.my/api';
-const EXTERNAL_API_URL = USE_LIVE_API ? LIVE_API_URL : TEST_API_URL;
+// API Configuration from centralized config
+const { API_BASE_URL: EXTERNAL_API_URL } = API_CONFIG;
 
 /**
  * Extract user-friendly error message from HTML error page
@@ -108,6 +106,8 @@ async function handleRequest(request, method) {
     if (process.env.NODE_ENV === 'development') {
       console.log('[Proxy] Decoded endpoint:', endpoint);
       console.log('[Proxy] Full URL:', url);
+      console.log('[Proxy] API Base URL:', EXTERNAL_API_URL);
+      console.log('[Proxy] Method:', method);
     }
     
     // Only add additional query parameters if endpoint doesn't already have them
@@ -174,11 +174,61 @@ async function handleRequest(request, method) {
 
     // Make the request to external API
     if (process.env.NODE_ENV === 'development') {
-      console.log(`[Proxy] Making ${method} request to: ${url}`);
-      console.log(`[Proxy] Has Authorization header: ${!!authHeader}`);
     }
     
-    const response = await fetch(url, options);
+    let response;
+    try {
+      // Add timeout to prevent hanging requests
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+      
+      response = await fetch(url, {
+        ...options,
+        signal: controller.signal,
+      });
+      
+      clearTimeout(timeoutId);
+    } catch (fetchError) {
+      // Handle network/connection errors
+      if (fetchError.name === 'AbortError') {
+        console.error('[Proxy] Request timeout after 30s:', url);
+        return NextResponse.json(
+          {
+            error: 'Request timeout',
+            message: 'The API server did not respond within 30 seconds.',
+            details: `Timeout connecting to: ${url}`,
+            suggestion: 'Please check if the API server is running and accessible.',
+          },
+          { status: 504 }
+        );
+      }
+      
+      // Network connection errors
+      const errorMessage = fetchError.message || 'Unknown network error';
+      console.error('[Proxy] Fetch failed:', errorMessage);
+      console.error('[Proxy] Failed URL:', url);
+      console.error('[Proxy] API Base URL:', EXTERNAL_API_URL);
+      
+      return NextResponse.json(
+        {
+          error: 'Connection failed',
+          message: 'Unable to connect to the API server.',
+          details: {
+            url: url,
+            endpoint: endpoint,
+            apiBaseUrl: EXTERNAL_API_URL,
+            error: errorMessage,
+            troubleshooting: [
+              '1. Check if the API server is running',
+              '2. Verify the API URL is correct in your .env.local file',
+              '3. Check your network connection',
+              `4. Test if you can access: ${EXTERNAL_API_URL}`,
+            ],
+          },
+        },
+        { status: 503 }
+      );
+    }
     
     // Log response status for debugging (only in development)
     if (process.env.NODE_ENV === 'development') {

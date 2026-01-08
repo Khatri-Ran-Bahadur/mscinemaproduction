@@ -4,32 +4,16 @@
  */
 
 import { getToken, isTokenExpired, removeToken, getPublicToken, isTokenExpired as isPublicTokenExpired, setPublicToken, removePublicToken, setToken } from '@/utils/storage';
+import { API_CONFIG } from '@/config/api';
 
-// API Configuration - Switch between test and live
-const USE_LIVE_API = true; // Set to false for test API, true for live API
-const TEST_API_URL = 'http://cinemaapi5.ddns.net/api';
-const LIVE_API_URL = 'https://apiv5.mscinemas.my/api';
-const BASE_URL = USE_LIVE_API ? LIVE_API_URL : TEST_API_URL;
-
-// Guest token credentials - Different for test and live
-const TEST_GUEST_CREDENTIALS = {
-  UserName: 'Admin',
-  UserPassword: 'Admin@11'
-};
-
-const LIVE_GUEST_CREDENTIALS = {
-  UserName: 'ONlineMS',
-  UserPassword: 'cMSol@81'
-};
-
-const GUEST_CREDENTIALS = USE_LIVE_API ? LIVE_GUEST_CREDENTIALS : TEST_GUEST_CREDENTIALS;
-// Use Next.js API route as proxy to avoid CORS issues
-const PROXY_URL = '/api/proxy';
-
-// Configuration: Set to false to use direct API calls (when CORS is fixed on backend)
-// Set to true to use proxy (current setup for CORS issues)
-// Using proxy to avoid CORS issues - backend doesn't allow direct browser requests
-const USE_PROXY = true; // Use proxy to avoid CORS issues
+// API Configuration from centralized config
+const {
+  USE_LIVE_API,
+  API_BASE_URL: BASE_URL,
+  GUEST_CREDENTIALS,
+  USE_PROXY,
+  PROXY_URL,
+} = API_CONFIG;
 
 // Cache for public token promise to avoid multiple simultaneous requests
 let publicTokenPromise = null;
@@ -429,10 +413,23 @@ export const get = async (endpoint, params = {}) => {
  * @returns {Promise} - API response data
  */
 export const post = async (endpoint, data = {}) => {
-  return apiRequest(endpoint, {
+  const options = {
     method: 'POST',
-    body: JSON.stringify(data),
-  });
+  };
+  
+  // Only include body if data is provided and not empty
+  // Some APIs (like RegisterUser) expect empty body (not "{}")
+  if (data !== null && data !== undefined) {
+    if (typeof data === 'object' && Object.keys(data).length > 0) {
+      options.body = JSON.stringify(data);
+    } else if (typeof data !== 'object') {
+      // For non-object data (string, number, etc.), stringify it
+      options.body = JSON.stringify(data);
+    }
+    // If data is an empty object {} or null/undefined, don't include body
+  }
+  
+  return apiRequest(endpoint, options);
 };
 
 /**
