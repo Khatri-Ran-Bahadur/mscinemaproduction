@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ChevronLeft, X, Clock, CheckCircle, XCircle } from 'lucide-react';
 import Header from '@/components/header';
 import Footer from '@/components/footer';
+import TicketModal from '@/components/TicketModal';
 import { getUserData } from '@/utils/storage';
 import { booking } from '@/services/api';
 import Loader from '@/components/Loader';
@@ -14,6 +15,9 @@ export default function MyTicketsPage() {
     const [activeTab, setActiveTab] = useState('All');
     const [selectedTicket, setSelectedTicket] = useState(null);
     const [showModal, setShowModal] = useState(false);
+    const [showTicketModal, setShowTicketModal] = useState(false);
+    const [ticketData, setTicketData] = useState(null);
+    const [isLoadingTicket, setIsLoadingTicket] = useState(false);
     const [bookings, setBookings] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState('');
@@ -314,14 +318,41 @@ export default function MyTicketsPage() {
 
     const filteredBookings = getFilteredBookings();
 
-    const handleViewTransaction = (booking) => {
-        setSelectedTicket(booking);
+    const handleViewTransaction = async (bookingItem) => {
+        setSelectedTicket(bookingItem);
         setShowModal(true);
+        
+        // Fetch ticket data for TicketModal
+        if (bookingItem.cinemaID && bookingItem.showID && bookingItem.referenceNo) {
+            setIsLoadingTicket(true);
+            try {
+                const fetchedTicketData = await booking.getTickets(
+                    bookingItem.cinemaID,
+                    bookingItem.showID,
+                    bookingItem.referenceNo
+                );
+                if (fetchedTicketData) {
+                    setTicketData(fetchedTicketData);
+                    setShowTicketModal(true);
+                    setShowModal(false); // Close booking summary modal
+                }
+            } catch (err) {
+                console.error('Error fetching ticket data:', err);
+                // Keep booking summary modal open if ticket fetch fails
+            } finally {
+                setIsLoadingTicket(false);
+            }
+        }
     };
 
     const handleCloseModal = () => {
         setShowModal(false);
         setSelectedTicket(null);
+    };
+
+    const handleCloseTicketModal = () => {
+        setShowTicketModal(false);
+        setTicketData(null);
     };
 
     const handleCancelTicket = () => {
@@ -507,7 +538,14 @@ export default function MyTicketsPage() {
                 </div>
             </div>
 
-            {/* Booking Summary Modal */}
+            {/* Ticket Modal */}
+            <TicketModal
+                ticketData={ticketData}
+                isOpen={showTicketModal}
+                onClose={handleCloseTicketModal}
+            />
+
+            {/* Booking Summary Modal (keep for now, can be removed later) */}
             {showModal && selectedTicket && (
                 <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4 overflow-y-auto">
                     <div className="relative w-full max-w-2xl bg-[#2a2a2a] rounded-lg border border-[#3a3a3a] my-8">

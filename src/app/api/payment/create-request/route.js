@@ -11,18 +11,13 @@ const FIUU_CONFIG = {
   merchantId: process.env.FIUU_MERCHANT_ID || '',
   verifyKey: process.env.FIUU_VERIFY_KEY || '',
   secretKey: process.env.FIUU_SECRET_KEY || '',
+  returnUrl: process.env.FIUU_RETURN_URL || '',
+  cancelUrl: process.env.FIUU_CANCEL_URL || '',
 };
 
 // Validate configuration
 if (!FIUU_CONFIG.merchantId || !FIUU_CONFIG.verifyKey || !FIUU_CONFIG.secretKey) {
   console.error('Fiuu payment gateway credentials are not configured in environment variables');
-  console.error('Missing:', {
-    merchantId: !FIUU_CONFIG.merchantId,
-    verifyKey: !FIUU_CONFIG.verifyKey,
-    secretKey: !FIUU_CONFIG.secretKey
-  });
-} else {
-  console.log('Payment gateway configured with merchant ID:', FIUU_CONFIG.merchantId);
 }
 
 /**
@@ -79,6 +74,9 @@ export async function POST(request) {
       returnUrl,
       notifyUrl = '',
       referenceNo = '', // Booking reference number (optional)
+      cinemaId = '', // Cinema ID for ReserveBooking API
+      showId = '', // Show ID for ReserveBooking API
+      membershipId = '', // Membership ID for ReserveBooking API
     } = paymentData;
 
     // Generate order ID if not provided (like process_order.php does)
@@ -95,15 +93,34 @@ export async function POST(request) {
       }
     }
 
+    // Use return URL and cancel URL from env if provided, otherwise use from request
+    let finalReturnUrl = FIUU_CONFIG.returnUrl || returnUrl;
+    let finalCancelUrl = FIUU_CONFIG.cancelUrl || cancelUrl;
+    
+    // Add booking details to return URL if provided (for ReserveBooking/CancelBooking API calls)
+    if (finalReturnUrl && (cinemaId || showId || referenceNo)) {
+      try {
+        const returnUrlObj = new URL(finalReturnUrl);
+        if (cinemaId) returnUrlObj.searchParams.set('cinemaId', cinemaId);
+        if (showId) returnUrlObj.searchParams.set('showId', showId);
+        if (referenceNo) returnUrlObj.searchParams.set('referenceNo', referenceNo);
+        if (membershipId) returnUrlObj.searchParams.set('membershipId', membershipId);
+        finalReturnUrl = returnUrlObj.toString();
+      } catch (e) {
+        // Invalid URL, use as is
+        console.warn('[Payment Create] Invalid return URL, cannot add booking details:', e);
+      }
+    }
+    
     // Validate required fields (matching process_order.php logic)
     // Note: payment_options is optional for seamless - plugin will show all available methods
-    if (!total_amount || !billingEmail || !returnUrl) {
+    if (!total_amount || !billingEmail || !finalReturnUrl) {
       return NextResponse.json(
         { 
           status: false,
           error_code: '400',
-          error_desc: 'Missing required payment parameters. Required: total_amount, billingEmail, returnUrl',
-          failureurl: cancelUrl || `${new URL(request.url).origin}/test-payment`
+          error_desc: 'Missing required payment parameters. Required: total_amount, billingEmail, returnUrl (or FIUU_RETURN_URL in env)',
+          failureurl: finalCancelUrl || `${new URL(request.url).origin}/payment/failed`
         },
         { status: 400 }
       );
@@ -127,7 +144,7 @@ export async function POST(request) {
           status: false,
           error_code: '400',
           error_desc: 'Invalid amount',
-          failureurl: cancelUrl || `${new URL(request.url).origin}/test-payment`
+          failureurl: finalCancelUrl || `${new URL(request.url).origin}/payment/failed`
         },
         { status: 400 }
       );
@@ -136,15 +153,10 @@ export async function POST(request) {
     // Get request origin for URLs
     const requestOrigin = new URL(request.url).origin;
     
-    // Check if sandbox mode
-    const isSandbox = FIUU_CONFIG.merchantId.includes('_Dev') || FIUU_CONFIG.merchantId.includes('_Test') || FIUU_CONFIG.merchantId.includes('_Sandbox');
-    
     // Currency validation - ensure it's supported
     const upperCurrency = currency.toUpperCase();
     const supportedCurrencies = ['MYR', 'USD', 'SGD', 'THB', 'PHP', 'IDR', 'VND', 'CNY', 'HKD', 'JPY', 'KRW', 'EUR', 'GBP', 'AUD', 'NZD'];
-    if (!supportedCurrencies.includes(upperCurrency)) {
-      console.warn(`[Payment] Currency ${upperCurrency} might not be supported. Using MYR as fallback.`);
-    }
+    // Currency validation - ensure it's supported
     
     // Build payment parameters for MOLPay Seamless (using mps prefix)
     // NOTE: Based on WooCommerce implementation, mpsdomain is NOT required for seamless API
@@ -161,8 +173,8 @@ export async function POST(request) {
       mpscurrency: upperCurrency, // Ensure currency is uppercase (MYR not myr)
       // mpsdomain is NOT included - WooCommerce seamless doesn't use it
       mpsvcode: '', // Will be generated below
-      mpsreturnurl: returnUrl,
-      mpscancelurl: cancelUrl || `${requestOrigin}/payment/failed`,
+      mpsreturnurl: finalReturnUrl?.replace('http://', 'https://') || finalReturnUrl,
+      mpscancelurl: (finalCancelUrl || `${requestOrigin}/payment/failed`)?.replace('http://', 'https://'),
       mpslangcode: 'en',
       mpsapiversion: '3.28' // Updated to match official SDK documentation
     };
@@ -180,7 +192,6 @@ export async function POST(request) {
       };
       
       if (deprecatedChannels[channelCode]) {
-        console.warn(`[Payment] Deprecated channel code "${channelCode}" mapped to "${deprecatedChannels[channelCode]}"`);
         channelCode = deprecatedChannels[channelCode];
       }
       
@@ -201,24 +212,11 @@ export async function POST(request) {
     }
 
     // Generate vcode (verification code/signature) for MOLPay Seamless
-    // Signature is generated using MD5: amount + merchantid + orderid + verifykey (matching process_order.php line 25)
+    // Signature is generated using MD5: amount + merchantid + orderid + verifykey + currency
     // Note: Domain is NOT included in vcode calculation for seamless API
     const vcodeString = `${params.mpsamount}${params.mpsmerchantid}${params.mpsorderid}${FIUU_CONFIG.verifyKey}${params.mpscurrency}`;
     const vcode = crypto.createHash('md5').update(vcodeString, 'utf8').digest('hex');
-
-    // this md5 generated code match
-
     params.mpsvcode = vcode;
-    
-    
-    if (isSandbox) {
-      console.warn('[Payment] WARNING: Merchant ID contains "_Dev" but using production endpoint.');
-      console.warn('  Ensure your merchant account is active and configured for production.');
-      console.warn('  If issues occur, verify:');
-      console.warn('    1. Currency "' + upperCurrency + '" is enabled for your merchant account');
-      console.warn('    2. Merchant account "' + FIUU_CONFIG.merchantId + '" is active in production');
-      console.warn('    3. Return URL domain is registered: ' + requestOrigin.replace(/^https?:\/\//, ''));
-    }
 
     // Return response in format matching process_order.php (index2.html style)
     // Include ALL parameters including mpschannel (which is mandatory)

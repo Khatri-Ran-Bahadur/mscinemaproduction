@@ -258,6 +258,23 @@ export const getMyBookings = async (userId) => {
   }
 };
 
+/**
+ * Get tickets for a booking
+ * @param {number|string} cinemaId - Cinema ID
+ * @param {number|string} showId - Show ID
+ * @param {string} referenceNo - Reference number from booking
+ * @returns {Promise<object>} - Ticket data with booking and ticket details
+ */
+export const getTickets = async (cinemaId, showId, referenceNo) => {
+  try {
+    const response = await get(`/Booking/GetTickets/${cinemaId}/${showId}/${referenceNo}`);
+    return response;
+  } catch (error) {
+    console.error('Get tickets error:', error);
+    throw error;
+  }
+};
+
 export default {
   lockSeats,
   releaseLockedSeats,
@@ -268,5 +285,6 @@ export default {
   confirmBooking,
   isValidMember,
   getMyBookings,
+  getTickets,
 };
 

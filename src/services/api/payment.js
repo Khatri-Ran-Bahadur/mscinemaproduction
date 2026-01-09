@@ -9,7 +9,9 @@
 // This is just for URL configuration
 const FIUU_CONFIG = {
   // API endpoints - Can be overridden via environment variable
-  apiUrl: process.env.NEXT_PUBLIC_FIUU_API_URL || 'https://sandbox.molpay.com/MOLPay/pay',
+  // Production URL: https://www.molpay.com/MOLPay/pay
+  // Sandbox URL: https://sandbox.molpay.com/MOLPay/pay
+  apiUrl: process.env.NEXT_PUBLIC_FIUU_API_URL || 'https://www.molpay.com/MOLPay/pay',
 };
 
 /**
