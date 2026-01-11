@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Play, Star, ChevronLeft, ChevronRight, ArrowRight, Film, Clock, Volume2 } from 'lucide-react';
+import { Play, Star, ChevronLeft, ChevronRight, ArrowRight, Film, Clock, Volume2, X } from 'lucide-react';
 import Header from '@/components/header';
 import Footer from '@/components/footer';
 import { movies as moviesAPI } from '@/services/api';
@@ -10,6 +10,7 @@ import { APIError } from '@/services/api';
 import { ExperienceOurHall } from '@/components/Homepage/ExperienceOurHall';
 import { Promotions } from '@/components/Homepage/Promotions';
 import Loader from '@/components/Loader';
+import { encryptId } from '@/utils/encryption';
 
 export default function MovieStreamingSite() {
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -22,6 +23,8 @@ export default function MovieStreamingSite() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [heroMovies, setHeroMovies] = useState([]);
+  const [showTrailerModal, setShowTrailerModal] = useState(false);
+  const [currentTrailerVideoId, setCurrentTrailerVideoId] = useState(null);
 
   // Ensure currentSlide doesn't exceed available movies
   useEffect(() => {
@@ -33,6 +36,26 @@ export default function MovieStreamingSite() {
   useEffect(() => {
     loadMovies();
   }, []);
+
+  // Helper function to extract YouTube video ID from URL
+  const getYouTubeVideoId = (url) => {
+    if (!url) return null;
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+    const match = url.match(regExp);
+    return (match && match[2].length === 11) ? match[2] : null;
+  };
+
+  // Handle watch trailer button click
+  const handleWatchTrailer = () => {
+    const currentHeroMovie = heroMovies[currentSlide];
+    if (currentHeroMovie && currentHeroMovie.trailerUrl) {
+      const videoId = getYouTubeVideoId(currentHeroMovie.trailerUrl);
+      if (videoId) {
+        setCurrentTrailerVideoId(videoId);
+        setShowTrailerModal(true);
+      }
+    }
+  };
 
   const loadMovies = async () => {
     setIsLoading(true);
@@ -153,10 +176,12 @@ export default function MovieStreamingSite() {
       // Update hero movies with first 5 now showing movies for carousel
       if (nowShowing.length > 0) {
         const heroMoviesList = nowShowing.slice(0, 5).map(movie => ({
+          id: movie.id,
           title: movie.title.toUpperCase(),
           subtitle: movie.title,
           image: movie.image || "img/banner1.jpg",
-          type: movie.type || "2D"
+          type: movie.type || "2D",
+          trailerUrl: movie.trailerUrl || ""
         }));
         setHeroMovies(heroMoviesList);
       } else {
@@ -188,8 +213,9 @@ export default function MovieStreamingSite() {
       <Header/>
 
       {/* Hero Section - Full Banner View */}
+      {/* Hide hero section on mobile during loading, show on desktop */}
       {heroMovies.length > 0 ? (
-      <div className="relative h-[60vh] md:h-screen">
+      <div className={`relative h-[60vh] md:h-screen ${isLoading ? 'hidden md:block' : ''}`}>
         <div className="absolute inset-0">
           <img 
             src={heroMovies[currentSlide]?.image || "img/banner1.jpg"}
@@ -219,8 +245,8 @@ export default function MovieStreamingSite() {
           />
         </div>
         
-        <div className="relative h-full px-4 md:px-6 lg:px-16 z-10">
-          <div className="absolute bottom-12 md:bottom-20 lg:bottom-28 left-4 md:left-6 lg:left-16 max-w-3xl w-[calc(100%-2rem)] md:w-auto">
+        <div className="relative h-full container mx-auto px-4 sm:px-6 lg:px-8 z-10">
+          <div className="absolute bottom-12 md:bottom-20 lg:bottom-28 left-0 right-0 max-w-3xl">
             <h1 className="text-2xl md:text-4xl lg:text-5xl xl:text-6xl font-bold mb-2 text-[#FAFAFA] uppercase tracking-tight leading-tight drop-shadow-lg">
               {heroMovies[currentSlide]?.title || ""}
             </h1>
@@ -237,12 +263,20 @@ export default function MovieStreamingSite() {
             </div>
 
             <div className="flex flex-row space-x-2 md:space-x-3 lg:space-x-4 mb-4 md:mb-6">
-              <button className="bg-transparent border-2 border-[#FFCA20] text-[#FFCA20] px-3 md:px-6 lg:px-8 py-2 md:py-2.5 lg:py-3 rounded font-semibold hover:bg-[#FFCA20] hover:text-black transition text-xs md:text-sm uppercase tracking-wide whitespace-nowrap shadow-lg flex-1 md:flex-initial">
+              <button 
+                onClick={handleWatchTrailer}
+                disabled={!heroMovies[currentSlide]?.trailerUrl || !getYouTubeVideoId(heroMovies[currentSlide]?.trailerUrl)}
+                className={`bg-transparent border-2 border-[#FFCA20] text-[#FFCA20] px-3 md:px-6 lg:px-8 py-2 md:py-2.5 lg:py-3 rounded font-semibold hover:bg-[#FFCA20] hover:text-black transition text-xs md:text-sm uppercase tracking-wide whitespace-nowrap shadow-lg flex-1 md:flex-initial ${
+                  !heroMovies[currentSlide]?.trailerUrl || !getYouTubeVideoId(heroMovies[currentSlide]?.trailerUrl)
+                    ? 'opacity-50 cursor-not-allowed'
+                    : ''
+                }`}
+              >
                 Watch trailer
               </button>
 
               <Link 
-                href={nowShowingMovies[0]?.id ? `/movie-detail?movieId=${nowShowingMovies[0].id}` : '/movie-detail'}
+                href={heroMovies[currentSlide]?.id ? `/movie-detail?movieId=${encryptId(heroMovies[currentSlide].id)}` : '/movie-detail'}
                 className="bg-[#FFCA20] text-black px-3 md:px-6 lg:px-8 py-2 md:py-2.5 lg:py-3 rounded font-semibold hover:bg-[#FFCA20]/90 transition text-xs md:text-sm uppercase tracking-wide inline-block text-center whitespace-nowrap shadow-lg flex-1 md:flex-initial"
               >
                 Book now
@@ -267,7 +301,7 @@ export default function MovieStreamingSite() {
       ) : null}
 
       {/* Movie Listings Section */}
-      <div className="px-4 md:px-6 lg:px-16 py-8 md:py-12">
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
         {/* Navigation Tabs */}
         <div className="flex gap-4 md:gap-6 border-b border-[#2a2a2a] mb-6 md:mb-8 overflow-x-auto scrollbar-hide">
           <button
@@ -410,7 +444,7 @@ export default function MovieStreamingSite() {
 
           {/* Desktop: Horizontal Scrollable Movie List */}
           <div className="hidden md:block">
-            <div className="overflow-x-auto scrollbar-hide pb-4 -mx-6 lg:-mx-16 px-6 lg:px-16">
+            <div className="overflow-x-auto scrollbar-hide pb-4">
               <div className="flex gap-4" style={{ width: 'max-content' }}>
                 {(() => {
                   let moviesToShow = [];
@@ -436,7 +470,7 @@ export default function MovieStreamingSite() {
                       const isLastChance = activeMovieTab === 'now-showing' && Math.random() > 0.7;
                       
                       return (
-                        <Link href={`/movie-detail?movieId=${movie.id}`} key={movie.id} className="shrink-0 w-48 lg:w-56">
+                        <Link href={`/movie-detail?movieId=${encryptId(movie.id)}`} key={movie.id} className="shrink-0 w-48 lg:w-56">
               <div className="group cursor-pointer">
                 <div className="relative rounded-lg overflow-hidden aspect-[2/3] mb-3">
                   <img 
@@ -501,6 +535,57 @@ export default function MovieStreamingSite() {
 
       {/* Experience Our Hall Section */}
       {!isLoading && <ExperienceOurHall />}
+
+      {/* Trailer Modal */}
+      {showTrailerModal && (
+        <div 
+          className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-2 md:p-4" 
+          onClick={() => setShowTrailerModal(false)}
+        >
+          <div 
+            className="relative w-full max-w-4xl bg-black rounded-lg overflow-hidden" 
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Close button with high z-index and proper positioning */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowTrailerModal(false);
+              }}
+              className="absolute top-2 right-2 md:top-4 md:right-4 z-[100] bg-black/90 hover:bg-black text-[#FAFAFA] p-2 md:p-2.5 rounded-full transition-all shadow-lg border border-white/20 pointer-events-auto"
+              style={{ zIndex: 100 }}
+            >
+              <X className="w-5 h-5 md:w-6 md:h-6" />
+            </button>
+            {currentTrailerVideoId ? (
+              <div className="relative w-full" style={{ paddingBottom: '56.25%', zIndex: 1 }}>
+                <iframe
+                  className="absolute top-0 left-0 w-full h-full"
+                  src={`https://www.youtube.com/embed/${currentTrailerVideoId}?autoplay=1`}
+                  title="Movie Trailer"
+                  frameBorder="0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                  style={{ pointerEvents: 'auto' }}
+                />
+              </div>
+            ) : (
+              <div className="p-12 text-center text-[#FAFAFA]">
+                <p className="text-lg mb-4">Trailer not available</p>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowTrailerModal(false);
+                  }}
+                  className="px-6 py-2 bg-[#FFCA20] text-black rounded hover:bg-[#FFCA20]/90 transition"
+                >
+                  Close
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       <Footer />
     </div>

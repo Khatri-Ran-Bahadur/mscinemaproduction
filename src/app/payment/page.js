@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, Loader2, Clock } from 'lucide-react';
 import { booking } from '@/services/api';
+import { encryptId, decryptId, encryptIds, decryptIds } from '@/utils/encryption';
 
 export default function PaymentPage() {
   const router = useRouter();
@@ -79,7 +80,8 @@ export default function PaymentPage() {
           // No timer found - might be expired, redirect to seat selection
           setError('Booking session expired. Please select seats again.');
           setTimeout(() => {
-            router.push(`/seat-selection?cinemaId=${data.cinemaId}&showId=${data.showId}&movieId=${data.movieId}`);
+            const encrypted = encryptIds({ cinemaId: data.cinemaId || '', showId: data.showId || '', movieId: data.movieId || '' });
+            router.push(`/seat-selection?cinemaId=${encrypted.cinemaId}&showId=${encrypted.showId}&movieId=${encrypted.movieId}`);
           }, 2000);
         }
         
@@ -140,7 +142,8 @@ export default function PaymentPage() {
     
     if (!referenceNo || !cinemaId || !showId) {
       // No reference - just redirect to seat selection
-      window.location.href = `/seat-selection?cinemaId=${cinemaId || ''}&showId=${showId || ''}&movieId=${movieId || ''}`;
+      const encrypted = encryptIds({ cinemaId: cinemaId || '', showId: showId || '', movieId: movieId || '' });
+      window.location.href = `/seat-selection?cinemaId=${encrypted.cinemaId}&showId=${encrypted.showId}&movieId=${encrypted.movieId}`;
       return;
     }
     
@@ -156,7 +159,8 @@ export default function PaymentPage() {
       console.error('Error releasing seats:', err);
     } finally {
       // Always redirect to seat selection page after releasing (reload page)
-      window.location.href = `/seat-selection?cinemaId=${cinemaId || ''}&showId=${showId || ''}&movieId=${movieId || ''}`;
+      const encrypted = encryptIds({ cinemaId: cinemaId || '', showId: showId || '', movieId: movieId || '' });
+      window.location.href = `/seat-selection?cinemaId=${encrypted.cinemaId}&showId=${encrypted.showId}&movieId=${encrypted.movieId}`;
     }
   };
 

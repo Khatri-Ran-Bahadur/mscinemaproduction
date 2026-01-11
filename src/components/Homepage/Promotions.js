@@ -4,7 +4,7 @@ import React from 'react'
 
 export const Promotions = () => {
   return (
-    <div className="px-4 md:px-6 lg:px-16 py-8 md:py-12">
+    <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-12">
         <h3 className="text-xl md:text-2xl font-bold mb-6 md:mb-8 text-[#FAFAFA]">Promotions</h3>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
           {/* Promotion Image 1 */}

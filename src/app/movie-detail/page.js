@@ -5,11 +5,39 @@ import { ChevronLeft, X } from 'lucide-react';
 import { movies, cinemas, shows } from '@/services/api';
 import { APIError } from '@/services/api';
 import Loader from '@/components/Loader';
+import SeatStatusIcon from '@/components/SeatStatusIcon';
+import { encryptId, decryptId, encryptIds, decryptIds } from '@/utils/encryption';
+
+// Movie Icon Component
+const MovieIcon = ({ className = '' }) => (
+  <svg 
+    width="19" 
+    height="19" 
+    viewBox="0 0 19 19" 
+    fill="none" 
+    xmlns="http://www.w3.org/2000/svg"
+    className={className}
+  >
+    <path 
+      fillRule="evenodd" 
+      clipRule="evenodd" 
+      d="M17.4992 11.875V16.875C17.4992 17.0408 17.4333 17.1997 17.3161 17.3169C17.1989 17.4342 17.04 17.5 16.8742 17.5H2.49919C2.33343 17.5 2.17446 17.4342 2.05725 17.3169C1.94004 17.1997 1.87419 17.0408 1.87419 16.875V11.875H17.4992Z" 
+      fill="#D3D3D3"
+    />
+    <path 
+      fillRule="evenodd" 
+      clipRule="evenodd" 
+      d="M0.624192 8.21748V16.875C0.624192 17.3723 0.821736 17.8492 1.17337 18.2008C1.525 18.5524 2.00191 18.75 2.49919 18.75H16.8742C17.3715 18.75 17.8484 18.5524 18.2 18.2008C18.5516 17.8492 18.7492 17.3723 18.7492 16.875V8.13373C18.7492 7.96797 18.6833 7.809 18.5661 7.69179C18.4489 7.57458 18.29 7.50873 18.1242 7.50873H5.62044L10.2448 6.16873C10.2892 6.16113 10.3326 6.14855 10.3742 6.13123L17.2148 4.14873C17.2941 4.12557 17.368 4.08697 17.4323 4.03513C17.4966 3.9833 17.55 3.91926 17.5894 3.84671C17.6289 3.77416 17.6536 3.69452 17.6621 3.61238C17.6707 3.53024 17.6629 3.44722 17.6392 3.3681L17.0117 1.28935C16.8739 0.8322 16.5612 0.447894 16.1417 0.219927C15.7222 -0.00803951 15.2296 -0.061251 14.7711 0.0718533L1.44294 3.93435C1.18895 4.00782 0.952062 4.13096 0.74601 4.29665C0.539959 4.46234 0.36884 4.66727 0.242572 4.89958C0.116303 5.13189 0.0373964 5.38694 0.010424 5.64997C-0.0165484 5.91299 0.00895009 6.17875 0.0854417 6.43185L0.624192 8.21748ZM15.3523 8.75873L14.2298 10.625H17.4992V8.75873H15.3523ZM5.47982 10.625H8.39607L9.51857 8.75873H6.60232L5.47982 10.625ZM1.87419 10.625H4.02107L5.14357 8.75873H1.87419V10.625ZM9.85482 10.625H12.7711L13.8936 8.75873H10.9773L9.85482 10.625ZM3.28732 4.70185L5.06044 6.36998L1.66919 7.35248L1.28232 6.07123C1.25377 5.97635 1.24431 5.87677 1.25447 5.77821C1.26463 5.67966 1.29422 5.5841 1.34152 5.49705C1.38882 5.41 1.45291 5.33318 1.53007 5.27103C1.60723 5.20889 1.69593 5.16265 1.79107 5.13498L3.28732 4.70185ZM4.68169 4.29748L6.45482 5.9656L8.90669 5.25498L7.13357 3.58685L4.68169 4.29748ZM8.52794 3.18248L10.3011 4.85123L13.0742 4.04748L11.3011 2.37873L8.52794 3.18248ZM14.4686 3.6431L12.6954 1.97498L15.1192 1.27248C15.2617 1.23108 15.4147 1.24758 15.5451 1.31838C15.6754 1.38918 15.7726 1.50857 15.8154 1.6506L16.2598 3.12435L14.4686 3.6431Z" 
+      fill="#D3D3D3"
+    />
+  </svg>
+);
 
 export default function MovieBooking() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const movieId = searchParams?.get('movieId');
+  const encryptedMovieId = searchParams?.get('movieId');
+  const movieId = encryptedMovieId ? decryptId(encryptedMovieId) : null;
   // Always use this cinema ID since there's only one cinema
   const cinemaId = '7001';
   
@@ -28,6 +56,7 @@ export default function MovieBooking() {
   const [showAgeConfirmationModal, setShowAgeConfirmationModal] = useState(false);
   const [availableDates, setAvailableDates] = useState([]);
   const [moviesList, setMoviesList] = useState([]);
+  const [showTimeRestrictionModal, setShowTimeRestrictionModal] = useState(false);
   
   // Refs to prevent duplicate API calls
   const hasLoadedMovies = useRef(false);
@@ -435,13 +464,54 @@ export default function MovieBooking() {
       const isAvailable = show && show.sellingStatus === 0 && show.allowOnlineSales === true;
       
       if (isAvailable) {
+        // Check if show time is less than 1 hour from now
+        if (show.showDate) {
+          try {
+            // Parse show date - format: "YYYY-MM-DD"
+            const showDateStr = show.showDate.split('T')[0].split(' ')[0]; // Get YYYY-MM-DD
+            
+            // Get show time - could be in show.time (formatted) or show.showTime (raw)
+            const showTimeStr = show.time || show.showTime || ''; // Format: "HH:mm" or "HH:mm AM/PM"
+            
+            if (showTimeStr) {
+              // Combine date and time
+              // Handle different time formats
+              let showDateTime;
+              if (showTimeStr.includes('AM') || showTimeStr.includes('PM')) {
+                // 12-hour format with AM/PM
+                showDateTime = new Date(`${showDateStr} ${showTimeStr}`);
+              } else {
+                // 24-hour format (HH:mm)
+                showDateTime = new Date(`${showDateStr}T${showTimeStr}:00`);
+              }
+              
+              // Check if the date is valid
+              if (!isNaN(showDateTime.getTime())) {
+                const now = new Date();
+                const timeDifference = showDateTime.getTime() - now.getTime();
+                const hoursDifference = timeDifference / (1000 * 60 * 60); // Convert to hours
+                
+                // If less than 1 hour and in the future, show restriction modal
+                if (hoursDifference < 1 && hoursDifference > 0) {
+                  setShowTimeRestrictionModal(true);
+                  return;
+                }
+              }
+            }
+          } catch (error) {
+            console.error('Error parsing show date/time:', error);
+            // Continue with booking if date parsing fails
+          }
+        }
+        
         // Use showID from the show time (this is the actual show ID from API)
         const showId = show.showID || show.showId || show.id;
         // Pass show time and date for display on ticket-type page
         const showTimeParam = show.showTime ? encodeURIComponent(show.showTime) : '';
         const showDateParam = show.showDate ? encodeURIComponent(show.showDate) : '';
         const experienceType = selectedExperience || movieDetails?.type || '2D';
-        router.push(`/ticket-type?cinemaId=${cinemaId}&showId=${showId}&movieId=${movieId}&showTime=${showTimeParam}&showDate=${showDateParam}&experienceType=${encodeURIComponent(experienceType)}`);
+        const encrypted = encryptIds({ cinemaId, showId, movieId });
+        router.push(`/ticket-type?cinemaId=${encrypted.cinemaId}&showId=${encrypted.showId}&movieId=${encrypted.movieId}&showTime=${showTimeParam}&showDate=${showDateParam}&experienceType=${encodeURIComponent(experienceType)}`);
       } else {
         setError('This show time is not available for online booking.');
         setSelectedTime(null);
@@ -540,7 +610,46 @@ export default function MovieBooking() {
       </div>
     );
   }
-
+  
+  // Time Restriction Modal
+  const TimeRestrictionModal = () => {
+    if (!showTimeRestrictionModal) return null;
+    
+    return (
+      <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+        <div className="bg-[#1c1c1c] rounded-lg max-w-md w-full p-6 border border-[#2a2a2a]">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-xl font-bold text-white">Booking Not Available</h3>
+            <button
+              onClick={() => setShowTimeRestrictionModal(false)}
+              className="text-gray-400 hover:text-white transition"
+            >
+              <X size={24} />
+            </button>
+          </div>
+          
+          <div className="mb-6">
+            <p className="text-white/80 text-sm leading-relaxed">
+              You cannot book this ticket online. The show time is less than 1 hour away.
+            </p>
+            <p className="text-white/80 text-sm leading-relaxed mt-2">
+              Please go to the hall and book directly at the counter.
+            </p>
+          </div>
+          
+          <div className="flex gap-3">
+            <button
+              onClick={() => setShowTimeRestrictionModal(false)}
+              className="flex-1 bg-[#2a2a2a] hover:bg-[#3a3a3a] text-white px-4 py-2 rounded transition"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+  
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-[#D3D3D3]">
       {/* Header */}
@@ -620,33 +729,53 @@ export default function MovieBooking() {
           <h2 className="text-sm font-semibold mb-4 text-[#FAFAFA]">Select Date</h2>
           <div className="flex gap-3 overflow-x-auto pb-2">
             {availableDates.length > 0 ? (
-              availableDates.map((date, index) => (
-                <button
-                  key={date.showDate || `${date.day}-${index}`}
-                  onClick={() => handleDateSelect(date)}
-                  className={`w-16 h-20 rounded-lg flex flex-col items-center justify-center transition shrink-0 ${
-                    selectedDate === date.day
-                      ? 'bg-[#FFCA20] text-black'
-                      : 'bg-[#1a1a1a] text-[#D3D3D3] hover:bg-[#252525] border border-[#2a2a2a]'
-                  }`}
-                >
-                  <span className="text-2xl font-bold">{date.day}</span>
-                  <span className="text-xs mt-1">{date.date}</span>
-                  <span className="text-[10px] mt-0.5 opacity-70">{date.month}</span>
-                </button>
-              ))
+              availableDates.map((date, index) => {
+                // Format date object for display
+                const dateObj = date.dateObj || new Date();
+                const dayOfWeek = dateObj.toLocaleDateString('en-US', { weekday: 'short' });
+                const dayNumber = dateObj.getDate();
+                const month = dateObj.toLocaleDateString('en-US', { month: 'short' });
+                const isSelected = selectedDate === date.day;
+                
+                return (
+                  <button
+                    key={date.showDate || `${date.day}-${index}`}
+                    onClick={() => handleDateSelect(date)}
+                    className={`min-w-[70px] h-[90px] rounded-lg flex flex-col items-center justify-center transition shrink-0 ${
+                      isSelected
+                        ? 'bg-[#FFCA20] text-black'
+                        : 'bg-[#1a1a1a] text-[#FAFAFA] hover:bg-[#252525] border border-[#2a2a2a]'
+                    }`}
+                  >
+                    {/* Day of Week */}
+                    <span className={`text-xs font-medium mb-1 ${isSelected ? 'text-black' : 'text-[#FAFAFA]'}`}>
+                      {dayOfWeek}
+                    </span>
+                    {/* Day Number - Larger and Bolder */}
+                    <span className={`text-2xl md:text-3xl font-bold ${isSelected ? 'text-black' : 'text-[#FAFAFA]'}`}>
+                      {dayNumber}
+                    </span>
+                    {/* Month */}
+                    <span className={`text-xs font-medium mt-1 ${isSelected ? 'text-black' : 'text-[#FAFAFA]'}`}>
+                      {month}
+                    </span>
+                  </button>
+                );
+              })
             ) : (
               <div className="text-sm text-gray-400 py-4">
                 No show dates available for this movie
               </div>
             )}
           </div>
+          {/* Separator Line */}
+          <div className="border-b border-[#2a2a2a] mt-4"></div>
         </div>
 
         {/* Select Experience */}
         <div className="mb-8 px-6 md:px-8">
           <h2 className="text-sm font-semibold mb-4 text-[#FAFAFA]">Select Experience</h2>
-          <div className="flex gap-3 flex-wrap">
+          <div className="flex gap-3 overflow-x-auto pb-2">
             {experiences.map((exp) => {
               const isMovieType = exp === movieType;
               const isSelected = selectedExperience === exp;
@@ -661,12 +790,12 @@ export default function MovieBooking() {
                     }
                   }}
                   disabled={isDisabled}
-                  className={`px-8 py-2.5 rounded-lg text-sm font-medium transition ${
+                  className={`px-6 md:px-8 py-2.5 rounded-lg text-sm font-medium transition shrink-0 whitespace-nowrap ${
                     isSelected
                       ? 'bg-[#FFCA20] text-black'
                       : isDisabled
                       ? 'bg-[#1a1a1a] text-[#666] border border-[#2a2a2a] cursor-not-allowed opacity-50'
-                      : 'bg-[#1a1a1a] text-[#D3D3D3] hover:bg-[#252525] border border-[#2a2a2a]'
+                      : 'bg-[#1a1a1a] text-[#FAFAFA] hover:bg-[#252525] border border-[#2a2a2a]'
                   }`}
                 >
                   {exp}
@@ -674,25 +803,27 @@ export default function MovieBooking() {
               );
             })}
           </div>
+          {/* Separator Line */}
+          <div className="border-b border-[#2a2a2a] mt-4"></div>
         </div>
 
         {/* Select Cinema & Time */}
         <div className="mb-8 px-6 md:px-8">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-semibold text-[#FAFAFA]">Select cinema & Time</h2>
-            <div className="flex gap-6 text-xs">
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-green-500 rounded"></div>
-                <span className="text-[#D3D3D3]">Available</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-[#FFCA20] rounded"></div>
-                <span className="text-[#D3D3D3]">Selling fast</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-red-500 rounded"></div>
-                <span className="text-[#D3D3D3]">Sold out</span>
-              </div>
+          <h2 className="text-sm font-semibold mb-4 text-[#FAFAFA]">Select cinema & Time</h2>
+          
+          {/* Seat Availability Legend */}
+          <div className="flex items-center gap-4 md:gap-6 mb-4 flex-wrap text-xs">
+            <div className="flex items-center gap-2">
+              <SeatStatusIcon status="available" />
+              <span className="text-green-500">Available</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <SeatStatusIcon status="selling-fast" />
+              <span className="text-[#FFCA20]">Selling fast</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <SeatStatusIcon status="sold-out" />
+              <span className="text-red-500">Sold out</span>
             </div>
           </div>
 
@@ -716,21 +847,21 @@ export default function MovieBooking() {
                 cinemasList.map((cinema, index) => (
                   <div key={cinema.id || cinema.cinemaId || `cinema-${index}`}>
                     <div className="flex items-center gap-2 mb-5">
-                      <div className={`w-2.5 h-2.5 rounded-full ${
-                        cinema.available !== false ? 'bg-green-500' : 'bg-red-500'
-                      }`}></div>
-                      <span className="text-sm text-[#D3D3D3]">
-                        {cinema.displayName} -
-                        {/* address in html format */}
-                        <span dangerouslySetInnerHTML={{ __html: cinema.address }} />
+                      <div className="flex-shrink-0">
+                        <MovieIcon />
+                      </div>
+                      <span className="text-sm text-[#FAFAFA]">
+                        {cinema.displayName} - <span dangerouslySetInnerHTML={{ __html: cinema.address }} />
                       </span>
                     </div>
                   </div>
                 ))
               ) : (
             <div className="flex items-center gap-2 mb-5">
-              <div className="w-2.5 h-2.5 bg-green-500 rounded-full"></div>
-                  <span className="text-sm text-[#D3D3D3]">
+              <div className="flex-shrink-0">
+                <MovieIcon />
+              </div>
+                  <span className="text-sm text-[#FAFAFA]">
                     No cinemas available
                   </span>
             </div>
@@ -822,16 +953,21 @@ export default function MovieBooking() {
 
       {/* Trailer Modal */}
       {showTrailerModal && (
-        <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4" onClick={() => setShowTrailerModal(false)}>
+        <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-2 md:p-4" onClick={() => setShowTrailerModal(false)}>
           <div className="relative w-full max-w-4xl bg-black rounded-lg overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            {/* Close button with high z-index and proper positioning */}
             <button
-              onClick={() => setShowTrailerModal(false)}
-              className="absolute top-4 right-4 z-10 bg-black/80 text-[#FAFAFA] p-2 rounded-full hover:bg-black transition"
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowTrailerModal(false);
+              }}
+              className="absolute top-2 right-2 md:top-4 md:right-4 z-[100] bg-black/90 hover:bg-black text-[#FAFAFA] p-2 md:p-2.5 rounded-full transition-all shadow-lg border border-white/20 pointer-events-auto"
+              style={{ zIndex: 100 }}
             >
-              <X className="w-5 h-5" />
+              <X className="w-5 h-5 md:w-6 md:h-6" />
             </button>
             {trailerVideoId ? (
-              <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
+              <div className="relative w-full" style={{ paddingBottom: '56.25%', zIndex: 1 }}>
                 <iframe
                   className="absolute top-0 left-0 w-full h-full"
                   src={`https://www.youtube.com/embed/${trailerVideoId}?autoplay=1`}
@@ -839,13 +975,17 @@ export default function MovieBooking() {
                   frameBorder="0"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                   allowFullScreen
+                  style={{ pointerEvents: 'auto' }}
                 />
               </div>
             ) : (
               <div className="p-12 text-center text-[#FAFAFA]">
                 <p className="text-lg mb-4">Trailer not available</p>
                 <button
-                  onClick={() => setShowTrailerModal(false)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowTrailerModal(false);
+                  }}
                   className="px-6 py-2 bg-[#FFCA20] text-black rounded hover:bg-[#FFCA20]/90 transition"
                 >
                   Close
@@ -946,6 +1086,11 @@ export default function MovieBooking() {
           }}
           onClose={() => setShowAgeConfirmationModal(false)}
         />
+      )}
+
+      {/* Time Restriction Modal */}
+      {showTimeRestrictionModal && (
+        <TimeRestrictionModal />
       )}
     </div>
   );

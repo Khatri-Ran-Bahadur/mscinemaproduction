@@ -6,13 +6,20 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { shows, movies, cinemas } from '@/services/api';
 import { APIError } from '@/services/api';
 import Loader from '@/components/Loader';
+import { encryptId, decryptId, encryptIds, decryptIds } from '@/utils/encryption';
 
 export default function TicketSelection() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const cinemaId = searchParams.get('cinemaId');
-  const showId = searchParams.get('showId');
-  const movieId = searchParams.get('movieId');
+  
+  // Decrypt IDs from URL
+  const encryptedCinemaId = searchParams.get('cinemaId');
+  const encryptedShowId = searchParams.get('showId');
+  const encryptedMovieId = searchParams.get('movieId');
+  
+  const cinemaId = encryptedCinemaId ? decryptId(encryptedCinemaId) : (localStorage.getItem('cinemaId') || '');
+  const showId = encryptedShowId ? decryptId(encryptedShowId) : (localStorage.getItem('showId') || '');
+  const movieId = encryptedMovieId ? decryptId(encryptedMovieId) : (localStorage.getItem('movieId') || '');
   const showTime = searchParams.get('showTime'); // Optional: passed from previous page
   const showDate = searchParams.get('showDate'); // Optional: passed from previous page
   const experienceType = searchParams.get('experienceType') || '2D'; // Experience type (2D, 3D, IMAX, etc.)
@@ -272,7 +279,8 @@ export default function TicketSelection() {
     localStorage.setItem('cinemaId', cinemaId);
     localStorage.setItem('showId', showId);
     localStorage.setItem('movieId', movieId || '');
-    router.push(`/seat-selection?cinemaId=${cinemaId}&showId=${showId}&movieId=${movieId || ''}`);
+    const encrypted = encryptIds({ cinemaId, showId, movieId: movieId || '' });
+    router.push(`/seat-selection?cinemaId=${encrypted.cinemaId}&showId=${encrypted.showId}&movieId=${encrypted.movieId}`);
   };
 
   // Calculate total tickets (twin-seats count as 2)

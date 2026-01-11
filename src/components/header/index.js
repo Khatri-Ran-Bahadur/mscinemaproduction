@@ -192,7 +192,7 @@ const Header = () => {
                     background: 'linear-gradient(0deg, rgba(17, 17, 17, 0) 0%, rgba(17, 17, 17, 0.5) 29.48%, #111111 81.77%)'
                 }}
             />
-            <div className="container mx-auto px-6 py-4 flex items-center justify-between relative z-10">
+            <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between relative z-10">
                 <div className="flex items-center gap-8">
                     <div className="relative">
                         <Link href="/">
@@ -484,7 +484,7 @@ const Header = () => {
                                                         
                                                         {/* More Dropdown Items */}
                                                         {showMobileMoreDropdown && (
-                                                            <div className="pl-4 mt-1 space-y-1 border-l-2 border-[#3a3a3a]/50">
+                                                            <div className="pl-4 mt-1 space-y-1 ">
                                                                 {item.dropdown.map((dropItem) => (
                                                                     <Link
                                                                         key={dropItem.id}

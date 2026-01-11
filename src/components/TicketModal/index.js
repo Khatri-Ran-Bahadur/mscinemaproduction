@@ -346,20 +346,18 @@ export default function TicketModal({ ticketData, isOpen, onClose }) {
           {/* Barcode Section */}
           <div className="px-6 py-6 bg-black/30 flex justify-center">
             <div className="bg-white p-4 rounded">
-              {/* Barcode representation */}
-              <div className="flex items-center justify-center gap-0.5">
-                {Array.from({ length: 50 }).map((_, i) => (
-                  <div
-                    key={i}
-                    className="bg-black"
-                    style={{
-                      width: `${Math.random() * 3 + 1}px`,
-                      height: '80px'
-                    }}
-                  />
-                ))}
+              {/* Barcode */}
+              <div className="flex items-center justify-center">
+                <img
+                  src={`https://barcode.tec-it.com/barcode.ashx?data=${encodeURIComponent(bookingId)}&code=Code128&translate-esc=on`}
+                  alt="Barcode"
+                  className="h-20 w-auto"
+                  onError={(e) => {
+                    // Fallback if barcode service fails
+                    e.target.style.display = 'none';
+                  }}
+                />
               </div>
-              <p className="text-xs text-black text-center mt-2 font-mono tracking-wider">{bookingId}</p>
             </div>
           </div>
         </div>

@@ -18,7 +18,7 @@ export default function Loader({
   };
 
   const containerClasses = fullScreen
-    ? 'min-h-screen bg-[#0a0a0a] flex items-center justify-center'
+    ? 'min-h-screen flex items-center justify-center'
     : 'flex items-center justify-center py-16';
 
   return (
