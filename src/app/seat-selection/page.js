@@ -765,6 +765,7 @@ export default function SeatSelection() {
   };
 
   // Check if seat should be disabled based on ticket type selection
+  // Only twin seats have restrictions, all other seats (normal/handicap) can be selected freely
   const isSeatDisabled = (seat) => {
     if (!seat || seat.seatStatus !== 0) return true; // Disable occupied seats
     
@@ -772,12 +773,7 @@ export default function SeatSelection() {
     const ticketCounts = getTicketTypeCounts();
     const selectedCounts = getSelectedSeatsByType();
     
-    // If no tickets of this type selected, disable this seat type
-    if (seatType === 'twin' && ticketCounts.twin === 0) return true;
-    if (seatType === 'handicap' && ticketCounts.handicap === 0) return true;
-    if (seatType === 'normal' && ticketCounts.normal === 0) return true;
-    
-    // If this seat is already selected, don't disable it
+    // If this seat is already selected, don't disable it (allow deselection)
     const seatIsSelected = selectedSeats.includes(seat.seatNo);
     if (seatType === 'twin' && seat.partnerSeatID) {
       const partnerSeat = seatsData.find(s => s.seatID === seat.partnerSeatID);
@@ -787,18 +783,15 @@ export default function SeatSelection() {
       if (seatIsSelected) return false; // Don't disable selected seat
     }
     
-    // Once we've selected seats of this type, disable remaining seats of the same type
-    // Disable if we've selected at least the required amount
-    if (seatType === 'twin' && selectedCounts.twin >= ticketCounts.twin) {
-      return true; // Disable all other twin seats
-    }
-    if (seatType === 'handicap' && selectedCounts.handicap >= ticketCounts.handicap) {
-      return true; // Disable all other handicap seats
-    }
-    if (seatType === 'normal' && selectedCounts.normal >= ticketCounts.normal) {
-      return true; // Disable all other normal seats
+    // Only apply restrictions to twin seats
+    // All other seats (normal/handicap) can be selected freely
+    if (seatType === 'twin') {
+      if (ticketCounts.twin === 0) return true; // No twin tickets selected
+      if (selectedCounts.twin >= ticketCounts.twin) return true; // Already selected all twin seats needed
+      return false; // Can select more twin seats
     }
     
+    // Normal and handicap seats can always be selected (no restrictions)
     return false;
   };
 
@@ -862,16 +855,20 @@ export default function SeatSelection() {
   };
 
   const handleBookSeat = async () => {
-    // Check if all seats are selected
-    if (selectedSeats.length !== maxSeats) {
-      setError(`Please select all ${maxSeats} seat(s) before booking.`);
-      return;
-    }
-    
+    // Check if seats are selected
     if (selectedSeats.length === 0) {
       setError('Please select at least one seat.');
       return;
     }
+    
+    // Check if we've selected the correct number of seats
+    if (selectedSeats.length > maxSeats) {
+      setError(`You can only select up to ${maxSeats} seat(s). Please remove some seats.`);
+      return;
+    }
+    
+    // Allow booking if we have at least one seat and not exceeding max
+    // Note: Users can book with fewer seats than max if they want (e.g., 1 handicap seat when max is 6)
     
     setIsLocking(true);
     setError('');
