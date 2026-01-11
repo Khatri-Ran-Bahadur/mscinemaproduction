@@ -79,11 +79,12 @@ export default function SeatSelection() {
         localStorage.removeItem('seatSelectionPageTimerStartTime');
         // Redirect to movie detail page when timer expires (use setTimeout to avoid render error)
         setTimeout(() => {
-          if (movieId) {
-            router.push(`/movie-detail?movieId=${movieId}`);
-          } else {
-            router.push('/');
-          }
+            if (movieId) {
+                const encryptedMovieId = encryptId(movieId);
+                router.push(`/movie-detail?movieId=${encryptedMovieId}`);
+              } else {
+                router.push('/');
+              }
         }, 0);
       }
     } else {
@@ -717,12 +718,12 @@ export default function SeatSelection() {
   };
 
   // Get ticket type counts by category
+  // Handicap tickets are counted as normal tickets (same as adult/senior citizen)
   const getTicketTypeCounts = () => {
     if (!ticketData || !selectedTickets) return { twin: 0, handicap: 0, normal: 0 };
     
     const twinSeatTypeID = ticketData.generalInfo?.ticketTypeIDForTwinSeatsAndVIPSeats;
     let twinCount = 0;
-    let handicapCount = 0;
     let normalCount = 0;
     
     Object.entries(selectedTickets).forEach(([ticketTypeID, count]) => {
@@ -732,17 +733,17 @@ export default function SeatSelection() {
       
       if (ticketTypeIDNum === twinSeatTypeID || ticketTypeName.includes('TWIN')) {
         twinCount += count;
-      } else if (ticketTypeName.includes('HANDICAP') || ticketTypeName.includes('OKU')) {
-        handicapCount += count;
       } else {
+        // All other tickets (adult, senior citizen, handicap) count as normal
         normalCount += count;
       }
     });
     
-    return { twin: twinCount, handicap: handicapCount, normal: normalCount };
+    return { twin: twinCount, handicap: 0, normal: normalCount };
   };
 
   // Count selected seats by type
+  // Handicap seats are counted as normal seats (same as adult/senior citizen)
   const getSelectedSeatsByType = () => {
     const counts = { twin: 0, handicap: 0, normal: 0 };
     const selectedSeatObjects = selectedSeats.map(seatNo => 
@@ -756,6 +757,9 @@ export default function SeatSelection() {
         if (!isPartnerSeat(seat)) {
           counts.twin += 1;
         }
+      } else if (seatType === 'handicap') {
+        // Count handicap seats as normal seats (same category)
+        counts.normal += 1;
       } else {
         counts[seatType] += 1;
       }
@@ -765,7 +769,7 @@ export default function SeatSelection() {
   };
 
   // Check if seat should be disabled based on ticket type selection
-  // Only twin seats have restrictions, all other seats (normal/handicap) can be selected freely
+  // Twin seats have separate restrictions, normal and handicap seats share the same restrictions
   const isSeatDisabled = (seat) => {
     if (!seat || seat.seatStatus !== 0) return true; // Disable occupied seats
     
@@ -783,15 +787,21 @@ export default function SeatSelection() {
       if (seatIsSelected) return false; // Don't disable selected seat
     }
     
-    // Only apply restrictions to twin seats
-    // All other seats (normal/handicap) can be selected freely
+    // Twin seats: only selectable if twin tickets selected, limited to ticket count
     if (seatType === 'twin') {
       if (ticketCounts.twin === 0) return true; // No twin tickets selected
       if (selectedCounts.twin >= ticketCounts.twin) return true; // Already selected all twin seats needed
       return false; // Can select more twin seats
     }
     
-    // Normal and handicap seats can always be selected (no restrictions)
+    // Normal and handicap seats: share the same restrictions (counted together)
+    // Only selectable if normal tickets (adult/senior/handicap) selected, limited to total ticket count
+    if (seatType === 'normal' || seatType === 'handicap') {
+      if (ticketCounts.normal === 0) return true; // No normal/handicap tickets selected
+      if (selectedCounts.normal >= ticketCounts.normal) return true; // Already selected all normal/handicap seats needed
+      return false; // Can select more normal/handicap seats
+    }
+    
     return false;
   };
 
