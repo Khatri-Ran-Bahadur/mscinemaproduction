@@ -72,13 +72,7 @@ function PaymentFailedContent() {
         )}
 
         <div className="space-y-3">
-          <button
-            onClick={handleRetry}
-            className="w-full bg-[#FFCA20] text-black font-semibold py-3 px-6 rounded hover:bg-[#FFCA20]/90 transition flex items-center justify-center gap-2"
-          >
-            <RefreshCw className="w-4 h-4" />
-            Try Again
-          </button>
+         
 
           <Link
             href="/"

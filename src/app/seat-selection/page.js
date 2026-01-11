@@ -1664,18 +1664,8 @@ export default function SeatSelection() {
               <div className="text-center text-white/50 text-sm py-2">No seats selected</div>
             )}
 
-            {/* Total and Book Button */}
+            {/* Book Button */}
             <div className="flex flex-col items-center gap-3 sm:gap-4">
-              {selectedSeats.length > 0 && (() => {
-                const priceInfo = calculateDetailedPrice();
-                return (
-                  <div className="text-white/70 text-sm sm:text-base">
-                    <span>Total: </span>
-                    <span className="text-[#FFCA20] font-semibold text-lg sm:text-xl">RM {priceInfo.grandTotal?.toFixed(2) || '0.00'}</span>
-                  </div>
-                );
-              })()}
-
             <button 
               onClick={handleBookSeat}
                 disabled={selectedSeats.length !== maxSeats || isLocking}
