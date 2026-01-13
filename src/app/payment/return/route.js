@@ -8,6 +8,7 @@
 
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
+import { prisma } from '@/lib/prisma';
 
 // Razer Merchant Services Configuration
 const RMS_CONFIG = {
@@ -198,6 +199,21 @@ async function handleReturn(request) {
       // Payment successful
       console.log(`[Payment Return] Payment successful - Order: ${orderid}, Transaction: ${tranID}`);
       
+      // Update Order in DB to PAID
+      try {
+          // Attempt to find order by orderid (assuming it matches referenceNo)
+          await prisma.order.update({
+             where: { referenceNo: orderid },
+             data: { 
+                 paymentStatus: 'PAID',
+                 status: 'CONFIRMED'
+             }
+          });
+      } catch (dbErr) {
+          console.error('[Payment Return] DB Update Error:', dbErr);
+          // Continue to redirect even if DB update fails (client side might resolve or manual check)
+      }
+
       // Extract card type from channel
       let cardType = 'card';
       if (channel) {
@@ -220,6 +236,20 @@ async function handleReturn(request) {
     } else {
       // Payment failed
       console.log(`[Payment Return] Payment failed - Order: ${orderid}, Status: ${status}, Error: ${error_desc || 'Unknown'}`);
+
+      // Update Order in DB to FAILED
+      try {
+          await prisma.order.update({
+             where: { referenceNo: orderid },
+             data: { 
+                 paymentStatus: 'FAILED'
+                 // typically we keep status as PENDING or cancel it. Let's keep PENDING or update to CANCELLED only if sure.
+                 // safe to mark paymentStatus FAILED.
+             }
+          });
+      } catch (dbErr) {
+          console.error('[Payment Return] DB Update Error:', dbErr);
+      }
       
       // Extract card type from channel if available
       let cardType = 'card';

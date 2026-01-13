@@ -190,25 +190,35 @@ export const isValidUser = async (email) => {
 /**
  * Forgot password - reset password for user
  * @param {number|string} userId - User ID
- * @param {string} newPassword - New password
+ * @param {string} token - Reset token from email
+ * @param {string} newPassword - New password to set
  * @returns {Promise<object>} - Reset password response
  */
-export const forgotPassword = async (userId, newPassword) => {
+export const forgotPassword = async (userId, token, newPassword) => {
   try {
     if (!userId) {
       throw new Error('User ID is required');
+    }
+    if (!token) {
+      throw new Error('Reset token is required');
     }
     if (!newPassword) {
       throw new Error('New password is required');
     }
     
-    // Encode password for URL
+    // Encode token and newPassword for URL
     const encodedPassword = encodeURIComponent(newPassword);
+    console.log('Encoded password:', encodedPassword);
+    console.log('User ID:', userId);
     
     // Endpoint: /User/ForgotPassword/{UserID}/{NewPassword}
+    // Based on API: http://cinemaapi5.ddns.net/api/User/ForgotPassword/5/testet
+    // The curl example shows empty body (-d ''), so newPassword should be in URL path
     const endpoint = `/User/ForgotPassword/${userId}/${encodedPassword}`;
     
-    const response = await post(endpoint, {});
+    // POST request with empty body (as shown in curl example: -d '')
+    const response = await post(endpoint, null);
+    console.log('Forgot password response:', response);
     return response;
   } catch (error) {
     console.error('Forgot password error:', error);

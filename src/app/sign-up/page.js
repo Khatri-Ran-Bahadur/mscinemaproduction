@@ -90,12 +90,42 @@ export default function SignupPage() {
       const userStatus = response?.status || response?.Status;
       const userID = response?.userID || response?.userId || response?.UserID;
       
-      // Registration successful - backend will send activation email
+      // Registration successful - send activation email
+      if (userID) {
+        try {
+          // Call API to send activation email
+          const emailResponse = await fetch('/api/auth/send-activation-email', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              userId: userID,
+              email: formData.email,
+              name: formData.firstName,
+            }),
+          });
+
+          const emailData = await emailResponse.json();
+
+          if (!emailResponse.ok) {
+            console.error('Failed to send activation email:', emailData.error || emailData.message);
+            // Registration succeeded but email failed - still show success message
+            // User can request resend if needed
+          } else {
+            console.log('Activation email sent successfully:', emailData.messageId);
+          }
+        } catch (emailError) {
+          console.error('Error sending activation email:', emailError);
+          // Don't fail registration if email fails - user can request resend
+        }
+      }
+      
       // Show success message with instruction to check email
       setRegisteredEmail(formData.email);
       setShowSuccessMessage(true);
       
-      // Note: The backend (Developer) sends activation email with activation link
+      // Note: The activation email contains an encrypted user ID in the activation link
       // User needs to click the link in the email to activate their account
     } catch (err) {
       if (err instanceof APIError) {
@@ -181,11 +211,11 @@ export default function SignupPage() {
           <div className="space-y-4">
             {/* First Name */}
             <div>
-              <label className="block text-sm text-[#D3D3D3] mb-2">First name</label>
+              <label className="block text-sm text-[#D3D3D3] mb-2">Full Name</label>
               <input
                 type="text"
                 name="firstName"
-                placeholder="First name"
+                placeholder="Full Name"
                 value={formData.firstName}
                 onChange={handleChange}
                 className="w-full bg-[#2a2a2a] border border-[#3a3a3a] rounded px-4 py-3 text-[#FAFAFA] text-sm focus:outline-none focus:border-[#FFCA20] transition placeholder-[#D3D3D3]/50"

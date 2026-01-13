@@ -61,14 +61,21 @@ export default function MovieStreamingSite() {
     setIsLoading(true);
     setError('');
     try {
-      const data = await moviesAPI.getMovies();
+      // Fetch Movies and Banners in parallel
+      const [moviesData, bannersRes] = await Promise.all([
+        moviesAPI.getMovies(),
+        fetch('/api/banners')
+      ]);
       
-      if (!Array.isArray(data) || data.length === 0) {
+      const bannersData = await bannersRes.json();
+      const activeBanners = bannersData.success ? bannersData.banners : [];
+
+      if (!Array.isArray(moviesData) || moviesData.length === 0) {
         throw new Error('No movies data received');
       }
 
       // Transform API data to match component structure
-      const transformedMovies = data.map((movie) => ({
+      const transformedMovies = moviesData.map((movie) => ({
         id: movie.movieID,
         title: movie.movieName?.replace(/^\./, '') || "Unknown Movie", // Remove leading dot
         image: movie.imageURL || `img/movies1.png`,
@@ -81,6 +88,7 @@ export default function MovieStreamingSite() {
         synopsis: movie.synopsis || "",
         trailerUrl: movie.trailerUrl || "",
         releaseDate: movie.releaseDate || "",
+        showType: movie.showType
       }));
 
       // Categorize movies based on release date and showType
@@ -95,7 +103,7 @@ export default function MovieStreamingSite() {
         return releaseDate <= today && (movie.showType === '1' || !movie.showType);
       });
 
-      // Advance Booking: Movies releasing in future (within next 30 days)
+      // Advance Booking
       const advanceBooking = transformedMovies.filter(movie => {
         if (!movie.releaseDate) return false;
         const releaseDate = new Date(movie.releaseDate.split('-').reverse().join('-'));
@@ -104,7 +112,7 @@ export default function MovieStreamingSite() {
         return releaseDate > today && daysDiff <= 30;
       });
 
-      // Coming Soon: Movies releasing later
+      // Coming Soon
       const comingSoon = transformedMovies.filter(movie => {
         if (!movie.releaseDate) return false;
         const releaseDate = new Date(movie.releaseDate.split('-').reverse().join('-'));
@@ -113,79 +121,65 @@ export default function MovieStreamingSite() {
         return releaseDate > today && daysDiff > 30;
       });
 
-      // Top Rated: Movies sorted by rating
+      // Top Rated
       const topRated = [...transformedMovies].sort((a, b) => {
         const ratingA = parseFloat(a.rating) || 0;
         const ratingB = parseFloat(b.rating) || 0;
         return ratingB - ratingA;
       }).slice(0, 10);
 
-      // Set all movie categories
-      setNowShowingMovies(nowShowing.map(movie => ({
-        id: movie.id,
-        title: movie.title,
-        image: movie.image,
-        rating: movie.rating,
-        language: movie.language,
-        type: movie.type,
-        releaseDate: movie.releaseDate,
-        showType: movie.showType,
-      })));
+      // Set state variables
+      setNowShowingMovies(nowShowing);
+      setFeaturedMovies(nowShowing.slice(0, 10)); // Simplified mapping, just use transformed objects
+      setAdvanceBookingMovies(advanceBooking);
+      setComingSoonMovies(comingSoon);
+      setTopRatedMovies(topRated);
 
-      setAdvanceBookingMovies(advanceBooking.map(movie => ({
-        id: movie.id,
-        title: movie.title,
-        image: movie.image,
-        rating: movie.rating,
-        language: movie.language,
-        type: movie.type,
-        releaseDate: movie.releaseDate,
-      })));
+      // Process Hero Movies (Banners or Fallback)
+      if (activeBanners.length > 0) {
+        const heroList = activeBanners.map(banner => {
+            if (banner.type === 'movie' && banner.movieId) {
+                // Find associated movie
+                const movie = transformedMovies.find(m => m.id.toString() === banner.movieId.toString());
+                if (movie) {
+                    return {
+                        id: movie.id,
+                        title: movie.title.toUpperCase(),
+                        subtitle: `${movie.genre} | ${movie.duration}`,
+                        image: banner.image || movie.image, // Prefer banner image
+                        type: movie.type,
+                        trailerUrl: movie.trailerUrl,
+                        isMovie: true
+                    };
+                }
+            }
+            
+            // Normal banner fallback or if movie not found
+            return {
+                id: banner.id,
+                title: banner.title || '',
+                subtitle: banner.description || '',
+                image: banner.image,
+                link: banner.link,
+                type: 'PROMO',
+                isMovie: false
+            };
+        }).filter(item => item); // Filter out nulls if any (though map returns obj)
 
-      setComingSoonMovies(comingSoon.map(movie => ({
-        id: movie.id,
-        title: movie.title,
-        image: movie.image,
-        rating: movie.rating,
-        language: movie.language,
-        type: movie.type,
-        releaseDate: movie.releaseDate,
-      })));
-
-      setTopRatedMovies(topRated.map(movie => ({
-        id: movie.id,
-        title: movie.title,
-        image: movie.image,
-        rating: movie.rating,
-        language: movie.language,
-        type: movie.type,
-        releaseDate: movie.releaseDate,
-      })));
-
-      // Set featured movies (now showing by default)
-      setFeaturedMovies(nowShowing.slice(0, 10).map(movie => ({
-        id: movie.id,
-        title: movie.title,
-        image: movie.image,
-        rating: movie.rating,
-        language: movie.language,
-        type: movie.type,
-        releaseDate: movie.releaseDate,
-      })));
-
-      // Update hero movies with first 5 now showing movies for carousel
-      if (nowShowing.length > 0) {
+        setHeroMovies(heroList);
+      } else if (nowShowing.length > 0) {
+        // Fallback to top 5 movies if no banners
         const heroMoviesList = nowShowing.slice(0, 5).map(movie => ({
           id: movie.id,
           title: movie.title.toUpperCase(),
           subtitle: movie.title,
           image: movie.image || "img/banner1.jpg",
           type: movie.type || "2D",
-          trailerUrl: movie.trailerUrl || ""
+          trailerUrl: movie.trailerUrl || "",
+          isMovie: true
         }));
         setHeroMovies(heroMoviesList);
       } else {
-        // If no movies, set empty array (don't show default)
         setHeroMovies([]);
       }
 
@@ -196,7 +190,6 @@ export default function MovieStreamingSite() {
       } else {
         setError('An unexpected error occurred');
       }
-      // Don't set default movies on error - just show error message
       setHeroMovies([]);
       setNowShowingMovies([]);
       setFeaturedMovies([]);
@@ -208,95 +201,155 @@ export default function MovieStreamingSite() {
     }
   };
 
+  // Auto-slide effect
+  useEffect(() => {
+    if (heroMovies.length <= 1) return;
+
+    const interval = setInterval(() => {
+      setCurrentSlide(prev => (prev + 1) % heroMovies.length);
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [heroMovies.length]);
+
   return (
     <div className="bg-black min-h-screen text-[#D3D3D3]">
       <Header/>
 
-      {/* Hero Section - Full Banner View */}
+      {/* Hero Section - Full Banner View with Slider */}
       {/* Hide hero section on mobile during loading, show on desktop */}
       {heroMovies.length > 0 ? (
-      <div className={`relative h-[60vh] md:h-screen ${isLoading ? 'hidden md:block' : ''}`}>
-        <div className="absolute inset-0">
-          <img 
-            src={heroMovies[currentSlide]?.image || "img/banner1.jpg"}
-            alt={heroMovies[currentSlide]?.title || "Movie"}
-            className="w-full h-full object-cover"
-          />
-          {/* Bottom Gradient Overlay - Desktop: from bottom */}
-          <div 
-            className="absolute inset-0 hidden md:block"
-            style={{
-              background: 'linear-gradient(180deg, rgba(34, 34, 34, 0) 42.53%, rgba(34, 34, 34, 0.5) 71.27%, #222222 100%)'
-            }}
-          />
-          {/* Top Gradient Overlay - Mobile: from top */}
-          <div 
-            className="absolute inset-0 md:hidden"
-            style={{
-              background: 'linear-gradient(180deg, rgba(17, 17, 17, 0) 46.79%, rgba(17, 17, 17, 0.5) 68.08%, #111111 94.68%)'
-            }}
-          />
-          {/* Bottom Gradient Overlay - Mobile: from bottom */}
-          <div 
-            className="absolute inset-0 md:hidden"
-            style={{
-              background: 'linear-gradient(180deg, rgba(17, 17, 17, 0) 46.79%, rgba(17, 17, 17, 0.5) 68.08%, #111111 94.68%)'
-            }}
-          />
-        </div>
+      <div className={`relative h-[40vh] md:h-[70vh] max-h-[700px] overflow-hidden group ${isLoading ? 'hidden md:block' : ''}`}>
         
-        <div className="relative h-full container mx-auto px-4 sm:px-6 lg:px-8 z-10">
-          <div className="absolute bottom-12 md:bottom-20 lg:bottom-28 left-0 right-0 max-w-3xl">
-            <h1 className="text-2xl md:text-4xl lg:text-5xl xl:text-6xl font-bold mb-2 text-[#FAFAFA] uppercase tracking-tight leading-tight drop-shadow-lg">
-              {heroMovies[currentSlide]?.title || ""}
-            </h1>
-            <h2 className="text-base md:text-xl lg:text-2xl font-normal mb-3 md:mb-4 text-[#FAFAFA] drop-shadow-md">
-              {heroMovies[currentSlide]?.subtitle || ""}
-            </h2>
+        {/* Slider Track */}
+        <div 
+          className="flex h-full transition-transform duration-[1500ms] ease-in-out"
+          style={{ transform: `translateX(-${currentSlide * 100}%)` }}
+        >
+          {heroMovies.map((movie, index) => (
+            <div key={index} className="min-w-full h-full relative overflow-hidden">
+              <div className="absolute inset-0">
+                <img 
+                  src={movie.image || "img/banner1.jpg"}
+                  alt={movie.title || "Movie"}
+                  className={`w-full h-full object-cover center transition-transform duration-[8000ms] ease-linear ${index === currentSlide ? 'scale-110' : 'scale-100'}`}
+                />
+                {/* Bottom Gradient Overlay - Desktop: from bottom */}
+                <div 
+                  className="absolute inset-0 hidden md:block"
+                  style={{
+                    background: 'linear-gradient(180deg, rgba(34, 34, 34, 0) 42.53%, rgba(34, 34, 34, 0.5) 71.27%, #222222 100%)'
+                  }}
+                />
+                {/* Top Gradient Overlay - Mobile: from top */}
+                <div 
+                  className="absolute inset-0 md:hidden"
+                  style={{
+                    background: 'linear-gradient(180deg, rgba(17, 17, 17, 0) 46.79%, rgba(17, 17, 17, 0.5) 68.08%, #111111 94.68%)'
+                  }}
+                />
+                {/* Bottom Gradient Overlay - Mobile: from bottom */}
+                <div 
+                  className="absolute inset-0 md:hidden"
+                  style={{
+                    background: 'linear-gradient(180deg, rgba(17, 17, 17, 0) 46.79%, rgba(17, 17, 17, 0.5) 68.08%, #111111 94.68%)'
+                  }}
+                />
+              </div>
+              
+              <div className="relative h-full container mx-auto px-4 sm:px-6 lg:px-8 z-10 flex flex-col justify-end pb-12 md:pb-20 lg:pb-28">
+                <div className="max-w-3xl">
+                  <h1 className="text-2xl md:text-4xl lg:text-5xl xl:text-6xl font-bold mb-2 text-[#FAFAFA] uppercase tracking-tight leading-tight drop-shadow-lg">
+                    {movie.title || ""}
+                  </h1>
+                  <h2 className="text-base md:text-xl lg:text-2xl font-normal mb-3 md:mb-4 text-[#FAFAFA] drop-shadow-md">
+                    {movie.subtitle || ""}
+                  </h2>
 
-            <div className="flex items-center space-x-2 md:space-x-3 mb-4 md:mb-6 text-xs md:text-sm text-[#FAFAFA] drop-shadow-md">
-              <span>
-                {heroMovies[currentSlide]?.type || "2D"}
-              </span>
-              <span className="text-[#FAFAFA]/50">|</span>
-              <span>ATMOS</span>
+                  <div className="flex items-center space-x-2 md:space-x-3 mb-4 md:mb-6 text-xs md:text-sm text-[#FAFAFA] drop-shadow-md">
+                    <span>
+                      {movie.type || "2D"}
+                    </span>
+                    <span className="text-[#FAFAFA]/50">|</span>
+                    <span>ATMOS</span>
+                  </div>
+
+                  <div className="flex flex-row space-x-2 md:space-x-3 lg:space-x-4 mb-4 md:mb-6">
+                    {movie.isMovie ? (
+                      <>
+                        <button 
+                          onClick={() => {
+                            if (movie.trailerUrl) {
+                              const videoId = getYouTubeVideoId(movie.trailerUrl);
+                              if (videoId) {
+                                setCurrentTrailerVideoId(videoId);
+                                setShowTrailerModal(true);
+                              }
+                            }
+                          }}
+                          disabled={!movie.trailerUrl || !getYouTubeVideoId(movie.trailerUrl)}
+                          className={`bg-transparent border-2 border-[#FFCA20] text-[#FFCA20] px-3 md:px-6 lg:px-8 py-2 md:py-2.5 lg:py-3 rounded font-semibold hover:bg-[#FFCA20] hover:text-black transition text-xs md:text-sm uppercase tracking-wide whitespace-nowrap shadow-lg flex-1 md:flex-initial ${
+                            !movie.trailerUrl || !getYouTubeVideoId(movie.trailerUrl)
+                              ? 'opacity-50 cursor-not-allowed hidden' // Hide if no trailer
+                              : ''
+                          }`}
+                        >
+                          Watch trailer
+                        </button>
+
+                        <Link 
+                          href={movie.id ? `/movie-detail?movieId=${encryptId(movie.id)}` : '/movie-detail'}
+                          className="bg-[#FFCA20] text-black px-3 md:px-6 lg:px-8 py-2 md:py-2.5 lg:py-3 rounded font-semibold hover:bg-[#FFCA20]/90 transition text-xs md:text-sm uppercase tracking-wide inline-block text-center whitespace-nowrap shadow-lg flex-1 md:flex-initial"
+                        >
+                          Book now
+                        </Link>
+                      </>
+                    ) : (
+                      movie.link && (
+                        <a 
+                          href={movie.link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="bg-[#FFCA20] text-black px-3 md:px-6 lg:px-8 py-2 md:py-2.5 lg:py-3 rounded font-semibold hover:bg-[#FFCA20]/90 transition text-xs md:text-sm uppercase tracking-wide inline-block text-center whitespace-nowrap shadow-lg flex-1 md:flex-initial"
+                        >
+                          Learn More
+                        </a>
+                      )
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
-
-            <div className="flex flex-row space-x-2 md:space-x-3 lg:space-x-4 mb-4 md:mb-6">
-              <button 
-                onClick={handleWatchTrailer}
-                disabled={!heroMovies[currentSlide]?.trailerUrl || !getYouTubeVideoId(heroMovies[currentSlide]?.trailerUrl)}
-                className={`bg-transparent border-2 border-[#FFCA20] text-[#FFCA20] px-3 md:px-6 lg:px-8 py-2 md:py-2.5 lg:py-3 rounded font-semibold hover:bg-[#FFCA20] hover:text-black transition text-xs md:text-sm uppercase tracking-wide whitespace-nowrap shadow-lg flex-1 md:flex-initial ${
-                  !heroMovies[currentSlide]?.trailerUrl || !getYouTubeVideoId(heroMovies[currentSlide]?.trailerUrl)
-                    ? 'opacity-50 cursor-not-allowed'
-                    : ''
-                }`}
-              >
-                Watch trailer
-              </button>
-
-              <Link 
-                href={heroMovies[currentSlide]?.id ? `/movie-detail?movieId=${encryptId(heroMovies[currentSlide].id)}` : '/movie-detail'}
-                className="bg-[#FFCA20] text-black px-3 md:px-6 lg:px-8 py-2 md:py-2.5 lg:py-3 rounded font-semibold hover:bg-[#FFCA20]/90 transition text-xs md:text-sm uppercase tracking-wide inline-block text-center whitespace-nowrap shadow-lg flex-1 md:flex-initial"
-              >
-                Book now
-              </Link>
-            </div>
-          </div>
-
-          {/* Carousel Dots - Centered on screen */}
-          <div className="absolute bottom-4 md:bottom-8 left-1/2 transform -translate-x-1/2 flex justify-center gap-2 z-20">
-            {heroMovies.map((_, index) => (
-              <button
-                key={index}
-                onClick={() => setCurrentSlide(index)}
-                className={`w-2 h-2 rounded-full transition shadow-md ${
-                  currentSlide === index ? 'bg-[#FFCA20]' : 'bg-[#FFCA20]/30'
-                }`}
-              />
-            ))}
-          </div>
+          ))}
         </div>
+
+        {/* Carousel Dots - Centered on screen */}
+        <div className="absolute bottom-4 md:bottom-8 left-1/2 transform -translate-x-1/2 flex justify-center gap-2 z-20">
+          {heroMovies.map((_, index) => (
+            <button
+              key={index}
+              onClick={() => setCurrentSlide(index)}
+              className={`w-2 h-2 rounded-full transition-all shadow-md duration-300 ${
+                currentSlide === index ? 'bg-[#FFCA20] w-6' : 'bg-[#FFCA20]/30 hover:bg-[#FFCA20]/60'
+              }`}
+            />
+          ))}
+        </div>
+
+        {/* Navigation Arrows (Hidden on Mobile) */}
+        <button 
+          onClick={() => setCurrentSlide(prev => (prev - 1 + heroMovies.length) % heroMovies.length)}
+          className="absolute left-4 top-1/2 transform -translate-y-1/2 p-2 rounded-full bg-black/30 hover:bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity hidden md:block z-20"
+        >
+          <ChevronLeft className="w-8 h-8" />
+        </button>
+        <button 
+          onClick={() => setCurrentSlide(prev => (prev + 1) % heroMovies.length)}
+          className="absolute right-4 top-1/2 transform -translate-y-1/2 p-2 rounded-full bg-black/30 hover:bg-black/60 text-white opacity-0 group-hover:opacity-100 transition-opacity hidden md:block z-20"
+        >
+          <ChevronRight className="w-8 h-8" />
+        </button>
+
       </div>
       ) : null}
 

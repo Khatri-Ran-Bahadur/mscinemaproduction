@@ -14,10 +14,10 @@ export default function SeatIcon({
   seatType = 'normal', // 'normal', 'twin', 'handicap'
   className = '' 
 }) {
-  // Size classes
+  // Size classes - more responsive sizing
   const baseSize = seatType === 'normal' 
-    ? 'text-xl sm:text-2xl md:text-3xl' // Slightly larger for normal seats
-    : 'text-lg sm:text-xl md:text-2xl';
+    ? 'text-base sm:text-lg md:text-xl lg:text-2xl' // Responsive sizing for normal seats
+    : 'text-sm sm:text-base md:text-lg lg:text-xl';
 
   // Color classes based on variant
   let colorClass = '';

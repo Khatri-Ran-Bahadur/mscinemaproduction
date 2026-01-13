@@ -279,6 +279,10 @@ export default function TicketSelection() {
     localStorage.setItem('cinemaId', cinemaId);
     localStorage.setItem('showId', showId);
     localStorage.setItem('movieId', movieId || '');
+    // Set flag to indicate coming from ticket-type page - this will reset the timer
+    localStorage.setItem('fromTicketTypePage', 'true');
+    // Clear any existing timer
+    localStorage.removeItem('seatSelectionPageTimerStartTime');
     const encrypted = encryptIds({ cinemaId, showId, movieId: movieId || '' });
     router.push(`/seat-selection?cinemaId=${encrypted.cinemaId}&showId=${encrypted.showId}&movieId=${encrypted.movieId}`);
   };

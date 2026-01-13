@@ -76,6 +76,9 @@ function PaymentSuccessContent() {
                       if (fetchedTicketData) {
                         setTicketData(fetchedTicketData);
                         localStorage.setItem('ticketData', JSON.stringify(fetchedTicketData));
+                        
+                        // Send ticket email after ticket data is loaded
+                        sendTicketEmailAfterPayment(parsed, fetchedTicketData, referenceNo);
                       }
                     }
                   } catch (error) {
@@ -103,6 +106,194 @@ function PaymentSuccessContent() {
 
   const handleCloseTicket = () => {
     setShowTicketModal(false);
+  };
+
+  // Function to send ticket email after payment success
+  const sendTicketEmailAfterPayment = async (bookingData, ticketData, referenceNo) => {
+    try {
+      // Get customer email from booking data or payment result
+      let customerEmail = bookingData?.formData?.email || 
+                         bookingData?.formData?.Email || 
+                         bookingData?.billingEmail ||
+                         '';
+      
+      // Try to get from paymentResult if not found
+      if (!customerEmail && typeof window !== 'undefined') {
+        try {
+          const paymentResultStr = localStorage.getItem('paymentResult');
+          if (paymentResultStr) {
+            const paymentResult = JSON.parse(paymentResultStr);
+            customerEmail = paymentResult?.data?.bill_email || 
+                           paymentResult?.data?.email ||
+                           paymentResult?.email ||
+                           '';
+          }
+        } catch (e) {
+          // Ignore
+        }
+      }
+      
+      if (!customerEmail) {
+        console.warn('No email found in booking data, skipping ticket email');
+        return;
+      }
+
+      // Extract ticket information similar to TicketModal
+      const ticketInfo = {
+        customerName: ticketData?.CustomerName || ticketData?.customerName || ticketData?.name || 
+                     bookingData?.formData?.name || 
+                     bookingData?.formData?.Name ||
+                     'Guest',
+        movieName: ticketData?.MovieName || ticketData?.movieName || 
+                  bookingData?.movieDetails?.movieName || 
+                  bookingData?.movieDetails?.title || 
+                  bookingData?.movieDetails?.MovieName ||
+                  'Unknown Movie',
+        movieImage: ticketData?.MovieImage || ticketData?.movieImage || ticketData?.poster || 
+                   bookingData?.movieDetails?.movieImage || 
+                   bookingData?.movieDetails?.poster || 
+                   bookingData?.movieDetails?.MovieImage ||
+                   '/img/banner.jpg',
+        genre: ticketData?.Genre || ticketData?.genre || 
+              bookingData?.movieDetails?.genre || 
+              bookingData?.movieDetails?.Genre ||
+              (Array.isArray(bookingData?.movieDetails?.genres) ? bookingData.movieDetails.genres.join(', ') : null) ||
+              'N/A',
+        duration: ticketData?.Duration || ticketData?.duration || ticketData?.runningTime || 
+                 bookingData?.movieDetails?.duration || 
+                 bookingData?.movieDetails?.runningTime || 
+                 bookingData?.movieDetails?.Duration ||
+                 'N/A',
+        language: ticketData?.Language || ticketData?.language || 
+                 bookingData?.movieDetails?.language || 
+                 bookingData?.movieDetails?.Language ||
+                 'English',
+        experienceType: ticketData?.ExperienceType || ticketData?.experienceType || 
+                       bookingData?.showTimeDetails?.experienceType || 
+                       bookingData?.showTimeDetails?.type || 
+                       bookingData?.showTimeDetails?.ExperienceType ||
+                       'Standard',
+        hallName: ticketData?.HallName || ticketData?.hallName || ticketData?.hall || 
+                 bookingData?.showTimeDetails?.hallName || 
+                 bookingData?.showTimeDetails?.hall || 
+                 bookingData?.showTimeDetails?.HallName ||
+                 'N/A',
+        cinemaName: ticketData?.CinemaName || ticketData?.cinemaName || 
+                   bookingData?.cinemaDetails?.cinemaName || 
+                   bookingData?.cinemaDetails?.CinemaName ||
+                   'N/A',
+        showDate: ticketData?.ShowDate || ticketData?.showDate || 
+                 bookingData?.showTimeDetails?.showDate || 
+                 bookingData?.showTimeDetails?.date || 
+                 bookingData?.showTimeDetails?.ShowDate ||
+                 '',
+        showTime: ticketData?.ShowTime || ticketData?.showTime || 
+                 bookingData?.showTimeDetails?.showTime || 
+                 bookingData?.showTimeDetails?.time || 
+                 bookingData?.showTimeDetails?.ShowTime ||
+                 '',
+        bookingId: ticketData?.BookingID || ticketData?.bookingID || 
+                  ticketData?.ReferenceNo || ticketData?.referenceNo || 
+                  bookingData?.confirmedReferenceNo || 
+                  bookingData?.referenceNo || 
+                  referenceNo ||
+                  'N/A',
+        trackingId: ticketData?.TrackingID || ticketData?.trackingID || 
+                   ticketData?.TransactionNo || ticketData?.transactionNo || 
+                   'N/A',
+      };
+
+      // Get tracking ID from paymentResult in localStorage if available
+      if (typeof window !== 'undefined') {
+        try {
+          const paymentResultStr = localStorage.getItem('paymentResult');
+          if (paymentResultStr) {
+            const paymentResult = JSON.parse(paymentResultStr);
+            if (paymentResult?.data?.tranID || paymentResult?.data?.tranId) {
+              ticketInfo.trackingId = paymentResult.data.tranID || paymentResult.data.tranId;
+            }
+          }
+        } catch (e) {
+          // Ignore
+        }
+      }
+
+      // Extract ticket details and format seat display
+      const ticketDetails = ticketData?.TicketDetails || ticketData?.ticketDetails || [];
+      const seatGroups = {};
+      
+      ticketDetails.forEach((ticket) => {
+        const ticketType = ticket.TicketType || ticket.ticketType || ticket.Type || ticket.type || 'Adult';
+        const seatNo = ticket.SeatNo || ticket.seatNo || ticket.Seat || ticket.seat || '';
+        if (!seatGroups[ticketType]) {
+          seatGroups[ticketType] = [];
+        }
+        if (seatNo) {
+          seatGroups[ticketType].push(seatNo);
+        }
+      });
+
+      // If no ticket details, try to get from booking data
+      if (ticketDetails.length === 0) {
+        const seats = bookingData?.seats || [];
+        const selectedTickets = bookingData?.selectedTickets || [];
+        
+        seats.forEach((seat, index) => {
+          const ticket = selectedTickets[index];
+          const ticketType = ticket?.ticketType || ticket?.type || 'Adult';
+          const seatNo = seat?.seatNo || seat?.seat || '';
+          if (seatNo) {
+            if (!seatGroups[ticketType]) {
+              seatGroups[ticketType] = [];
+            }
+            seatGroups[ticketType].push(seatNo);
+          }
+        });
+      }
+
+      // Format seat display
+      const formatSeats = () => {
+        const parts = [];
+        Object.entries(seatGroups).forEach(([type, seatList]) => {
+          const seatNumbers = seatList.map(s => {
+            const seatStr = String(s);
+            const match = seatStr.match(/([A-Z])(\d+)/);
+            if (match) {
+              return match[1] + match[2];
+            }
+            return seatStr;
+          });
+          parts.push({ type, seats: seatNumbers });
+        });
+        return parts;
+      };
+
+      ticketInfo.seatDisplay = formatSeats();
+      ticketInfo.totalPersons = Object.values(seatGroups).reduce((sum, seats) => sum + seats.length, 0) || ticketDetails.length || 0;
+
+      // Call API to send ticket email
+      const emailResponse = await fetch('/api/auth/send-ticket-email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: customerEmail,
+          ticketInfo: ticketInfo,
+        }),
+      });
+
+      const emailData = await emailResponse.json();
+
+      if (!emailResponse.ok) {
+        console.error('Failed to send ticket email:', emailData.error || emailData.message);
+      } else {
+        console.log('Ticket email sent successfully:', emailData.messageId);
+      }
+    } catch (error) {
+      console.error('Error sending ticket email:', error);
+      // Don't fail the payment success flow if email fails
+    }
   };
 
   // Try to load ticket data from localStorage if not already loaded

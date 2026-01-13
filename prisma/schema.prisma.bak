@@ -1,0 +1,84 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Admin User Model
+model Admin {
+  id        Int      @id @default(autoincrement())
+  username  String   @unique
+  email     String   @unique
+  password  String   // Hashed password
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("admins")
+}
+
+// Banner Model
+model Banner {
+  id          Int      @id @default(autoincrement())
+  image       String   // Image URL or path
+  type        String   @default("normal") // "normal" or "movie"
+  movieId     Int?     // If type is "movie", reference to movie ID
+  title       String?  // Optional title for the banner
+  description String? // Optional description
+  link        String?  // Optional link URL
+  order       Int      @default(0) // Display order
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("banners")
+}
+
+// About Page Content Model
+model AboutContent {
+  id          Int      @id @default(autoincrement())
+  section     String   @unique // e.g., "hero", "mission", "vision", "contact", "info"
+  title       String?
+  content     String   @db.Text // HTML or markdown content
+  image       String?  // Optional image URL
+  order       Int      @default(0) // Display order
+  isActive    Boolean  @default(true)
+  width       String?  // Optional: "full", "half", etc.
+  layout      String?  // Optional: "text-left", "text-right"
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("about_content")
+}
+
+// Dynamic Pages Model (Privacy Policy, Terms, etc.)
+model Page {
+  id          Int      @id @default(autoincrement())
+  slug        String   @unique  // URL slug, e.g., "privacy-policy"
+  title       String
+  content     String   @db.Text // HTML content
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("pages")
+}
+
+// Contact Information
+model ContactInfo {
+  id          Int      @id @default(autoincrement())
+  type        String   @unique // e.g., "phone", "email", "address"
+  title       String
+  value       String
+  icon        String?  // Icon name
+  order       Int      @default(0)
+  isActive    Boolean  @default(true)
+  
+  @@map("contact_info")
+}

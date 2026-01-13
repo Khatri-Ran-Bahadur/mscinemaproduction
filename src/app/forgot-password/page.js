@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
 import { auth } from '@/services/api';
 import { APIError } from '@/services/api';
+import { encryptId } from '@/utils/encryption';
 
 export default function ForgotPasswordPage() {
   const router = useRouter();
@@ -44,10 +45,49 @@ export default function ForgotPasswordPage() {
         return;
       }
 
-      // If valid, backend (Developer) will send email with password reset link
-      // Store userId in localStorage for reset-password page
-      localStorage.setItem('resetPasswordUserId', userId);
+      // Generate a reset token (in production, this should come from the backend API)
+      // For now, we'll generate a simple token - backend should provide this
+      const resetToken = `reset_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
+      const tokenTimestamp = Date.now(); // Store timestamp for expiration check (1 hour = 3600000ms)
+      
+      // Store encrypted userId, token, and timestamp in localStorage as fallback
+      const encryptedUserId = encryptId(userId);
+      localStorage.setItem('resetPasswordUserId', encryptedUserId);
+      localStorage.setItem('resetPasswordToken', resetToken);
+      localStorage.setItem('resetPasswordTokenTimestamp', tokenTimestamp.toString());
       localStorage.setItem('resetPasswordEmail', email);
+      
+      // Call API to send forgot password email
+      try {
+        const emailResponse = await fetch('/api/auth/send-forgot-password-email', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            userId: userId,
+            email: email,
+            token: resetToken,
+          }),
+        });
+
+        const emailData = await emailResponse.json();
+
+        if (!emailResponse.ok) {
+          console.error('Failed to send password reset email:', emailData.error || emailData.message);
+          // Show error to user if email fails
+          setError('Registration was successful, but we could not send the activation email. Please contact support or try again later.');
+          setIsLoading(false);
+          return;
+        } else {
+          console.log('Password reset email sent successfully:', emailData.messageId);
+        }
+      } catch (emailError) {
+        console.error('Error sending password reset email:', emailError);
+        setError('Failed to send password reset email. Please try again or contact support.');
+        setIsLoading(false);
+        return;
+      }
       
       // Show success message
       setSuccess(true);

@@ -5,12 +5,13 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { auth } from '@/services/api';
 import { APIError } from '@/services/api';
+import { decryptId } from '@/utils/encryption';
 import Loader from '@/components/Loader';
 
 export default function ActivatePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const userId = searchParams?.get('userId') || searchParams?.get('userID') || searchParams?.get('id');
+  const encryptedUserId = searchParams?.get('userId') || searchParams?.get('userID') || searchParams?.get('id');
   
   const [isActivating, setIsActivating] = useState(false);
   const [isActivated, setIsActivated] = useState(false);
@@ -18,7 +19,7 @@ export default function ActivatePage() {
   const [isLoading, setIsLoading] = useState(true);
 
   const handleActivation = async () => {
-    if (!userId) {
+    if (!encryptedUserId) {
       setError('Invalid activation link.');
       setIsLoading(false);
       return;
@@ -28,6 +29,14 @@ export default function ActivatePage() {
     setError('');
 
     try {
+      // Decrypt the user ID from the URL
+      const userId = decryptId(encryptedUserId);
+      
+      if (!userId) {
+        throw new Error('Invalid activation link. Unable to decrypt user ID.');
+      }
+
+      // Call the activation API with decrypted user ID
       await auth.activateUser(userId);
       setIsActivated(true);
     } catch (err) {
@@ -35,7 +44,7 @@ export default function ActivatePage() {
       if (err instanceof APIError) {
         setError(err.message || 'Activation failed. The link may be invalid or expired.');
       } else {
-        setError('Activation failed. Please try again or contact support.');
+        setError(err.message || 'Activation failed. Please try again or contact support.');
       }
     } finally {
       setIsActivating(false);
@@ -44,15 +53,15 @@ export default function ActivatePage() {
   };
 
   useEffect(() => {
-    // Auto-activate if userId is present in URL
-    if (userId) {
+    // Auto-activate if encryptedUserId is present in URL
+    if (encryptedUserId) {
       handleActivation();
     } else {
       setError('Invalid activation link. User ID is missing.');
       setIsLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId]);
+  }, [encryptedUserId]);
 
   if (isLoading) {
     return (

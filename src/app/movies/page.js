@@ -122,34 +122,34 @@ export default function MoviesPage() {
                 <div style={{ background: 'linear-gradient(180deg, rgba(17, 17, 17, 0.4) 0%, rgba(103, 80, 2, 0.4) 65.74%)' }}>
                 <div className="container mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="flex items-center justify-between mb-6 flex-wrap gap-4 py-6" >
-                        {/* Dynamic Title */}
-                        <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-[#FAFAFA]">
-                            {viewMode === 'movies' ? 'Cinemas' : 'Experiences'}
-                        </h1>
-                        
-                        {/* Toggle Switch Buttons - Smaller and Rounded */}
-                        <div className="inline-flex rounded-full bg-[#1a1a1a] border border-[#2a2a2a] p-0.5">
-                            <button
-                                onClick={() => setViewMode('movies')}
-                                className={`px-3 py-1.5 rounded-full text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${
-                                    viewMode === 'movies'
-                                        ? 'bg-[#FFCA20] text-black shadow-sm'
-                                        : 'text-[#D3D3D3] hover:text-[#FAFAFA]'
-                                }`}
-                            >
-                                Near me
-                            </button>
-                            <button
-                                onClick={() => setViewMode('experiences')}
-                                className={`px-3 py-1.5 rounded-full text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${
-                                    viewMode === 'experiences'
-                                        ? 'bg-[#FFCA20] text-black shadow-sm'
-                                        : 'text-[#D3D3D3] hover:text-[#FAFAFA]'
-                                }`}
-                            >
-                                Experiences
-                            </button>
-                        </div>
+                            {/* Dynamic Title */}
+                            <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-[#FAFAFA]">
+                                {viewMode === 'movies' ? 'Cinemas' : 'Experiences'}
+                            </h1>
+                            
+                            {/* Toggle Switch Buttons - Smaller and Rounded */}
+                            <div className="inline-flex rounded-full bg-[#1a1a1a] border border-[#2a2a2a] p-0.5">
+                                <button
+                                    onClick={() => setViewMode('movies')}
+                                    className={`px-3 py-1.5 rounded-full text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${
+                                        viewMode === 'movies'
+                                            ? 'bg-[#FFCA20] text-black shadow-sm'
+                                            : 'text-[#D3D3D3] hover:text-[#FAFAFA]'
+                                    }`}
+                                >
+                                    Near me
+                                </button>
+                                <button
+                                    onClick={() => setViewMode('experiences')}
+                                    className={`px-3 py-1.5 rounded-full text-xs sm:text-sm font-bold transition-all whitespace-nowrap ${
+                                        viewMode === 'experiences'
+                                            ? 'bg-[#FFCA20] text-black shadow-sm'
+                                            : 'text-[#D3D3D3] hover:text-[#FAFAFA]'
+                                    }`}
+                                >
+                                    Experiences
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -281,8 +281,8 @@ export default function MoviesPage() {
                                                             <div className="p-3 sm:p-4">
                                                                 {/* Movie Title */}
                                                                 <h3 className="text-sm sm:text-base md:text-lg font-bold text-[#FAFAFA] mb-3 line-clamp-2">
-                                                                    {movie.title}
-                                                                </h3>
+                                                            {movie.title}
+                                                        </h3>
                                                                 
                                                                 {/* Movie Information with Icons */}
                                                                 <div className="flex flex-col gap-2 text-xs sm:text-sm text-[#FAFAFA]">
@@ -308,7 +308,7 @@ export default function MoviesPage() {
                                                                             <Volume2 size={14} className="text-[#FAFAFA] flex-shrink-0" />
                                                                             <span className="text-[#FAFAFA]">{movie.languages}</span>
                                                                         </div>
-                                                                    )}
+                                                        )}
                                                                 </div>
                                                             </div>
                                                         </div>

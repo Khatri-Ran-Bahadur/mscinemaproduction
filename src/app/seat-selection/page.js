@@ -65,10 +65,36 @@ export default function SeatSelection() {
 
   // Initialize 5-minute page timer on page load
   useEffect(() => {
+    // Check if coming from ticket-type page - if so, reset timer
+    const fromTicketTypePage = localStorage.getItem('fromTicketTypePage');
+    
+    if (fromTicketTypePage === 'true') {
+      // Coming from ticket-type page - start fresh timer
+      localStorage.removeItem('fromTicketTypePage');
+      localStorage.removeItem('seatSelectionPageTimerStartTime');
+      localStorage.removeItem('seatSelectionTimerMovieId');
+      localStorage.removeItem('seatSelectionTimerShowId');
+      const timerDuration = 300; // 5 minutes
+      const timerStartTime = Date.now().toString();
+      localStorage.setItem('seatSelectionPageTimerStartTime', timerStartTime);
+      localStorage.setItem('seatSelectionTimerMovieId', movieId || '');
+      localStorage.setItem('seatSelectionTimerShowId', showId || '');
+      setPageTimer(timerDuration);
+      setPageTimerActive(true);
+      return;
+    }
+    
+    // Not coming from ticket-type page - check existing timer
     const pageTimerStartTime = localStorage.getItem('seatSelectionPageTimerStartTime');
+    const timerMovieId = localStorage.getItem('seatSelectionTimerMovieId');
+    const timerShowId = localStorage.getItem('seatSelectionTimerShowId');
     const timerDuration = 300; // 5 minutes
     
-    if (pageTimerStartTime) {
+    // Check if timer is for the same movie/show
+    const isSameMovie = timerMovieId === movieId && timerShowId === showId;
+    
+    if (pageTimerStartTime && isSameMovie) {
+      // Timer exists for same movie/show - check if expired
       const elapsed = Math.floor((Date.now() - parseInt(pageTimerStartTime)) / 1000);
       const remaining = Math.max(0, timerDuration - elapsed);
       
@@ -76,23 +102,43 @@ export default function SeatSelection() {
         setPageTimer(remaining);
         setPageTimerActive(true);
       } else {
+        // Timer expired - clear and start new one
         localStorage.removeItem('seatSelectionPageTimerStartTime');
-        // Redirect to movie detail page when timer expires (use setTimeout to avoid render error)
-        setTimeout(() => {
-            if (movieId) {
-                const encryptedMovieId = encryptId(movieId);
-                router.push(`/movie-detail?movieId=${encryptedMovieId}`);
-              } else {
-                router.push('/');
-              }
-        }, 0);
+        localStorage.removeItem('seatSelectionTimerMovieId');
+        localStorage.removeItem('seatSelectionTimerShowId');
+        const timerStartTime = Date.now().toString();
+        localStorage.setItem('seatSelectionPageTimerStartTime', timerStartTime);
+        localStorage.setItem('seatSelectionTimerMovieId', movieId || '');
+        localStorage.setItem('seatSelectionTimerShowId', showId || '');
+        setPageTimer(timerDuration);
+        setPageTimerActive(true);
       }
     } else {
-      localStorage.setItem('seatSelectionPageTimerStartTime', Date.now().toString());
+      // No existing timer OR different movie/show - start new timer
+      if (pageTimerStartTime) {
+        // Clear old timer for different movie/show
+        localStorage.removeItem('seatSelectionPageTimerStartTime');
+        localStorage.removeItem('seatSelectionTimerMovieId');
+        localStorage.removeItem('seatSelectionTimerShowId');
+      }
+      const timerStartTime = Date.now().toString();
+      localStorage.setItem('seatSelectionPageTimerStartTime', timerStartTime);
+      localStorage.setItem('seatSelectionTimerMovieId', movieId || '');
+      localStorage.setItem('seatSelectionTimerShowId', showId || '');
       setPageTimer(timerDuration);
       setPageTimerActive(true);
     }
-  }, [movieId, router]);
+  }, [movieId, showId, router]);
+
+  // Cleanup: Clear timer when component unmounts (user navigates away)
+  useEffect(() => {
+    return () => {
+      // Clear timer when leaving the page
+      localStorage.removeItem('seatSelectionPageTimerStartTime');
+      localStorage.removeItem('seatSelectionTimerMovieId');
+      localStorage.removeItem('seatSelectionTimerShowId');
+    };
+  }, []);
 
   // Initialize timer from localStorage on page load (for seat locking)
   useEffect(() => {
@@ -127,33 +173,58 @@ export default function SeatSelection() {
         setPageTimer(time => {
           if (time <= 1) {
             setPageTimerActive(false);
-            localStorage.removeItem('seatSelectionPageTimerStartTime');
-            // Redirect to movie detail page when timer expires (use setTimeout to avoid render error)
-            setTimeout(() => {
-              if (movieId) {
-                const encryptedMovieId = encryptId(movieId);
-                router.push(`/movie-detail?movieId=${encryptedMovieId}`);
-              } else {
-                router.push('/');
-              }
-            }, 0);
+            // Verify timer is still for current movie/show before redirecting
+            const timerMovieId = localStorage.getItem('seatSelectionTimerMovieId');
+            const timerShowId = localStorage.getItem('seatSelectionTimerShowId');
+            if (timerMovieId === movieId && timerShowId === showId) {
+              localStorage.removeItem('seatSelectionPageTimerStartTime');
+              localStorage.removeItem('seatSelectionTimerMovieId');
+              localStorage.removeItem('seatSelectionTimerShowId');
+              // Redirect to movie detail page when timer expires (use setTimeout to avoid render error)
+              setTimeout(() => {
+                if (movieId) {
+                  const encryptedMovieId = encryptId(movieId);
+                  router.push(`/movie-detail?movieId=${encryptedMovieId}`);
+                } else {
+                  router.push('/');
+                }
+              }, 0);
+            } else {
+              // Timer is for different movie/show - just clear it
+              localStorage.removeItem('seatSelectionPageTimerStartTime');
+              localStorage.removeItem('seatSelectionTimerMovieId');
+              localStorage.removeItem('seatSelectionTimerShowId');
+            }
             return 0;
           }
           return time - 1;
         });
       }, 1000);
     } else if (pageTimer === 0 && pageTimerActive) {
-      localStorage.removeItem('seatSelectionPageTimerStartTime');
-      setPageTimerActive(false);
-      // Redirect to movie detail page when timer expires (use setTimeout to avoid render error)
-      setTimeout(() => {
-        if (movieId) {
-          const encryptedMovieId = encryptId(movieId);
-          router.push(`/movie-detail?movieId=${encryptedMovieId}`);
-        } else {
-          router.push('/');
-        }
-      }, 0);
+      // Verify timer is still for current movie/show before redirecting
+      const timerMovieId = localStorage.getItem('seatSelectionTimerMovieId');
+      const timerShowId = localStorage.getItem('seatSelectionTimerShowId');
+      if (timerMovieId === movieId && timerShowId === showId) {
+        localStorage.removeItem('seatSelectionPageTimerStartTime');
+        localStorage.removeItem('seatSelectionTimerMovieId');
+        localStorage.removeItem('seatSelectionTimerShowId');
+        setPageTimerActive(false);
+        // Redirect to movie detail page when timer expires (use setTimeout to avoid render error)
+        setTimeout(() => {
+          if (movieId) {
+            const encryptedMovieId = encryptId(movieId);
+            router.push(`/movie-detail?movieId=${encryptedMovieId}`);
+          } else {
+            router.push('/');
+          }
+        }, 0);
+      } else {
+        // Timer is for different movie/show - just clear it
+        localStorage.removeItem('seatSelectionPageTimerStartTime');
+        localStorage.removeItem('seatSelectionTimerMovieId');
+        localStorage.removeItem('seatSelectionTimerShowId');
+        setPageTimerActive(false);
+      }
     }
     return () => {
       if (interval) clearInterval(interval);
@@ -770,21 +841,248 @@ export default function SeatSelection() {
 
   // Check if seat should be disabled based on ticket type selection
   // Twin seats have separate restrictions, normal and handicap seats share the same restrictions
+  // Special logic for Hall 6: seatType 4 = Adult, seatType 0 = Kids, seatType 3 = Family Bed
+  // Seat type restrictions based on ticket selection:
+  // If Kids tickets selected → only Kids seats (seatType: 3) can be selected
+  // If Sofa tickets selected → only Sofa seats (seatType: 4) can be selected
+  // If VIP tickets selected → only VIP seats (seatType: 1) can be selected
+  // If Normal tickets selected → only Normal seats (seatType: 0) can be selected
+  // If Twin tickets selected → only Twin seats (seatType: 2) can be selected
   const isSeatDisabled = (seat) => {
     if (!seat || seat.seatStatus !== 0) return true; // Disable occupied seats
     
+    // Allow deselection of already selected seats (check this first)
+    const seatIsSelected = selectedSeats.includes(seat.seatNo);
+    if (seatIsSelected) {
+      // For twin seats, also check partner seat
+      if (seat.seatType === 2 && seat.partnerSeatID) {
+        const partnerSeat = seatsData.find(s => s.seatID === seat.partnerSeatID);
+        if (partnerSeat && selectedSeats.includes(partnerSeat.seatNo)) {
+          return false; // Allow deselection of selected twin pair
+        }
+      }
+      return false; // Allow deselection
+    }
+    
+    // Check if tickets are selected
+    if (!selectedTickets || Object.keys(selectedTickets).length === 0) {
+      return true; // No tickets selected
+    }
+    
+    if (!ticketData) {
+      // If no ticket data, continue with default logic below
+    } else {
+      const currentSeatType = Number(seat.seatType);
+      
+      // Get ticket type IDs
+      const kidsTicketTypeID = ticketData.generalInfo?.ticketTypeIDForKidsSeat;
+      const sofaTicketTypeID = ticketData.generalInfo?.ticketTypeIDForSofa;
+      const twinVIPTicketTypeID = ticketData.generalInfo?.ticketTypeIDForTwinSeatsAndVIPSeats;
+      
+      // Check which ticket types are selected
+      const hasKidsTickets = kidsTicketTypeID && (selectedTickets[String(kidsTicketTypeID)] || 0) > 0;
+      const hasSofaTickets = sofaTicketTypeID && (selectedTickets[String(sofaTicketTypeID)] || 0) > 0;
+      const hasTwinVIPTickets = twinVIPTicketTypeID && (selectedTickets[String(twinVIPTicketTypeID)] || 0) > 0;
+      
+      // Check for Normal/Adult tickets (any ticket that's not Kids, Sofa, or Twin/VIP)
+      const hasNormalTickets = Object.entries(selectedTickets).some(([ticketTypeID, count]) => {
+        if (count === 0) return false;
+        const ticketTypeIDNum = parseInt(ticketTypeID);
+        return ticketTypeIDNum !== kidsTicketTypeID && 
+               ticketTypeIDNum !== sofaTicketTypeID && 
+               ticketTypeIDNum !== twinVIPTicketTypeID;
+      });
+      
+      // Determine if Twin or VIP based on ticket name
+      let isTwinTicket = false;
+      let isVIPTicket = false;
+      if (hasTwinVIPTickets && twinVIPTicketTypeID) {
+        const priceDetail = ticketData.priceDetails?.find(p => p.ticketTypeID === twinVIPTicketTypeID);
+        const ticketTypeName = priceDetail?.ticketTypeName?.toUpperCase() || '';
+        isTwinTicket = ticketTypeName.includes('TWIN');
+        isVIPTicket = !isTwinTicket && (ticketTypeName.includes('VIP') || ticketTypeName.includes('VIP'));
+      }
+      
+      // Check if this seat type matches any selected ticket type
+      // Allow multiple ticket types to be selected simultaneously
+      
+      // Check for Kids seats (seatType: 3)
+      if (currentSeatType === 3) {
+        if (hasKidsTickets) {
+          // Count how many Kids seats are already selected
+          const selectedKidsSeats = selectedSeats.filter(seatNo => {
+            const s = seatsData.find(ss => ss.seatNo === seatNo);
+            return s && Number(s.seatType) === 3;
+          }).length;
+          const kidsTicketCount = selectedTickets[String(kidsTicketTypeID)] || 0;
+          // If we've selected all Kids seats for the ticket count, disable remaining Kids seats
+          if (selectedKidsSeats >= kidsTicketCount) return true;
+          return false; // Can select more Kids seats
+        }
+        // No Kids tickets selected, disable Kids seats
+        return true;
+      }
+      
+      // Check for Sofa seats (seatType: 4)
+      if (currentSeatType === 4) {
+        if (hasSofaTickets) {
+          // Count how many Sofa seats are already selected
+          const selectedSofaSeats = selectedSeats.filter(seatNo => {
+            const s = seatsData.find(ss => ss.seatNo === seatNo);
+            return s && Number(s.seatType) === 4;
+          }).length;
+          const sofaTicketCount = selectedTickets[String(sofaTicketTypeID)] || 0;
+          // If we've selected all Sofa seats for the ticket count, disable remaining Sofa seats
+          if (selectedSofaSeats >= sofaTicketCount) return true;
+          return false; // Can select more Sofa seats
+        }
+        // No Sofa tickets selected, disable Sofa seats
+        return true;
+      }
+      
+      // Check for VIP seats (seatType: 1)
+      if (currentSeatType === 1) {
+        if (hasTwinVIPTickets && isVIPTicket) {
+          // Count how many VIP seats are already selected
+          const selectedVIPSeats = selectedSeats.filter(seatNo => {
+            const s = seatsData.find(ss => ss.seatNo === seatNo);
+            return s && Number(s.seatType) === 1;
+          }).length;
+          const vipTicketCount = selectedTickets[String(twinVIPTicketTypeID)] || 0;
+          // If we've selected all VIP seats for the ticket count, disable remaining VIP seats
+          if (selectedVIPSeats >= vipTicketCount) return true;
+          return false; // Can select more VIP seats
+        }
+        // No VIP tickets selected, disable VIP seats
+        return true;
+      }
+      
+      // Check for Twin seats (seatType: 2) - handled by existing logic below
+      if (currentSeatType === 2) {
+        if (hasTwinVIPTickets && isTwinTicket) {
+          // Twin seats are handled by existing logic below, continue
+        } else {
+          // No Twin tickets selected, disable Twin seats (unless handled by default logic)
+          // Continue to default logic below
+        }
+      }
+      
+      // Check for Normal seats (seatType: 0)
+      if (currentSeatType === 0) {
+        if (hasNormalTickets) {
+          // Count how many Normal seats are already selected
+          const selectedNormalSeats = selectedSeats.filter(seatNo => {
+            const s = seatsData.find(ss => ss.seatNo === seatNo);
+            return s && Number(s.seatType) === 0;
+          }).length;
+          // Count total normal tickets
+          let normalTicketCount = 0;
+          Object.entries(selectedTickets).forEach(([ticketTypeID, count]) => {
+            const ticketTypeIDNum = parseInt(ticketTypeID);
+            if (ticketTypeIDNum !== kidsTicketTypeID && 
+                ticketTypeIDNum !== sofaTicketTypeID && 
+                ticketTypeIDNum !== twinVIPTicketTypeID) {
+              normalTicketCount += count;
+            }
+          });
+          // If we've selected all Normal seats for the ticket count, disable remaining Normal seats
+          if (selectedNormalSeats >= normalTicketCount) return true;
+          return false; // Can select more Normal seats
+        }
+        // No Normal tickets selected, disable Normal seats
+        return true;
+      }
+    }
+    
+    // Check if this is Hall 6
+    const hallNo = seatLayout?.hallDetails?.hallNo;
+    const isHall6 = hallNo === 6;
+    
+    // Special logic for Hall 6
+    if (isHall6) {
+      // Map seat types to ticket types for Hall 6:
+      // seatType 4 = ADULT (ticketTypeID: 17)
+      // seatType 0 = KIDS (ticketTypeID: 37)
+      // seatType 3 = FAMILY BED (ticketTypeID: 38)
+      
+      // If this seat is already selected, don't disable it (allow deselection)
+      // Note: seatIsSelected is already checked above, so this check is redundant but kept for clarity
+      if (selectedSeats.includes(seat.seatNo)) return false;
+      
+      // Check which ticket types are selected
+      if (!selectedTickets || Object.keys(selectedTickets).length === 0) {
+        return true; // No tickets selected
+      }
+      
+      // Get the seat's raw seatType value
+      const rawSeatType = seat.seatType;
+      
+      // Check if the seat type matches any selected ticket type
+      let hasMatchingTicket = false;
+      let selectedCountForThisType = 0;
+      let totalCountForThisType = 0;
+      
+      if (rawSeatType === 4) {
+        // Adult seat - check if ADULT tickets (ticketTypeID: 17) are selected
+        const adultCount = selectedTickets['17'] || 0;
+        if (adultCount > 0) {
+          hasMatchingTicket = true;
+          totalCountForThisType = adultCount;
+          // Count how many seatType 4 seats are already selected
+          selectedCountForThisType = selectedSeats.filter(seatNo => {
+            const s = seatsData.find(ss => ss.seatNo === seatNo);
+            return s && s.seatType === 4;
+          }).length;
+        }
+      } else if (rawSeatType === 0) {
+        // Kids seat - check if KIDS tickets (ticketTypeID: 37) are selected
+        const kidsCount = selectedTickets['37'] || 0;
+        if (kidsCount > 0) {
+          hasMatchingTicket = true;
+          totalCountForThisType = kidsCount;
+          // Count how many seatType 0 seats are already selected
+          selectedCountForThisType = selectedSeats.filter(seatNo => {
+            const s = seatsData.find(ss => ss.seatNo === seatNo);
+            return s && s.seatType === 0;
+          }).length;
+        }
+      } else if (rawSeatType === 3) {
+        // Family Bed seat - check if FAMILY BED tickets (ticketTypeID: 38) are selected
+        const familyBedCount = selectedTickets['38'] || 0;
+        if (familyBedCount > 0) {
+          hasMatchingTicket = true;
+          totalCountForThisType = familyBedCount;
+          // Count how many seatType 3 seats are already selected
+          selectedCountForThisType = selectedSeats.filter(seatNo => {
+            const s = seatsData.find(ss => ss.seatNo === seatNo);
+            return s && s.seatType === 3;
+          }).length;
+        }
+      }
+      
+      // If no matching ticket type is selected, disable this seat
+      if (!hasMatchingTicket) return true;
+      
+      // If we've already selected all seats for this ticket type, disable
+      if (selectedCountForThisType >= totalCountForThisType) return true;
+      
+      // Can select more seats of this type
+      return false;
+    }
+    
+    // Default logic for other halls
     const seatType = getSeatType(seat);
     const ticketCounts = getTicketTypeCounts();
     const selectedCounts = getSelectedSeatsByType();
     
     // If this seat is already selected, don't disable it (allow deselection)
-    const seatIsSelected = selectedSeats.includes(seat.seatNo);
+    // Note: seatIsSelected is already checked at the top of the function
     if (seatType === 'twin' && seat.partnerSeatID) {
       const partnerSeat = seatsData.find(s => s.seatID === seat.partnerSeatID);
       const partnerIsSelected = partnerSeat && selectedSeats.includes(partnerSeat.seatNo);
-      if (seatIsSelected && partnerIsSelected) return false; // Don't disable selected pair
+      if (selectedSeats.includes(seat.seatNo) && partnerIsSelected) return false; // Don't disable selected pair
     } else {
-      if (seatIsSelected) return false; // Don't disable selected seat
+      if (selectedSeats.includes(seat.seatNo)) return false; // Don't disable selected seat
     }
     
     // Twin seats: only selectable if twin tickets selected, limited to ticket count
@@ -1397,51 +1695,7 @@ export default function SeatSelection() {
       </div>
 
       <div className="w-full max-w-full mx-auto px-2 sm:px-4 md:px-6 lg:px-8 mt-4 sm:mt-8">
-        {/* Show Time Selection */}
-        {filteredShowTimes.length > 0 && (
-          <div className="mb-6 sm:mb-8">
-            <h2 className="text-sm font-semibold mb-4 text-[#FAFAFA]">Select cinema & Time</h2>
-            
-            {/* Cinema Location */}
-            {cinemaDetails && (
-              <div className="bg-[#1a1a1a] rounded-lg p-4 sm:p-6 border border-[#2a2a2a] mb-4">
-                <div className="flex items-center gap-2 mb-4">
-                  <MovieIcon className="w-4 h-4 text-[#FAFAFA]" />
-                  <span className="text-sm text-[#FAFAFA]">
-                    {cinemaDetails.displayName || cinemaDetails.name || `Cinema ${cinemaId}`}
-                  </span>
-                </div>
-
-                {/* Showtimes Grid - Display Only (Disabled) */}
-                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
-                  {filteredShowTimes.map((show, idx) => {
-                    const isSelected = selectedTimeIndex === idx;
-                    const isAvailable = show.available;
-                    const isSoldOut = show.soldOut;
-                    
-                    return (
-                      <div
-                        key={show.showID || show.id || idx}
-                        className={`p-3 rounded-lg border ${
-                          isSoldOut
-                            ? 'bg-gray-800 border-red-500 text-gray-500 opacity-60'
-                            : isSelected
-                            ? 'bg-[#FFCA20] border-[#FFCA20] text-black'
-                            : show.sellingFast
-                            ? 'bg-[#0a0a0a] border-[#FFCA20] text-[#FAFAFA]'
-                            : 'bg-[#0a0a0a] border-green-500 text-[#FAFAFA]'
-                        }`}
-                      >
-                        <div className="text-sm font-semibold">{show.time}</div>
-                        <div className="text-xs mt-1 opacity-70">{show.hallName || 'HALL - 1'}</div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
+       
 
         {/* Timer and Seat Legend Section */}
         <div className="mb-4 sm:mb-8">
@@ -1482,54 +1736,38 @@ export default function SeatSelection() {
             </div>
              
               <span className="text-white/70">Twins</span>
-            </div>
           </div>
         </div>
-
-        {/* Screen */}
-        <div className="mb-8 relative">
-          <svg width="100%" height="65" viewBox="0 0 898 65" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-auto" preserveAspectRatio="xMidYMid meet">
-            <defs>
-              <filter id="filter0_d_screen" x="0" y="0" width="898" height="62.5001" filterUnits="userSpaceOnUse" colorInterpolationFilters="sRGB">
-                <feFlood floodOpacity="0" result="BackgroundImageFix"/>
-                <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
-                <feOffset dy="4"/>
-                <feGaussianBlur stdDeviation="8.5"/>
-                <feComposite in2="hardAlpha" operator="out"/>
-                <feColorMatrix type="matrix" values="0 0 0 0 0.941176 0 0 0 0 0.941176 0 0 0 0 0.941176 0 0 0 1 0"/>
-                <feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_2065_2204"/>
-                <feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow_2065_2204" result="shape"/>
-              </filter>
-            </defs>
-            <g filter="url(#filter0_d_screen)">
-              <path d="M19 39.5C19 39.5 280.919 15 449 15C617.081 15 879 39.5 879 39.5" stroke="#F0F0F0" strokeWidth="4" strokeLinecap="round"/>
-            </g>
-            <path d="M428.961 58.598C428.308 58.598 427.72 58.486 427.197 58.262C426.674 58.0287 426.264 57.702 425.965 57.282C425.666 56.862 425.517 56.372 425.517 55.812H427.225C427.262 56.232 427.426 56.5773 427.715 56.848C428.014 57.1187 428.429 57.254 428.961 57.254C429.512 57.254 429.941 57.1233 430.249 56.862C430.557 56.5913 430.711 56.246 430.711 55.826C430.711 55.4993 430.613 55.2333 430.417 55.028C430.23 54.8227 429.992 54.664 429.703 54.552C429.423 54.44 429.031 54.3187 428.527 54.188C427.892 54.02 427.374 53.852 426.973 53.684C426.581 53.5067 426.245 53.236 425.965 52.872C425.685 52.508 425.545 52.0227 425.545 51.416C425.545 50.856 425.685 50.366 425.965 49.946C426.245 49.526 426.637 49.204 427.141 48.98C427.645 48.756 428.228 48.644 428.891 48.644C429.834 48.644 430.604 48.882 431.201 49.358C431.808 49.8247 432.144 50.4687 432.209 51.29H430.445C430.417 50.9353 430.249 50.632 429.941 50.38C429.633 50.128 429.227 50.002 428.723 50.002C428.266 50.002 427.892 50.1187 427.603 50.352C427.314 50.5853 427.169 50.9213 427.169 51.36C427.169 51.6587 427.258 51.906 427.435 52.102C427.622 52.2887 427.855 52.438 428.135 52.55C428.415 52.662 428.798 52.7833 429.283 52.914C429.927 53.0913 430.45 53.2687 430.851 53.446C431.262 53.6233 431.607 53.8987 431.887 54.272C432.176 54.636 432.321 55.126 432.321 55.742C432.321 56.2367 432.186 56.7033 431.915 57.142C431.654 57.5807 431.266 57.9353 430.753 58.206C430.249 58.4673 429.652 58.598 428.961 58.598ZM433.672 54.636C433.672 53.8427 433.831 53.1473 434.148 52.55C434.475 51.9433 434.923 51.4767 435.492 51.15C436.062 50.8233 436.715 50.66 437.452 50.66C438.386 50.66 439.156 50.884 439.762 51.332C440.378 51.7707 440.794 52.4007 441.008 53.222H439.286C439.146 52.8393 438.922 52.5407 438.614 52.326C438.306 52.1113 437.919 52.004 437.452 52.004C436.799 52.004 436.276 52.2373 435.884 52.704C435.502 53.1613 435.31 53.8053 435.31 54.636C435.31 55.4667 435.502 56.1153 435.884 56.582C436.276 57.0487 436.799 57.282 437.452 57.282C438.376 57.282 438.988 56.876 439.286 56.064H441.008C440.784 56.848 440.364 57.4733 439.748 57.94C439.132 58.3973 438.367 58.626 437.452 58.626C436.715 58.626 436.062 58.4627 435.492 58.136C434.923 57.8 434.475 57.3333 434.148 56.736C433.831 56.1293 433.672 55.4293 433.672 54.636ZM444.195 51.906C444.428 51.514 444.736 51.2107 445.119 50.996C445.511 50.772 445.973 50.66 446.505 50.66V52.312H446.099C445.473 52.312 444.997 52.4707 444.671 52.788C444.353 53.1053 444.195 53.656 444.195 54.44V58.5H442.599V50.786H444.195V51.906ZM455.042 54.454C455.042 54.7433 455.023 55.0047 454.986 55.238H449.092C449.139 55.854 449.367 56.3487 449.778 56.722C450.189 57.0953 450.693 57.282 451.29 57.282C452.149 57.282 452.755 56.9227 453.11 56.204H454.832C454.599 56.9133 454.174 57.4967 453.558 57.954C452.951 58.402 452.195 58.626 451.29 58.626C450.553 58.626 449.89 58.4627 449.302 58.136C448.723 57.8 448.266 57.3333 447.93 56.736C447.603 56.1293 447.44 55.4293 447.44 54.636C447.44 53.8427 447.599 53.1473 447.916 52.55C448.243 51.9433 448.695 51.4767 449.274 51.15C449.862 50.8233 450.534 50.66 451.29 50.66C452.018 50.66 452.667 50.8187 453.236 51.136C453.805 51.4533 454.249 51.9013 454.566 52.48C454.883 53.0493 455.042 53.7073 455.042 54.454ZM453.376 53.95C453.367 53.362 453.157 52.8907 452.746 52.536C452.335 52.1813 451.827 52.004 451.22 52.004C450.669 52.004 450.198 52.1813 449.806 52.536C449.414 52.8813 449.181 53.3527 449.106 53.95H453.376ZM463.683 54.454C463.683 54.7433 463.664 55.0047 463.627 55.238H457.733C457.779 55.854 458.008 56.3487 458.419 56.722C458.829 57.0953 459.333 57.282 459.931 57.282C460.789 57.282 461.396 56.9227 461.751 56.204H463.472C463.239 56.9133 462.815 57.4967 462.199 57.954C461.592 58.402 460.836 58.626 459.931 58.626C459.193 58.626 458.531 58.4627 457.943 58.136C457.364 57.8 456.907 57.3333 456.571 56.736C456.244 56.1293 456.081 55.4293 456.081 54.636C456.081 53.8427 456.239 53.1473 456.557 52.55C456.883 51.9433 457.336 51.4767 457.915 51.15C458.503 50.8233 459.175 50.66 459.931 50.66C460.659 50.66 461.307 50.8187 461.877 51.136C462.446 51.4533 462.889 51.9013 463.207 52.48C463.524 53.0493 463.683 53.7073 463.683 54.454ZM462.017 53.95C462.007 53.362 461.797 52.8907 461.387 52.536C460.976 52.1813 460.467 52.004 459.861 52.004C459.31 52.004 458.839 52.1813 458.447 52.536C458.055 52.8813 457.821 53.3527 457.747 53.95H462.017ZM469.145 50.66C469.752 50.66 470.293 50.786 470.769 51.038C471.254 51.29 471.632 51.6633 471.903 52.158C472.174 52.6527 472.309 53.25 472.309 53.95V58.5H470.727V54.188C470.727 53.4973 470.554 52.97 470.209 52.606C469.864 52.2327 469.392 52.046 468.795 52.046C468.198 52.046 467.722 52.2327 467.367 52.606C467.022 52.97 466.849 53.4973 466.849 54.188V58.5H465.253V50.786H466.849V51.668C467.11 51.3507 467.442 51.1033 467.843 50.926C468.254 50.7487 468.688 50.66 469.145 50.66Z" fill="#FAFAFA"/>
-          </svg>
         </div>
 
         {/* Seat Map */}
-        <div className="bg-[#1a1a1a] rounded-lg p-3 sm:p-4 md:p-4 mb-6 w-full">
-          <div className="flex flex-col gap-2 sm:gap-3 md:gap-4 lg:gap-5 w-full">
-            {rowLetters.map((rowLetter) => {
+        <div className="bg-[#1a1a1a] rounded-lg p-2 sm:p-3 md:p-4 lg:p-5 xl:p-6 mb-6 w-full mt-20 max-w-full">
+          <div className="flex flex-col gap-1.5 sm:gap-2 md:gap-3 lg:gap-4 xl:gap-5 w-full min-w-0 ">
+            {rowLetters.map((rowLetter, rowIndex) => {
               const rowSeats = seatGrid[rowLetter];
               // Get max column from actual seat data in this row (or use 0 if no seats)
               const rowMaxColumn = rowSeats ? Math.max(...Object.keys(rowSeats).map(k => parseInt(k) || 0), 0) : 0;
               
+              // Check if this is Hall 6 for seat labeling (check both number and string, and hallName as fallback)
+              const hallNo = seatLayout?.hallDetails?.hallNo;
+              const hallName = seatLayout?.hallDetails?.hallName || showTimeDetails?.hallName || '';
+              const isHall6 = hallNo === 6 || hallNo === '6' || hallName?.includes('6') || hallName?.toUpperCase()?.includes('HALL - 6');
+              
               return (
-                <div key={rowLetter} className="flex items-center w-full">
+                <div key={rowLetter} className="flex items-center w-full min-w-0">
                 {/* Row Label Left */}
-                  <span className="text-[10px] sm:text-xs text-white/40 w-6 sm:w-8 text-center font-medium shrink-0">{rowLetter}</span>
+                  <span className="text-[9px] sm:text-[10px] md:text-xs text-white/40 w-4 sm:w-5 md:w-6 lg:w-8 text-center font-medium shrink-0">{rowLetter}</span>
                 
-                {/* Seats - Full Width Container with auto gaps */}
-                <div className="flex gap-1 sm:gap-1.5 md:gap-2 lg:gap-2.5 xl:gap-3 items-center justify-center flex-1">
+                {/* Seats - Full Width Container with auto-adjusting gaps to fit screen */}
+                <div className="flex items-center flex-1 w-full min-w-0 ">
+                  <div className="flex items-center justify-evenly flex-wrap gap-0.5 sm:gap-1 md:gap-1.5 lg:gap-2 xl:gap-2.5 w-full max-w-full px-0.5 sm:px-1">
                     {Array.from({ length: rowMaxColumn }, (_, i) => {
                       const column = i + 1;
                       const seat = rowSeats[column];
                       
                       if (!seat) {
-                        // Empty space - maintain spacing
-                        return <div key={`${rowLetter}-${column}`} className="w-7 h-6 sm:w-8 sm:h-7 md:w-9 md:h-8 shrink-0"></div>;
+                        // Empty space - maintain spacing with responsive sizing
+                        return <div key={`${rowLetter}-${column}`} className="w-4 h-3 sm:w-5 sm:h-4 md:w-6 md:h-5 lg:w-7 lg:h-6 xl:w-8 xl:h-7 2xl:w-9 2xl:h-8 shrink-0"></div>;
                       }
 
                       const isSelected = isSeatSelected(seat);
@@ -1542,6 +1780,41 @@ export default function SeatSelection() {
                       // Extract seat number from seatNo (e.g., "A10" -> "10")
                       const seatNumber = seat.seatNo.replace(rowLetter, '');
                     
+                      // Get seat label based on seatType:
+                      // 0 = Normal (no label)
+                      // 1 = VIP (show "VIP")
+                      // 2 = Twin Seat (no label)
+                      // 3 = Kids Seat (show "KIDS")
+                      // 4 = Sofa (show "BED")
+                      const getSeatLabel = () => {
+                        if (!isHall6) return null;
+                        const rawSeatType = Number(seat.seatType); // Convert to number for proper comparison
+                        
+                        // Map seatType to labels:
+                        if (rawSeatType === 1) return 'VIP';      // VIP seat
+                        if (rawSeatType === 3) return 'KIDS';    // Kids seat
+                        if (rawSeatType === 4) return 'BED';     // Sofa seat
+                        // seatType 0 (Normal) and 2 (Twin) - no label
+                        return null;
+                      };
+                      const seatLabel = getSeatLabel();
+                      
+                      // Get label for partner seat (for twin seats)
+                      const getPartnerSeatLabel = () => {
+                        if (!isHall6 || !isDouble || isPartner) return null;
+                        const partnerSeat = seatsData.find(s => s.seatID === seat.partnerSeatID);
+                        if (!partnerSeat) return null;
+                        const rawSeatType = Number(partnerSeat.seatType); // Convert to number for proper comparison
+                        
+                        // Map seatType to labels:
+                        if (rawSeatType === 1) return 'VIP';      // VIP seat
+                        if (rawSeatType === 3) return 'KIDS';    // Kids seat
+                        if (rawSeatType === 4) return 'BED';     // Sofa seat
+                        // seatType 0 (Normal) and 2 (Twin) - no label
+                        return null;
+                      };
+                      const partnerSeatLabel = getPartnerSeatLabel();
+                    
                       // For double/twin seats, render as pairs
                       if (isDouble && !isPartner) {
                         const partnerSeat = seatsData.find(s => s.seatID === seat.partnerSeatID);
@@ -1553,7 +1826,8 @@ export default function SeatSelection() {
                         const partnerSeatType = partnerSeat ? getSeatType(partnerSeat) : seatType;
 
                     return (
-                          <div key={`${rowLetter}-${column}`} className="flex items-center shrink-0">
+                          <div key={`${rowLetter}-${column}`} className="flex flex-col items-center shrink-0 gap-0.5 min-w-0">
+                            <div className="flex items-center shrink-0 min-w-0">
                               <button
                               onClick={() => toggleSeat(seat)}
                               disabled={isOccupied || partnerIsOccupied || isDisabled || partnerIsDisabled}
@@ -1591,6 +1865,12 @@ export default function SeatSelection() {
                               </button>
                             )}
                             </div>
+                            {(seatLabel || partnerSeatLabel) && (
+                              <span className="text-[9px] sm:text-[10px] text-white font-semibold leading-tight whitespace-nowrap">
+                                {seatLabel || partnerSeatLabel}
+                              </span>
+                            )}
+                            </div>
                         );
                       } else if (isPartner) {
                         // Skip partner seats (already rendered with main seat)
@@ -1598,34 +1878,65 @@ export default function SeatSelection() {
                       } else {
                         // Single seat
                         return (
+                          <div key={`${rowLetter}-${column}`} className="flex flex-col items-center shrink-0 gap-0.5 min-w-0">
                           <button
-                            key={`${rowLetter}-${column}`}
                             onClick={() => toggleSeat(seat)}
-                            disabled={isOccupied || isDisabled}
-                            className={`rounded shrink-0 transition-all ${
+                              disabled={isOccupied || isDisabled}
+                              className={`rounded shrink-0 transition-all min-w-0 ${
                               isSelected 
-                                ? '' 
-                                : (isOccupied || isDisabled)
-                                ? 'cursor-not-allowed opacity-60' 
-                                : 'hover:opacity-80'
-                            }`}
-                          >
-                            <SeatIcon 
-                              seatType={seatType}
-                              variant={isSelected ? 'selected' : isOccupied ? 'occupied' : 'outline'}
-                              className={isSelected ? '' : isOccupied ? '' : 'text-gray-400'}
-                            />
+                                  ? '' 
+                                  : (isOccupied || isDisabled)
+                                  ? 'cursor-not-allowed opacity-60' 
+                                  : 'hover:opacity-80'
+                              }`}
+                            >
+                              <SeatIcon 
+                                seatType={seatType}
+                                variant={isSelected ? 'selected' : isOccupied ? 'occupied' : 'outline'}
+                                className={isSelected ? '' : isOccupied ? '' : 'text-gray-400'}
+                              />
                           </button>
+                            {seatLabel && (
+                              <span className="text-[9px] sm:text-[10px] text-white font-semibold leading-tight whitespace-nowrap">{seatLabel}</span>
+                            )}
+                          </div>
                     );
                       }
                   })}
+                  </div>
                 </div>
                 
                 {/* Row Label Right */}
-                <span className="text-[10px] sm:text-xs text-white/40 w-6 sm:w-8 text-center font-medium shrink-0">{rowLetter}</span>
+                <span className="text-[9px] sm:text-[10px] md:text-xs text-white/40 w-4 sm:w-5 md:w-6 lg:w-8 text-center font-medium shrink-0">{rowLetter}</span>
               </div>
             );
           })}
+        </div>
+
+        {/* Screen - Moved to bottom, reversed border with text above */}
+        <div className="mt-8 relative">
+          <svg width="100%" height="65" viewBox="0 0 898 65" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-auto" preserveAspectRatio="xMidYMid meet">
+            <defs>
+              <filter id="filter0_d_screen_reversed" x="0" y="2" width="898" height="62.5" filterUnits="userSpaceOnUse" colorInterpolationFilters="sRGB">
+                <feFlood floodOpacity="0" result="BackgroundImageFix"/>
+                <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
+                <feOffset dy="-4"/>
+                <feGaussianBlur stdDeviation="8.5"/>
+                <feComposite in2="hardAlpha" operator="out"/>
+                <feColorMatrix type="matrix" values="0 0 0 0 0.941176 0 0 0 0 0.941176 0 0 0 0 0.941176 0 0 0 1 0"/>
+                <feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_2065_2204"/>
+                <feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow_2065_2204" result="shape"/>
+              </filter>
+            </defs>
+            
+            <g filter="url(#filter0_d_screen_reversed)">
+              <path d="M19 15C19 15 280.919 40 449 40C617.081 40 879 15 879 15" stroke="#F0F0F0" strokeWidth="4" strokeLinecap="round"/>
+            </g>
+            
+            <g transform="translate(0, -40)">
+              <path d="M428.961 58.598C428.308 58.598 427.72 58.486 427.197 58.262C426.674 58.0287 426.264 57.702 425.965 57.282C425.666 56.862 425.517 56.372 425.517 55.812H427.225C427.262 56.232 427.426 56.5773 427.715 56.848C428.014 57.1187 428.429 57.254 428.961 57.254C429.512 57.254 429.941 57.1233 430.249 56.862C430.557 56.5913 430.711 56.246 430.711 55.826C430.711 55.4993 430.613 55.2333 430.417 55.028C430.23 54.8227 429.992 54.664 429.703 54.552C429.423 54.44 429.031 54.3187 428.527 54.188C427.892 54.02 427.374 53.852 426.973 53.684C426.581 53.5067 426.245 53.236 425.965 52.872C425.685 52.508 425.545 52.0227 425.545 51.416C425.545 50.856 425.685 50.366 425.965 49.946C426.245 49.526 426.637 49.204 427.141 48.98C427.645 48.756 428.228 48.644 428.891 48.644C429.834 48.644 430.604 48.882 431.201 49.358C431.808 49.8247 432.144 50.4687 432.209 51.29H430.445C430.417 50.9353 430.249 50.632 429.941 50.38C429.633 50.128 429.227 50.002 428.723 50.002C428.266 50.002 427.892 50.1187 427.603 50.352C427.314 50.5853 427.169 50.9213 427.169 51.36C427.169 51.6587 427.258 51.906 427.435 52.102C427.622 52.2887 427.855 52.438 428.135 52.55C428.415 52.662 428.798 52.7833 429.283 52.914C429.927 53.0913 430.45 53.2687 430.851 53.446C431.262 53.6233 431.607 53.8987 431.887 54.272C432.176 54.636 432.321 55.126 432.321 55.742C432.321 56.2367 432.186 56.7033 431.915 57.142C431.654 57.5807 431.266 57.9353 430.753 58.206C430.249 58.4673 429.652 58.598 428.961 58.598ZM433.672 54.636C433.672 53.8427 433.831 53.1473 434.148 52.55C434.475 51.9433 434.923 51.4767 435.492 51.15C436.062 50.8233 436.715 50.66 437.452 50.66C438.386 50.66 439.156 50.884 439.762 51.332C440.378 51.7707 440.794 52.4007 441.008 53.222H439.286C439.146 52.8393 438.922 52.5407 438.614 52.326C438.306 52.1113 437.919 52.004 437.452 52.004C436.799 52.004 436.276 52.2373 435.884 52.704C435.502 53.1613 435.31 53.8053 435.31 54.636C435.31 55.4667 435.502 56.1153 435.884 56.582C436.276 57.0487 436.799 57.282 437.452 57.282C438.376 57.282 438.988 56.876 439.286 56.064H441.008C440.784 56.848 440.364 57.4733 439.748 57.94C439.132 58.3973 438.367 58.626 437.452 58.626C436.715 58.626 436.062 58.4627 435.492 58.136C434.923 57.8 434.475 57.3333 434.148 56.736C433.831 56.1293 433.672 55.4293 433.672 54.636ZM444.195 51.906C444.428 51.514 444.736 51.2107 445.119 50.996C445.511 50.772 445.973 50.66 446.505 50.66V52.312H446.099C445.473 52.312 444.997 52.4707 444.671 52.788C444.353 53.1053 444.195 53.656 444.195 54.44V58.5H442.599V50.786H444.195V51.906ZM455.042 54.454C455.042 54.7433 455.023 55.0047 454.986 55.238H449.092C449.139 55.854 449.367 56.3487 449.778 56.722C450.189 57.0953 450.693 57.282 451.29 57.282C452.149 57.282 452.755 56.9227 453.11 56.204H454.832C454.599 56.9133 454.174 57.4967 453.558 57.954C452.951 58.402 452.195 58.626 451.29 58.626C450.553 58.626 449.89 58.4627 449.302 58.136C448.723 57.8 448.266 57.3333 447.93 56.736C447.603 56.1293 447.44 55.4293 447.44 54.636C447.44 53.8427 447.599 53.1473 447.916 52.55C448.243 51.9433 448.695 51.4767 449.274 51.15C449.862 50.8233 450.534 50.66 451.29 50.66C452.018 50.66 452.667 50.8187 453.236 51.136C453.805 51.4533 454.249 51.9013 454.566 52.48C454.883 53.0493 455.042 53.7073 455.042 54.454ZM453.376 53.95C453.367 53.362 453.157 52.8907 452.746 52.536C452.335 52.1813 451.827 52.004 451.22 52.004C450.669 52.004 450.198 52.1813 449.806 52.536C449.414 52.8813 449.181 53.3527 449.106 53.95H453.376ZM463.683 54.454C463.683 54.7433 463.664 55.0047 463.627 55.238H457.733C457.779 55.854 458.008 56.3487 458.419 56.722C458.829 57.0953 459.333 57.282 459.931 57.282C460.789 57.282 461.396 56.9227 461.751 56.204H463.472C463.239 56.9133 462.815 57.4967 462.199 57.954C461.592 58.402 460.836 58.626 459.931 58.626C459.193 58.626 458.531 58.4627 457.943 58.136C457.364 57.8 456.907 57.3333 456.571 56.736C456.244 56.1293 456.081 55.4293 456.081 54.636C456.081 53.8427 456.239 53.1473 456.557 52.55C456.883 51.9433 457.336 51.4767 457.915 51.15C458.503 50.8233 459.175 50.66 459.931 50.66C460.659 50.66 461.307 50.8187 461.877 51.136C462.446 51.4533 462.889 51.9013 463.207 52.48C463.524 53.0493 463.683 53.7073 463.683 54.454ZM462.017 53.95C462.007 53.362 461.797 52.8907 461.387 52.536C460.976 52.1813 460.467 52.004 459.861 52.004C459.31 52.004 458.839 52.1813 458.447 52.536C458.055 52.8813 457.821 53.3527 457.747 53.95H462.017ZM469.145 50.66C469.752 50.66 470.293 50.786 470.769 51.038C471.254 51.29 471.632 51.6633 471.903 52.158C472.174 52.6527 472.309 53.25 472.309 53.95V58.5H470.727V54.188C470.727 53.4973 470.554 52.97 470.209 52.606C469.864 52.2327 469.392 52.046 468.795 52.046C468.198 52.046 467.722 52.2327 467.367 52.606C467.022 52.97 466.849 53.4973 466.849 54.188V58.5H465.253V50.786H466.849V51.668C467.11 51.3507 467.442 51.1033 467.843 50.926C468.254 50.7487 468.688 50.66 469.145 50.66Z" fill="#FAFAFA"/>
+            </g>
+          </svg>
         </div>
       </div>
 

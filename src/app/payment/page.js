@@ -342,7 +342,7 @@ export default function PaymentPage() {
     // Don't set isProcessing to true here - allow multiple clicks
     setError('');
 
-    // Call API to get payment parameters and open payment modal in one go
+    // Call API to get payment parameters FIRST to ensure we have the correct Order ID
     fetch('/api/payment/create-request', {
       method: 'POST',
       body: formDataToSend,
@@ -353,6 +353,35 @@ export default function PaymentPage() {
           throw new Error(data.error_desc || data.error || 'Failed to create payment request');
         }
 
+        // Create Order in Database using the ID returned from payment gateway
+        const orderData = {
+            referenceNo: data.mpsorderid, // Use the ID from payment gateway
+            customerName: billName,
+            customerEmail: billEmail,
+            customerPhone: billMobile,
+            movieTitle: movieTitle,
+            cinemaName: cinemaName,
+            hallName: hallName,
+            showTime: bookingData.showTimeDetails?.showTime,
+            seats: bookingData.seats,
+            ticketType: bookingData.ticketType || 'Standard',
+            totalAmount: bookingData.priceInfo?.totalTicketPrice || '0.00',
+            paymentStatus: 'PENDING',
+            paymentMethod: method.name
+        };
+
+        return fetch('/api/orders', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(orderData)
+        }).then(res => res.json())
+          .then(orderRes => {
+              console.log('Order created with ID:', data.mpsorderid);
+              // Pass data to next then block
+              return data;
+          });
+      })
+      .then(data => {
         // Initialize payment with MOLPay Seamless plugin immediately
         if (window.jQuery && window.jQuery.fn && window.jQuery.fn.MOLPaySeamless) {
           const $ = window.jQuery;

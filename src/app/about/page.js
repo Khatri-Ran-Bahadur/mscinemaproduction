@@ -1,11 +1,57 @@
-"use client";
-
 import React from 'react';
 import { Phone, Mail, MapPin } from 'lucide-react';
 import Header from '@/components/header';
 import Footer from '@/components/footer';
+import { prisma } from '@/lib/prisma';
 
-export default function AboutUsPage() {
+async function getAboutContent() {
+  try {
+    const content = await prisma.aboutContent.findMany({
+      where: { isActive: true }
+    });
+    // Convert to object for easier access
+    return content.reduce((acc, curr) => {
+      acc[curr.section] = curr;
+      return acc;
+    }, {});
+  } catch (error) {
+    console.error('Failed to fetch about content:', error);
+    return {};
+  }
+}
+
+const getIcon = (iconName) => {
+    switch(iconName?.toLowerCase()) {
+        case 'phone': return Phone;
+        case 'mail': return Mail;
+        case 'map-pin': return MapPin;
+        case 'location': return MapPin;
+        default: return MapPin;
+    }
+};
+
+export default async function AboutUsPage() {
+    const content = await getAboutContent();
+    const contactInfos = await prisma.contactInfo.findMany({
+        where: { isActive: true },
+        orderBy: { order: 'asc' }
+    });
+
+    // Fallbacks
+    const hero = content['hero'] || {
+        title: 'About us',
+        content: 'Book your preferred experience and stay connected with us',
+        image: 'img/about-banner.jpg'
+    };
+    
+    const main = content['main'] || {
+        title: 'About MS Cinemas',
+        content: `Located in the heart of Kampar, Perak, MS Cinemas is the ultimate destination for movie lovers seeking a complete and immersive cinematic experience. Featuring 8 state-of-the-art screens, our cinema offers the perfect blend of comfort, technology, and entertainment. Whether you're catching the latest Hollywood blockbuster, a heartwarming local film, or an international release, MS Cinemas provides crystal-clear visuals, powerful surround sound, and cozy seating to ensure every visit is memorable.\n\nAt MS Cinemas, we believe that watching a movie is more than just seeing a film - it's about creating moments, sharing emotions, and enjoying the magic of cinema together.`,
+        image: 'img/about-mid-section.jpg'
+    };
+
+    const contact = content['contact'] || {};
+
     return (
         <div className="min-h-screen bg-black text-[#FAFAFA]">
             <Header />
@@ -14,10 +60,9 @@ export default function AboutUsPage() {
             <section className="relative h-[70vh] sm:h-[65vh] md:h-[75vh] overflow-hidden pt-16 sm:pt-20 md:pt-24">
                 <div className="absolute inset-0">
                     <img 
-                        src="img/about-banner.jpg" 
+                        src={hero.image} 
                         alt="About MS Cinemas" 
                         className="w-full h-full object-cover"
-                        onError={(e) => { e.target.src = 'img/banner1.jpg'; }}
                     />
                     {/* Bottom Gradient Overlay - Desktop: from bottom */}
                     <div 
@@ -50,9 +95,9 @@ export default function AboutUsPage() {
                 </div>
 
                 <div className="relative container mx-auto px-4 sm:px-6 h-full flex flex-col justify-end pb-6 sm:pb-8 md:pb-12 z-20">
-                    <h1 className="text-5xl md:text-6xl font-bold mb-4 text-[#FAFAFA]">About us</h1>
+                    <h1 className="text-5xl md:text-6xl font-bold mb-4 text-[#FAFAFA]">{hero.title}</h1>
                     <p className="text-[#D3D3D3] text-lg md:text-xl mb-8 max-w-2xl">
-                        Book your preferred experience and stay connected with us
+                        {hero.content}
                     </p>
                     <button className="bg-[#FFCA20] text-black px-8 py-3 rounded-lg font-semibold hover:bg-[#FFCA20]/90 transition w-fit">
                         Contact now
@@ -69,68 +114,54 @@ export default function AboutUsPage() {
                 {/* About MS Cinemas Section */}
                 <div className="py-16">
                     <div className="container mx-auto px-6">
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-                            {/* Image */}
-                            <div className="rounded-xl overflow-hidden">
-                                <img 
-                                    src="img/about-mid-section.jpg" 
-                                    alt="Cinema Interior" 
-                                    className="w-full h-full object-cover"
-                                    onError={(e) => { e.target.src = 'img/hall_booking2.jpg'; }}
-                                />
-                            </div>
-
-                            {/* Text Content */}
-                            <div className="space-y-6">
-                                <h2 className="text-3xl md:text-4xl font-bold text-[#FAFAFA]">About MS Cinemas</h2>
-                                <div className="space-y-4 text-[#FAFAFA] leading-relaxed">
-                                    <p>
-                                        Located in the heart of Kampar, Perak, MS Cinemas is the ultimate destination for movie lovers seeking a complete and immersive cinematic experience. Featuring 8 state-of-the-art screens, our cinema offers the perfect blend of comfort, technology, and entertainment. Whether you're catching the latest Hollywood blockbuster, a heartwarming local film, or an international release, MS Cinemas provides crystal-clear visuals, powerful surround sound, and cozy seating to ensure every visit is memorable.
-                                    </p>
-                                    <p>
-                                        At MS Cinemas, we believe that watching a movie is more than just seeing a film - it's about creating moments, sharing emotions, and enjoying the magic of cinema together.
-                                    </p>
+                        {/* Modified Layout: Image Left, Content Right for 'main' section */}
+                        <div className="flex flex-col lg:flex-row gap-12 items-start">
+                             {/* Image - 40% width on Desktop */}
+                             <div className="w-full lg:w-2/5">
+                                <div className="rounded-xl overflow-hidden aspect-[4/3] relative shadow-2xl border border-[#3a3a3a]">
+                                    <img 
+                                        src={main.image} 
+                                        alt="Cinema Interior" 
+                                        className="w-full h-full object-cover"
+                                    />
                                 </div>
+                             </div>
+
+                             {/* Text Content - 60% width on Desktop */}
+                            <div className="w-full lg:w-3/5 space-y-6">
+                                <h2 className="text-3xl md:text-4xl font-bold text-[#FFCA20] border-b border-[#3a3a3a] pb-4 inline-block">
+                                    {main.title}
+                                </h2>
+                                <div 
+                                    className="prose prose-invert max-w-none text-[#D3D3D3] leading-relaxed text-lg prose-p:mb-4 prose-headings:text-[#FFCA20]"
+                                    dangerouslySetInnerHTML={{ __html: main.content }}
+                                />
                             </div>
                         </div>
                     </div>
                 </div>
 
-                {/* Contact Information Section */}
+                {/* Contact Information Section - Dynamic */}
                 <div className="py-16">
                     <div className="container mx-auto px-6">
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            {/* Contact Number Card */}
-                            <div className="bg-[#2a2a2a] rounded-xl p-6 border border-[#3a3a3a]">
-                                <div className="w-12 h-12 bg-[#FFCA20] rounded-full flex items-center justify-center mb-4">
-                                    <Phone size={24} className="text-black" />
-                                </div>
-                                <h3 className="text-xl font-semibold mb-2 text-[#FAFAFA]">Contact number</h3>
-                                <p className="text-[#D3D3D3]">+60 5467 0962</p>
-                            </div>
-
-                            {/* Email Card */}
-                            <div className="bg-[#2a2a2a] rounded-xl p-6 border border-[#3a3a3a]">
-                                <div className="w-12 h-12 bg-[#FFCA20] rounded-full flex items-center justify-center mb-4">
-                                    <Mail size={24} className="text-black" />
-                                </div>
-                                <h3 className="text-xl font-semibold mb-2 text-[#FAFAFA]">Email</h3>
-                                <p className="text-[#D3D3D3]">msckampar@mscinemas.my</p>
-                            </div>
-
-                            {/* Location Card */}
-                            <div className="bg-[#2a2a2a] rounded-xl p-6 border border-[#3a3a3a]">
-                                <div className="w-12 h-12 bg-[#FFCA20] rounded-full flex items-center justify-center mb-4">
-                                    <MapPin size={24} className="text-black" />
-                                </div>
-                                <h3 className="text-xl font-semibold mb-2 text-[#FAFAFA]">Location</h3>
-                                <p className="text-[#D3D3D3] text-sm leading-relaxed">
-                                    TK1701, Terminal Kampar Putra, PT53493 & PT53494, Jalan Putra Permata 9, Taman Kampar, 31900 Kampar, Perak Malaysia
-                                </p>
-                            </div>
+                            {contactInfos.map((info) => {
+                                const IconComponent = getIcon(info.icon || info.type);
+                                return (
+                                    <div key={info.id} className="bg-[#2a2a2a] rounded-xl p-6 border border-[#3a3a3a] hover:border-[#FFCA20] transition group">
+                                        <div className="w-12 h-12 bg-[#333] group-hover:bg-[#FFCA20] rounded-full flex items-center justify-center mb-4 transition">
+                                            <IconComponent size={24} className="text-[#FFCA20] group-hover:text-black transition" />
+                                        </div>
+                                        <h3 className="text-xl font-semibold mb-2 text-[#FAFAFA] capitalize">{info.title}</h3>
+                                        <p className="text-[#D3D3D3] text-sm leading-relaxed whitespace-pre-line">{info.value}</p>
+                                    </div>
+                                );
+                            })}
                         </div>
                     </div>
                 </div>
+
+
             </section>
 
             <Footer />
