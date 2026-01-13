@@ -139,10 +139,8 @@ const Header = () => {
             label: 'More', 
             href: '#',
             dropdown: [
-                { id: 'about', label: 'About us', href: '/about' },
-                { id: 'events', label: 'Events', href: '/events' },
-                { id: 'contact', label: 'Contact us', href: '/contact' },
-                { id: 'faq', label: 'FAQs', href: '/faq' },
+                { id: 'about', label: 'About us', href: '/about' }
+                
             ]
         }
     ];

@@ -156,6 +156,12 @@ function PaymentSuccessContent() {
                      bookingData?.formData?.name || 
                      bookingData?.formData?.Name ||
                      'Guest',
+        customerPhone: ticketData?.CustomerPhone || ticketData?.customerPhone || ticketData?.phone || 
+                      bookingData?.formData?.mobile || 
+                      bookingData?.formData?.phone ||
+                      bookingData?.formData?.Mobile ||
+                      '',
+        customerEmail: customerEmail,
         movieName: ticketData?.MovieName || ticketData?.movieName || 
                   bookingData?.movieDetails?.movieName || 
                   bookingData?.movieDetails?.title || 
@@ -283,6 +289,34 @@ function PaymentSuccessContent() {
 
       ticketInfo.seatDisplay = formatSeats();
       ticketInfo.totalPersons = Object.values(seatGroups).reduce((sum, seats) => sum + seats.length, 0) || ticketDetails.length || 0;
+      
+      // Add ticket details with pricing for email template
+      ticketInfo.ticketDetails = ticketDetails.length > 0 ? ticketDetails : [];
+      
+      // Calculate totals
+      let totalPrice = 0;
+      let totalSurcharge = 0;
+      
+      if (ticketDetails.length > 0) {
+        ticketDetails.forEach(ticket => {
+          const price = parseFloat(ticket.Price || ticket.price || ticket.TicketPrice || ticket.ticketPrice || 0);
+          const surcharge = parseFloat(ticket.Surcharge || ticket.surcharge || 0);
+          totalPrice += price;
+          totalSurcharge += surcharge;
+        });
+      }
+      
+      // Get sub charge and grand total from booking data or calculate
+      ticketInfo.subCharge = bookingData?.subCharge || 
+                             ticketData?.SubCharge || 
+                             ticketData?.subCharge || 
+                             totalSurcharge || 
+                             0;
+      ticketInfo.grandTotal = bookingData?.grandTotal || 
+                              ticketData?.GrandTotal || 
+                              ticketData?.grandTotal || 
+                              (totalPrice + totalSurcharge + parseFloat(ticketInfo.subCharge)) || 
+                              0;
 
       console.log('Sending ticket email payload:', { email: customerEmail, ticketInfo }); // LOGGING
 

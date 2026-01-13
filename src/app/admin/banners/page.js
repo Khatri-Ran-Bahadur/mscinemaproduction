@@ -272,7 +272,7 @@ export default function BannersPage() {
                     onError={(e) => {e.target.src = '/placeholder.png'}}
                   />
                   <div className="absolute top-2 left-2 px-2 py-1 bg-black/70 rounded text-xs text-white capitalize">
-                    {banner.type}
+                    {banner.type === 'normal' ? 'Promotion and Concessions' : banner.type === 'movie' ? 'Movie Banner' : banner.type}
                   </div>
                 </div>
 
@@ -361,7 +361,7 @@ export default function BannersPage() {
                       onChange={handleTypeChange}
                       className="w-full bg-[#1a1a1a] border border-[#3a3a3a] text-white rounded-lg py-2.5 px-4 focus:outline-none focus:border-[#FFCA20]"
                     >
-                      <option value="normal">Normal Banner</option>
+                      <option value="normal">Promotion and Concessions</option>
                       <option value="movie">Movie Banner</option>
                     </select>
                   </div>

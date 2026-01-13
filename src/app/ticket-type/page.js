@@ -129,10 +129,12 @@ export default function TicketSelection() {
     if (!price) return false;
     
     const ticketTypeName = price.ticketTypeName?.toUpperCase() || '';
-    const isTwinSeats = ticketData?.generalInfo?.ticketTypeIDForTwinSeatsAndVIPSeats === ticketTypeID;
     
     // Check if it requires confirmation
-    if (ticketTypeName.includes('CHILDREN') || ticketTypeName.includes('CHILD')) {
+    if (ticketTypeName.includes('FAMILY BED')) {
+      return true;
+    }
+    if (ticketTypeName.includes('CHILDREN') || ticketTypeName.includes('CHILD') || ticketTypeName.includes('KIDS')) {
       return true;
     }
     if (ticketTypeName.includes('SENIOR') || ticketTypeName.includes('SENIOR-CITIZEN')) {
@@ -141,7 +143,7 @@ export default function TicketSelection() {
     if (ticketTypeName.includes('HANDICAP') || ticketTypeName.includes('OKU')) {
       return true;
     }
-    if (isTwinSeats || ticketTypeName.includes('TWIN')) {
+    if (ticketTypeName.includes('STUDENT')) {
       return true;
     }
     
@@ -156,10 +158,12 @@ export default function TicketSelection() {
     if (!price) return '';
     
     const ticketTypeName = price.ticketTypeName?.toUpperCase() || '';
-    const isTwinSeats = ticketData?.generalInfo?.ticketTypeIDForTwinSeatsAndVIPSeats === ticketTypeID;
     
-    if (ticketTypeName.includes('CHILDREN') || ticketTypeName.includes('CHILD')) {
-      return 'Children';
+    if (ticketTypeName.includes('FAMILY BED')) {
+      return 'Family Bed';
+    }
+    if (ticketTypeName.includes('CHILDREN') || ticketTypeName.includes('CHILD') || ticketTypeName.includes('KIDS')) {
+      return 'Children/Kids';
     }
     if (ticketTypeName.includes('SENIOR') || ticketTypeName.includes('SENIOR-CITIZEN')) {
       return 'Senior-citizen (60 years old and above)';
@@ -167,8 +171,8 @@ export default function TicketSelection() {
     if (ticketTypeName.includes('HANDICAP') || ticketTypeName.includes('OKU')) {
       return 'Handicap (OKU)';
     }
-    if (isTwinSeats || ticketTypeName.includes('TWIN')) {
-      return 'Twin-seats';
+    if (ticketTypeName.includes('STUDENT')) {
+      return 'Student';
     }
     
     return '';
@@ -193,7 +197,11 @@ export default function TicketSelection() {
     
     // Check if this is twin-seats (counts as 2 tickets)
     const isTwinSeats = ticketData?.generalInfo?.ticketTypeIDForTwinSeatsAndVIPSeats === ticketTypeID;
-    const ticketWeight = isTwinSeats ? 2 : 1;
+    // Also check if name contains TWIN which usually implies 2 seats
+    const price = ticketData?.priceDetails?.find(p => p.ticketTypeID === ticketTypeID);
+    const isNameTwin = price?.ticketTypeName?.toUpperCase()?.includes('TWIN');
+    
+    const ticketWeight = (isTwinSeats || isNameTwin) ? 2 : 1;
     
     if (currentTotal + ticketWeight <= maxTickets) {
       setTickets(prev => ({ ...prev, [ticketTypeID]: (prev[ticketTypeID] || 0) + 1 }));
@@ -230,8 +238,12 @@ export default function TicketSelection() {
       const ticketCount = tickets[price.ticketTypeID] || 0;
       if (ticketCount > 0) {
         const ticketTypeName = price.ticketTypeName?.toUpperCase() || '';
-        if (ticketTypeName.includes('CHILDREN') || ticketTypeName.includes('CHILD')) {
-          return 'Children';
+        
+        if (ticketTypeName.includes('FAMILY BED')) {
+          return 'Family Bed';
+        }
+        if (ticketTypeName.includes('CHILDREN') || ticketTypeName.includes('CHILD') || ticketTypeName.includes('KIDS')) {
+          return 'Children/Kids';
         }
         if (ticketTypeName.includes('HANDICAP') || ticketTypeName.includes('OKU')) {
           return 'Handicap';
@@ -334,11 +346,14 @@ export default function TicketSelection() {
   const getTicketTypeDescription = (ticketTypeName, ticketTypeID) => {
     const descriptions = {
       'ADULT': '',
-      'CHILDREN': '',
-      'SENIOR-CITIZEN': '(60 years old and above)',
+      'CHILDREN': 'The Height must below 90cm (0.9)',
+      'SENIOR-CITIZEN': '60 years old and above',
       'TWIN-SEATS': '',
       'HANDICAP ( OKU )': '',
+      'VIP': '',
+      'KIDS': 'The seat is only for children aged between 2-12 years old',
       'STUDENT': '',
+      'FAMILY BED': '2 adult and 2 kids age below 10 years',
     };
     
     // Check if it's twin seats from generalInfo
@@ -500,9 +515,9 @@ export default function TicketSelection() {
                       <div className="text-sm text-white font-medium">
                         {price.ticketTypeName}
                         {description && (
-                          <span className="text-xs text-white/60 font-normal ml-1">
+                          <div className="text-xs text-white/60 font-normal ml-1">
                             {description}
-                          </span>
+                          </div>
                   )}
                 </div>
                     </div>

@@ -2,12 +2,13 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Film, Clock, Volume2 } from 'lucide-react';
+import { Film, Clock, Volume2, X } from 'lucide-react';
 import Header from '@/components/header';
 import Footer from '@/components/footer';
 import { movies as moviesAPI } from '@/services/api';
 import { APIError } from '@/services/api';
 import Loader from '@/components/Loader';
+import MovieCard from '@/components/MovieCard';
 import { ExperiencesGrid } from '@/components/Experiences/ExperiencesGrid';
 import { encryptId } from '@/utils/encryption';
 
@@ -18,6 +19,8 @@ export default function MoviesPage() {
     const [movies, setMovies] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState('');
+    const [showTrailerModal, setShowTrailerModal] = useState(false);
+    const [currentTrailerVideoId, setCurrentTrailerVideoId] = useState(null);
 
     useEffect(() => {
         loadMovies();
@@ -58,15 +61,29 @@ export default function MoviesPage() {
         }
     };
 
-    const handleWatchTrailer = (trailerUrl, e) => {
-        e.stopPropagation();
-        if (trailerUrl) {
-            window.open(trailerUrl, '_blank');
+    // Helper function to extract YouTube video ID from URL
+    const getYouTubeVideoId = (url) => {
+        if (!url) return null;
+        const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+        const match = url.match(regExp);
+        return (match && match[2].length === 11) ? match[2] : null;
+    };
+
+    const handleWatchTrailer = (movie) => {
+        if (movie && movie.trailerUrl) {
+            const videoId = getYouTubeVideoId(movie.trailerUrl);
+            if (videoId) {
+                setCurrentTrailerVideoId(videoId);
+                setShowTrailerModal(true);
+            } else {
+                // If not a YouTube URL, open in new tab
+                window.open(movie.trailerUrl, '_blank');
+            }
         }
     };
 
-    const handleBookNow = (movieId, e) => {
-        e.stopPropagation();
+    const handleBookNow = (movie) => {
+        const movieId = movie.id || movie;
         router.push(`/movie-detail?movieId=${encryptId(movieId)}`);
     };
 
@@ -124,7 +141,7 @@ export default function MoviesPage() {
                     <div className="flex items-center justify-between mb-6 flex-wrap gap-4 py-6" >
                             {/* Dynamic Title */}
                             <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-[#FAFAFA]">
-                                {viewMode === 'movies' ? 'Cinemas' : 'Experiences'}
+                                {viewMode === 'movies' ? 'Movies' : 'Experiences'}
                             </h1>
                             
                             {/* Toggle Switch Buttons - Smaller and Rounded */}
@@ -232,90 +249,19 @@ export default function MoviesPage() {
                     {!isLoading && viewMode === 'movies' && (
                         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
                             {filteredMovies().length > 0 ? (
-                                filteredMovies().map((movie, index) => {
-                                    const showDetails = index % 3 === 1; // Show details on every 2nd card (index 1, 4, 7, etc.)
-                                    const formattedDate = formatReleaseDate(movie.releaseDate);
-                                    
+                                filteredMovies().map((movie) => {
                                     return (
-                                        <div 
-                                            key={movie.id} 
-                                            className="group cursor-pointer"
-                                            onClick={() => handleBookNow(movie.id, { stopPropagation: () => {} })}
-                                        >
-                                            <div className="relative rounded-lg overflow-hidden">
-                                                {/* Movie Poster */}
-                                                <div className="relative aspect-[2/3] overflow-hidden">
-                                                    <img 
-                                                        src={movie.image} 
-                                                        alt={movie.title}
-                                                        className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
-                                                        onError={(e) => { e.target.src = 'img/movies1.png'; }}
-                                                    />
-                                                    
-                                                    {/* Gradient Background Shadow */}
-                                                    <div 
-                                                        className="absolute inset-0"
-                                                        style={{
-                                                            background: 'linear-gradient(179.66deg, rgba(17, 17, 17, 0) 0.3%, rgba(17, 17, 17, 0.3) 32.33%, rgba(17, 17, 17, 0.6) 60.86%)'
-                                                        }}
-                                                    />
-                                                    
-                                                    {/* New Releases Banner */}
-                                                    {isNewRelease(movie) && (
-                                                        <div className="absolute top-3 left-3 z-20">
-                                                            <span className="bg-[#FFCA20] text-black px-2 py-1 text-[10px] sm:text-xs font-bold rounded">
-                                                                New releases
-                                                            </span>
-                                                        </div>
-                                                    )}
-                                                    
-                                                    {/* Glass Background with Movie Information */}
-                                                    <div className="absolute bottom-0 left-0 right-0 z-10">
-                                                        {/* Glassmorphism Background */}
-                                                        <div 
-                                                            className="backdrop-blur-md bg-black/30 border-t border-white/10"
-                                                            style={{
-                                                                background: 'linear-gradient(180deg, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.4) 50%, rgba(0, 0, 0, 0.7) 100%)'
-                                                            }}
-                                                        >
-                                                            <div className="p-3 sm:p-4">
-                                                                {/* Movie Title */}
-                                                                <h3 className="text-sm sm:text-base md:text-lg font-bold text-[#FAFAFA] mb-3 line-clamp-2">
-                                                            {movie.title}
-                                                        </h3>
-                                                                
-                                                                {/* Movie Information with Icons */}
-                                                                <div className="flex flex-col gap-2 text-xs sm:text-sm text-[#FAFAFA]">
-                                                                    {/* Genre */}
-                                                                    {movie.genre && (
-                                                                        <div className="flex items-center gap-2">
-                                                                            <Film size={14} className="text-[#FAFAFA] flex-shrink-0" />
-                                                                            <span className="text-[#FAFAFA]">{movie.genre}</span>
-                                                                        </div>
-                                                                    )}
-                                                                    
-                                                                    {/* Duration */}
-                                                                    {movie.duration && (
-                                                                        <div className="flex items-center gap-2">
-                                                                            <Clock size={14} className="text-[#FAFAFA] flex-shrink-0" />
-                                                                            <span className="text-[#FAFAFA]">{movie.duration}</span>
-                                                                        </div>
-                                                                    )}
-                                                                    
-                                                                    {/* Language */}
-                                                                    {movie.languages && (
-                                                                        <div className="flex items-center gap-2">
-                                                                            <Volume2 size={14} className="text-[#FAFAFA] flex-shrink-0" />
-                                                                            <span className="text-[#FAFAFA]">{movie.languages}</span>
-                                                                        </div>
-                                                        )}
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
+                                        <MovieCard
+                                            key={movie.id}
+                                            movie={{
+                                                ...movie,
+                                                isNewRelease: isNewRelease(movie),
+                                                badge: isNewRelease(movie) ? 'New releases' : null
+                                            }}
+                                            onBookNow={handleBookNow}
+                                            onWatchTrailer={handleWatchTrailer}
+                                            showButtons={true}
+                                        />
                                     );
                                 })
                             ) : (
@@ -336,6 +282,57 @@ export default function MoviesPage() {
                     )}
                 </div>
             </div>
+
+            {/* Trailer Modal */}
+            {showTrailerModal && (
+                <div 
+                    className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-2 md:p-4" 
+                    onClick={() => setShowTrailerModal(false)}
+                >
+                    <div 
+                        className="relative w-full max-w-4xl bg-black rounded-lg overflow-hidden" 
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        {/* Close button */}
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setShowTrailerModal(false);
+                            }}
+                            className="absolute top-2 right-2 md:top-4 md:right-4 z-[100] bg-black/90 hover:bg-black text-[#FAFAFA] p-2 md:p-2.5 rounded-full transition-all shadow-lg border border-white/20 pointer-events-auto"
+                            style={{ zIndex: 100 }}
+                        >
+                            <X className="w-5 h-5 md:w-6 md:h-6" />
+                        </button>
+                        {currentTrailerVideoId ? (
+                            <div className="relative w-full" style={{ paddingBottom: '56.25%', zIndex: 1 }}>
+                                <iframe
+                                    className="absolute top-0 left-0 w-full h-full"
+                                    src={`https://www.youtube.com/embed/${currentTrailerVideoId}?autoplay=1`}
+                                    title="Movie Trailer"
+                                    frameBorder="0"
+                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                    allowFullScreen
+                                    style={{ pointerEvents: 'auto' }}
+                                />
+                            </div>
+                        ) : (
+                            <div className="p-12 text-center text-[#FAFAFA]">
+                                <p className="text-lg mb-4">Trailer not available</p>
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setShowTrailerModal(false);
+                                    }}
+                                    className="px-6 py-2 bg-[#FFCA20] text-black rounded hover:bg-[#FFCA20]/90 transition"
+                                >
+                                    Close
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
 
             <Footer />
         </div>

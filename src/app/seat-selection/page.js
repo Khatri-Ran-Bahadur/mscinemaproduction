@@ -517,7 +517,34 @@ export default function SeatSelection() {
   };
 
   const seatGrid = buildSeatGrid();
-  const rowLetters = Object.keys(seatGrid).sort();
+  const rowLetters = Object.keys(seatGrid).sort().reverse();
+  
+  // Calculate total seats across all rows for dynamic gap calculation
+  const calculateTotalSeats = () => {
+    let total = 0;
+    rowLetters.forEach(rowLetter => {
+      const rowSeats = seatGrid[rowLetter];
+      if (rowSeats) {
+        const rowMaxColumn = Math.max(...Object.keys(rowSeats).map(k => parseInt(k) || 0), 0);
+        total += rowMaxColumn;
+      }
+    });
+    return total;
+  };
+  
+  const totalSeats = calculateTotalSeats();
+  
+  // Calculate dynamic gap based on row seat count
+  // More seats = smaller gap, fewer seats = larger gap
+  // This ensures seats fill the width properly
+  const getDynamicGap = (rowMaxColumn) => {
+    if (rowMaxColumn <= 8) return 'gap-3 sm:gap-4 md:gap-5 lg:gap-6';
+    if (rowMaxColumn <= 12) return 'gap-2 sm:gap-2.5 md:gap-3 lg:gap-4';
+    if (rowMaxColumn <= 18) return 'gap-1.5 sm:gap-2 md:gap-2.5 lg:gap-3';
+    if (rowMaxColumn <= 25) return 'gap-1 sm:gap-1.5 md:gap-2 lg:gap-2.5';
+    if (rowMaxColumn <= 35) return 'gap-0.5 sm:gap-1 md:gap-1.5 lg:gap-2';
+    return 'gap-0.5 sm:gap-0.5 md:gap-1 lg:gap-1.5'; // For very large rows (35+)
+  };
 
   // Get priceID for a seat based on ticket type mapping
   const getPriceIDForSeat = (seatIndex) => {
@@ -642,47 +669,155 @@ export default function SeatSelection() {
     }
   };
 
+  // Helper function to map seats to tickets deterministically
+  // Returns a map of seatNo -> priceDetail
+  const mapSeatsToTickets = () => {
+    if (!ticketData?.priceDetails || !selectedTickets || selectedSeats.length === 0) return {};
+
+    // Clone available tickets
+    const availableTickets = { ...selectedTickets };
+    
+    // Helper to categorize tickets
+    const getTicketCategory = (ticketTypeID) => {
+      const id = parseInt(ticketTypeID);
+      const priceDetail = ticketData.priceDetails?.find(p => p.ticketTypeID === id);
+      const name = priceDetail?.ticketTypeName?.toUpperCase() || '';
+      
+      // Twin keys
+      if (id === ticketData.generalInfo?.ticketTypeIDForTwinSeatsAndVIPSeats || name.includes('TWIN')) return 'TWIN';
+      // Kids keys
+      if (id === ticketData.generalInfo?.ticketTypeIDForKidsSeat || name.includes('KID') || name.includes('CHILD')) return 'KIDS';
+      // Sofa keys
+      if (id === ticketData.generalInfo?.ticketTypeIDForSofa || name.includes('SOFA') || name.includes('BED') || name.includes('FAMILY')) return 'SOFA';
+      // Vip keys
+      if (name.includes('VIP')) return 'VIP';
+      // Handicap
+      if (name.includes('HANDICAP') || name.includes('OKU')) return 'HANDICAP';
+      // Normal
+      return 'NORMAL';
+    };
+
+    // Group tickets by category
+    const ticketsByCategory = {
+      'TWIN': [], 'KIDS': [], 'SOFA': [], 'VIP': [], 'HANDICAP': [], 'NORMAL': []
+    };
+    
+    Object.entries(availableTickets).forEach(([id, count]) => {
+      if (count > 0) {
+        const category = getTicketCategory(id);
+        ticketsByCategory[category].push({ id: parseInt(id), count });
+      }
+    });
+
+    const result = {};
+    const sortedSeats = [...selectedSeats].sort();
+    const processedSeats = new Set();
+
+    for (const seatNo of sortedSeats) {
+      if (processedSeats.has(seatNo)) continue;
+
+      const seat = seatsData.find(s => s.seatNo === seatNo);
+      if (!seat) continue;
+
+      const rawType = Number(seat.seatType);
+      let requiredCategory = 'NORMAL';
+      let isTwinPair = false;
+
+      // Determine Category
+      if (rawType === 2 && seat.partnerSeatID) {
+        requiredCategory = 'TWIN';
+        isTwinPair = true;
+      } else if (rawType === 1) {
+         if (ticketsByCategory['VIP'].length > 0 && ticketsByCategory['HANDICAP'].length === 0) {
+           requiredCategory = 'VIP';
+         } else {
+           requiredCategory = 'HANDICAP';
+         }
+      } else if (rawType === 3) requiredCategory = 'KIDS';
+      else if (rawType === 4) requiredCategory = 'SOFA';
+      
+      // Find Ticket
+      let assignedTicketID = null;
+      let candidateList = ticketsByCategory[requiredCategory];
+      
+      // Fallback strategies
+      let match = candidateList.find(t => t.count > 0);
+      
+      if (!match && requiredCategory !== 'NORMAL') {
+        const normalList = ticketsByCategory['NORMAL'];
+        match = normalList.find(t => t.count > 0);
+      }
+      if (!match) {
+         Object.values(ticketsByCategory).some(list => {
+           match = list.find(t => t.count > 0);
+           return !!match;
+         });
+      }
+
+      let priceDetail = null;
+      if (match) {
+        assignedTicketID = match.id;
+        match.count--; // Decrement
+        priceDetail = ticketData.priceDetails.find(p => p.ticketTypeID === assignedTicketID);
+      } else {
+        // No ticket left? Use default/first price
+        priceDetail = ticketData.priceDetails[0];
+      }
+
+      // Assign
+      result[seatNo] = priceDetail;
+      processedSeats.add(seatNo);
+
+      // Handle Partner
+      if (isTwinPair) {
+        // Find partner - use loose equality for ID
+        const partner = seatsData.find(s => s.seatID == seat.partnerSeatID);
+        if (partner && selectedSeats.includes(partner.seatNo)) {
+           // Partner gets SAME ticket (and price)
+           
+           const ticketCategory = match ? getTicketCategory(match.id) : 'NORMAL';
+           
+           if (ticketCategory === 'TWIN') {
+             // Shared ticket
+             result[partner.seatNo] = priceDetail;
+             processedSeats.add(partner.seatNo);
+           } else {
+             // Should consume another ticket for the partner if possible
+             // Recursive-ish? 
+             // Let's just try to find another match for the partner
+             let partnerMatch = null;
+             // Try to find same type first
+             if (match && match.count > 0) {
+               partnerMatch = match;
+             } else {
+               // Find another normal/available
+               const normalList = ticketsByCategory['NORMAL'];
+               partnerMatch = normalList.find(t => t.count > 0);
+             }
+             
+             if (partnerMatch) {
+               partnerMatch.count--;
+               const partnerPrice = ticketData.priceDetails.find(p => p.ticketTypeID === partnerMatch.id);
+               result[partner.seatNo] = partnerPrice;
+             } else {
+               result[partner.seatNo] = priceDetail; // Fallback to same
+             }
+             processedSeats.add(partner.seatNo);
+           }
+        }
+      }
+    }
+    return result;
+  };
+
   // Get price for a specific seat by seat number
   const getSeatPrice = (seatNo) => {
-    if (!ticketData?.priceDetails || !selectedTickets) return 0;
+    const map = mapSeatsToTickets();
+    const priceDetail = map[seatNo];
+    if (!priceDetail) return 0;
     
-    // Find the seat object
-    const seat = seatsData.find(s => s.seatNo === seatNo);
-    if (!seat) return 0;
-    
-    // Get seat index in selected seats array
-    const seatIndex = selectedSeats.indexOf(seatNo);
-    if (seatIndex === -1) return 0;
-    
-    // Get ticket type entries
-    const ticketTypeEntries = Object.entries(selectedTickets);
-    if (ticketTypeEntries.length === 0) return 0;
-    
-    // Map seat to ticket type based on index
-    let currentIndex = 0;
-    for (const [ticketTypeID, count] of ticketTypeEntries) {
-      const ticketTypeIDNum = parseInt(ticketTypeID);
-      const priceDetail = ticketData.priceDetails.find(p => p.ticketTypeID === ticketTypeIDNum);
-      
-      const isTwinSeats = ticketData?.generalInfo?.ticketTypeIDForTwinSeatsAndVIPSeats === ticketTypeIDNum || priceDetail?.ticketTypeName?.toUpperCase().includes('TWIN');
-      const seatsPerTicket = isTwinSeats ? 2 : 1;
-      const effectiveCount = count * seatsPerTicket;
-      
-      if (priceDetail && seatIndex >= currentIndex && seatIndex < currentIndex + effectiveCount) {
-        // Use totalTicketPrice directly to match ticket-type page
-        return priceDetail.totalTicketPrice || ((priceDetail.price || 0) + (priceDetail.entertainmentTax || 0));
-      }
-      currentIndex += effectiveCount;
-    }
-    
-    // Default to first ticket type price
-    const firstTicketTypeID = parseInt(ticketTypeEntries[0][0]);
-    const firstPriceDetail = ticketData.priceDetails.find(p => p.ticketTypeID === firstTicketTypeID);
-    if (firstPriceDetail) {
-      return firstPriceDetail.totalTicketPrice || ((firstPriceDetail.price || 0) + (firstPriceDetail.entertainmentTax || 0));
-    }
-    
-    return 0;
+    // For display, we use totalTicketPrice per seat
+    return priceDetail.totalTicketPrice || ((priceDetail.price || 0) + (priceDetail.entertainmentTax || 0));
   };
 
   // Remove a seat from selection
@@ -785,6 +920,16 @@ export default function SeatSelection() {
     // Handicap/OKU seats: seatType === 1
     if (seat.seatType === 1) {
       return 'handicap';
+    }
+
+    // Family Bed / Sofa: seatType === 4
+    if (seat.seatType === 4) {
+      return 'family-bed';
+    }
+
+    // Kids: seatType === 3
+    if (seat.seatType === 3) {
+      return 'kids';
     }
     
     // Default: normal seats (seatType === 0)
@@ -1194,60 +1339,16 @@ export default function SeatSelection() {
         return;
       }
 
-      // Helper to clone ticket counts
-      const availableTickets = { ...selectedTickets };
-      
-      // Helper to categorize tickets for logic
-      const getTicketCategory = (ticketTypeID) => {
-        const id = parseInt(ticketTypeID);
-        const priceDetail = ticketData.priceDetails?.find(p => p.ticketTypeID === id);
-        const name = priceDetail?.ticketTypeName?.toUpperCase() || '';
-        
-        // Twin keys
-        if (id === ticketData.generalInfo?.ticketTypeIDForTwinSeatsAndVIPSeats || name.includes('TWIN')) return 'TWIN';
-        // Kids keys
-        if (id === ticketData.generalInfo?.ticketTypeIDForKidsSeat || name.includes('KID') || name.includes('CHILD')) return 'KIDS';
-        // Sofa keys
-        if (id === ticketData.generalInfo?.ticketTypeIDForSofa || name.includes('SOFA') || name.includes('BED') || name.includes('FAMILY')) return 'SOFA';
-        // Vip keys (if distinct from Twin config)
-        if (name.includes('VIP')) return 'VIP';
-        // Handicap
-        if (name.includes('HANDICAP') || name.includes('OKU')) return 'HANDICAP';
-        // Normal (Adult, Senior, Student, etc)
-        return 'NORMAL';
-      };
-
-      // Group tickets by category
-      const ticketsByCategory = {
-        'TWIN': [], 'KIDS': [], 'SOFA': [], 'VIP': [], 'HANDICAP': [], 'NORMAL': []
-      };
-      
-      Object.entries(availableTickets).forEach(([id, count]) => {
-        if (count > 0) {
-          const category = getTicketCategory(id);
-          ticketsByCategory[category].push({ id: parseInt(id), count });
-        }
-      });
-
-      // Sort NORMAL tickets to prioritize standard ADULT/SENIOR if needed, or just keep insertion order
-      // (Order usually doesn't matter for priceID assignment if mapped 1:1, but good to be deterministic)
-
-      // Get seat objects for selected seats - validate all seats exist in current seatsData
-      // We sort seats to process pairs correctly (e.g. A1 then A2)
-      const sortedSelectedSeats = [...selectedSeats].sort();
-      
-      // Track processed seats to handle pairs
-      const processedSeats = new Set();
-      
+      // Use the mapping helper to generate the payload consistently
+      const seatMap = mapSeatsToTickets();
       const seatObjects = [];
+      const sortedSeats = [...selectedSeats].sort();
       
-      for (const seatNo of sortedSelectedSeats) {
-        if (processedSeats.has(seatNo)) continue;
-        
+      for (const seatNo of sortedSeats) {
         const seat = seatsData.find(s => s.seatNo === seatNo);
         if (!seat) {
-          console.error(`Seat ${seatNo} not found in current seat layout`);
-          continue;
+           console.error(`Seat ${seatNo} not found in layout`);
+           continue; 
         }
         
         // Validate seatID exists
@@ -1256,110 +1357,23 @@ export default function SeatSelection() {
           continue;
         }
         
-        // Determine required category for this seat
-        const rawType = Number(seat.seatType);
-        let requiredCategory = 'NORMAL';
-        let isTwinPair = false;
+        const priceDetail = seatMap[seatNo];
+        // If map fails (shouldn't if valid), fallback to 0 or first price
+        const priceID = priceDetail?.priceID || (ticketData?.priceDetails?.[0]?.priceID) || 0;
         
-        // Map raw types to categories
-        if (rawType === 2 && seat.partnerSeatID) {
-          requiredCategory = 'TWIN';
-          isTwinPair = true;
-        } else if (rawType === 1) {
-          // Check config/name if 1 is VIP or Handicap
-          // Default to Handicap unless Hall 6/VIP context implies otherwise
-          // Usually 1 is OKU, but in Hall 6 could be VIP.
-          // Let's check available tickets. If we have VIP tickets, checks matching.
-          if (ticketsByCategory['VIP'].length > 0 && ticketsByCategory['HANDICAP'].length === 0) {
-            requiredCategory = 'VIP';
-          } else {
-             requiredCategory = 'HANDICAP';
-          }
-        } else if (rawType === 3) requiredCategory = 'KIDS';
-        else if (rawType === 4) requiredCategory = 'SOFA';
-        else requiredCategory = 'NORMAL'; // 0 or others
-        
-        // Find best matching ticket
-        let assignedTicketID = null;
-        let assignedPriceID = 0;
-        
-        // Try specific category first
-        let candidateList = ticketsByCategory[requiredCategory];
-        
-        // Fallback for Hall 6 mapping quirks or overlapping definitions
-        if ((!candidateList || candidateList.length === 0) && requiredCategory === 'NORMAL') {
-           // If Normal needed but none found? Use others? Unlikely.
-        }
-        
-        // Special logic: If 'TWIN' seat but no 'TWIN' tickets, maybe mapping is wrong?
-        // But usually validation prevents this.
-        
-        // Find first ticket with > 0 count
-        const ticketMatch = candidateList.find(t => t.count > 0);
-        
-        if (ticketMatch) {
-          assignedTicketID = ticketMatch.id;
-          ticketMatch.count--; // Decrement count
-          
-          // Get Price ID from config
-          const priceDetail = ticketData.priceDetails.find(p => p.ticketTypeID === assignedTicketID);
-          assignedPriceID = priceDetail?.priceID || 0;
-        } else {
-          // If no matching ticket found (shouldn't happen if validation passes, but fallback to first available price)
-           // Fallback logic: check NORMAL list if current was special but missing
-           if (requiredCategory !== 'NORMAL') {
-               const normalMatch = ticketsByCategory['NORMAL'].find(t => t.count > 0);
-               if (normalMatch) {
-                  assignedTicketID = normalMatch.id;
-                  normalMatch.count--;
-                  const priceDetail = ticketData.priceDetails.find(p => p.ticketTypeID === assignedTicketID);
-                  assignedPriceID = priceDetail?.priceID || 0;
-               }
-           }
-        }
-        
-        // If still 0, use default first price (fallback)
-        if (assignedPriceID === 0) {
-           const firstPrice = ticketData.priceDetails[0];
-           assignedPriceID = firstPrice?.priceID || 0;
-        }
-        
-        // Add to result
         seatObjects.push({
           seatID: seat.seatID,
-          priceID: assignedPriceID
+          priceID: priceID
         });
-        processedSeats.add(seatNo);
-        
-        // If Twin Pair, handle partner
-        if (isTwinPair) {
-           const partnerSeat = seatsData.find(s => s.seatID === seat.partnerSeatID);
-           if (partnerSeat && sortedSelectedSeats.includes(partnerSeat.seatNo)) {
-              // Add partner seat with SAME PriceID (since 1 Twin Ticket covers Pair)
-              // BUT wait. If 1 Ticket covers 2 seats.
-              // Does LockSeat need PriceID on both? Yes (per existing logic).
-              // Does it consume ANOTHER ticket? NO. 
-              // Twin Ticket Count was decremented ONCE above.
-              // So we just assign the same PriceID to the partner.
-              
-              seatObjects.push({
-                seatID: partnerSeat.seatID,
-                priceID: assignedPriceID
-              });
-              processedSeats.add(partnerSeat.seatNo);
-           }
-        }
       }
       
       // Validate all selected seats were processed
       if (seatObjects.length !== selectedSeats.length) {
-        // Fallback: This might happen if pairs logic mismatches, simpler validation
-        // But let's proceed if at least some valid
-        if (seatObjects.length === 0) {
+      if (seatObjects.length === 0) {
              setError('Error processing seat selection.');
-             setIsLocking(false);
-             return;
-        }
+        setIsLocking(false);
+        return;
+         }
       }
       
       // Call lockSeat API
@@ -1892,16 +1906,47 @@ export default function SeatSelection() {
              
               <span className="text-white/70">Twins</span>
           </div>
-        </div>
+          </div>
         </div>
 
-        {/* Seat Map */}
-        <div className="bg-[#1a1a1a] rounded-lg p-2 sm:p-3 md:p-4 lg:p-5 xl:p-6 mb-6 w-full mt-20 max-w-full">
-          <div className="flex flex-col gap-1.5 sm:gap-2 md:gap-3 lg:gap-4 xl:gap-5 w-full min-w-0 ">
+        {/* Seat Map Area */}
+        
+        {/* Screen - Full Width Fixed Top */}
+        <div className="mb-8 relative w-full px-4 sm:px-8 md:px-12 lg:px-16 mx-auto">
+          <svg width="100%" height="65" viewBox="0 0 898 65" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-auto" preserveAspectRatio="xMidYMid meet">
+            <g filter="url(#filter0_d_2065_2204)">
+              <path d="M19 39.5C19 39.5 280.919 15 449 15C617.081 15 879 39.5 879 39.5" stroke="#F0F0F0" strokeWidth="4" strokeLinecap="round"/>
+            </g>
+            <path d="M428.961 58.598C428.308 58.598 427.720 58.486 427.197 58.262C426.674 58.0287 426.264 57.702 425.965 57.282C425.666 56.862 425.517 56.372 425.517 55.812H427.225C427.262 56.232 427.426 56.5773 427.715 56.848C428.014 57.1187 428.429 57.254 428.961 57.254C429.512 57.254 429.941 57.1233 430.249 56.862C430.557 56.5913 430.711 56.246 430.711 55.826C430.711 55.4993 430.613 55.2333 430.417 55.028C430.230 54.8227 429.992 54.664 429.703 54.552C429.423 54.440 429.031 54.3187 428.527 54.188C427.892 54.020 427.374 53.852 426.973 53.684C426.581 53.5067 426.245 53.236 425.965 52.872C425.685 52.508 425.545 52.0227 425.545 51.416C425.545 50.856 425.685 50.366 425.965 49.946C426.245 49.526 426.637 49.204 427.141 48.98C427.645 48.756 428.228 48.644 428.891 48.644C429.834 48.644 430.604 48.882 431.201 49.358C431.808 49.8247 432.144 50.4687 432.209 51.29H430.445C430.417 50.9353 430.249 50.632 429.941 50.38C429.633 50.128 429.227 50.002 428.723 50.002C428.266 50.002 427.892 50.1187 427.603 50.352C427.314 50.5853 427.169 50.9213 427.169 51.36C427.169 51.6587 427.258 51.906 427.435 52.102C427.622 52.2887 427.855 52.438 428.135 52.55C428.415 52.662 428.798 52.7833 429.283 52.914C429.927 53.0913 430.450 53.2687 430.851 53.446C431.262 53.6233 431.607 53.8987 431.887 54.272C432.176 54.636 432.321 55.126 432.321 55.742C432.321 56.2367 432.186 56.7033 431.915 57.142C431.654 57.5807 431.266 57.9353 430.753 58.206C430.249 58.4673 429.652 58.598 428.961 58.598ZM433.672 54.636C433.672 53.8427 433.831 53.1473 434.148 52.55C434.475 51.9433 434.923 51.4767 435.492 51.15C436.062 50.8233 436.715 50.660 437.452 50.66C438.386 50.660 439.156 50.884 439.762 51.332C440.378 51.7707 440.794 52.4007 441.008 53.222H439.286C439.146 52.8393 438.922 52.5407 438.614 52.326C438.306 52.1113 437.919 52.004 437.452 52.004C436.799 52.004 436.276 52.2373 435.884 52.704C435.502 53.1613 435.310 53.8053 435.310 54.636C435.310 55.4667 435.502 56.1153 435.884 56.582C436.276 57.0487 436.799 57.282 437.452 57.282C438.376 57.282 438.988 56.876 439.286 56.064H441.008C440.784 56.848 440.364 57.4733 439.748 57.94C439.132 58.3973 438.367 58.626 437.452 58.626C436.715 58.626 436.062 58.4627 435.492 58.136C434.923 57.800 434.475 57.3333 434.148 56.736C433.831 56.1293 433.672 55.4293 433.672 54.636ZM444.195 51.906C444.428 51.514 444.736 51.2107 445.119 50.996C445.511 50.772 445.973 50.660 446.505 50.66V52.312H446.099C445.473 52.312 444.997 52.4707 444.671 52.788C444.353 53.1053 444.195 53.656 444.195 54.44V58.5H442.599V50.786H444.195V51.906ZM455.042 54.454C455.042 54.7433 455.023 55.0047 454.986 55.238H449.092C449.139 55.854 449.367 56.3487 449.778 56.722C450.189 57.0953 450.693 57.282 451.290 57.282C452.149 57.282 452.755 56.9227 453.110 56.204H454.832C454.599 56.9133 454.174 57.4967 453.558 57.954C452.951 58.402 452.195 58.626 451.290 58.626C450.553 58.626 449.890 58.4627 449.302 58.136C448.723 57.800 448.266 57.3333 447.930 56.736C447.603 56.1293 447.440 55.4293 447.440 54.636C447.440 53.8427 447.599 53.1473 447.916 52.55C448.243 51.9433 448.695 51.4767 449.274 51.15C449.862 50.8233 450.534 50.660 451.290 50.66C452.018 50.660 452.667 50.8187 453.236 51.136C453.805 51.4533 454.249 51.9013 454.566 52.48C454.883 53.0493 455.042 53.7073 455.042 54.454ZM453.376 53.95C453.367 53.362 453.157 52.8907 452.746 52.536C452.335 52.1813 451.827 52.004 451.220 52.004C450.669 52.004 450.198 52.1813 449.806 52.536C449.414 52.8813 449.181 53.3527 449.106 53.95H453.376ZM463.683 54.454C463.683 54.7433 463.664 55.0047 463.627 55.238H457.733C457.779 55.854 458.008 56.3487 458.419 56.722C458.829 57.0953 459.333 57.282 459.931 57.282C460.789 57.282 461.396 56.9227 461.751 56.204H463.472C463.239 56.9133 462.815 57.4967 462.199 57.954C461.592 58.402 460.836 58.626 459.931 58.626C459.193 58.626 458.531 58.4627 457.943 58.136C457.364 57.800 456.907 57.3333 456.571 56.736C456.244 56.1293 456.081 55.4293 456.081 54.636C456.081 53.8427 456.239 53.1473 456.557 52.55C456.883 51.9433 457.336 51.4767 457.915 51.15C458.503 50.8233 459.175 50.660 459.931 50.66C460.659 50.660 461.307 50.8187 461.877 51.136C462.446 51.4533 462.889 51.9013 463.207 52.48C463.524 53.0493 463.683 53.7073 463.683 54.454ZM462.017 53.95C462.007 53.362 461.797 52.8907 461.387 52.536C460.976 52.1813 460.467 52.004 459.861 52.004C459.310 52.004 458.839 52.1813 458.447 52.536C458.055 52.8813 457.821 53.3527 457.747 53.95H462.017ZM469.145 50.66C469.752 50.660 470.293 50.786 470.769 51.038C471.254 51.290 471.632 51.6633 471.903 52.158C472.174 52.6527 472.309 53.250 472.309 53.95V58.5H470.727V54.188C470.727 53.4973 470.554 52.970 470.209 52.606C469.864 52.2327 469.392 52.046 468.795 52.046C468.198 52.046 467.722 52.2327 467.367 52.606C467.022 52.970 466.849 53.4973 466.849 54.188V58.5H465.253V50.786H466.849V51.668C467.110 51.3507 467.442 51.1033 467.843 50.926C468.254 50.7487 468.688 50.660 469.145 50.66Z" fill="#FAFAFA"/>
+            <defs>
+              <filter id="filter0_d_2065_2204" x="0" y="0" width="898" height="62.5001" filterUnits="userSpaceOnUse" colorInterpolationFilters="sRGB">
+                <feFlood floodOpacity="0" result="BackgroundImageFix"/>
+                <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
+                <feOffset dy="4"/>
+                <feGaussianBlur stdDeviation="8.5"/>
+                <feComposite in2="hardAlpha" operator="out"/>
+                <feColorMatrix type="matrix" values="0 0 0 0 0.941176 0 0 0 0 0.941176 0 0 0 0 0.941176 0 0 0 1 0"/>
+                <feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_2065_2204"/>
+                <feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow_2065_2204" result="shape"/>
+              </filter>
+            </defs>
+          </svg>
+        </div>
+
+        {/* Seat Map Box (Dark Background) - Fixed Wrapper */}
+        <div className="bg-[#1a1a1a] rounded-lg p-2 sm:p-3 md:p-4 lg:p-5 xl:p-6 mb-6 w-full max-w-full mt-8">
+          
+          {/* Scrollable Container - Scrolls INSIDE the dark box */}
+          <div className="w-full overflow-x-auto no-scrollbar relative pb-4" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+            <div className="w-full flex flex-col items-stretch">
+              <div className="flex flex-col gap-1.5 sm:gap-2 md:gap-3 lg:gap-4 xl:gap-5 w-full">
             {rowLetters.map((rowLetter, rowIndex) => {
               const rowSeats = seatGrid[rowLetter];
               // Get max column from actual seat data in this row (or use 0 if no seats)
               const rowMaxColumn = rowSeats ? Math.max(...Object.keys(rowSeats).map(k => parseInt(k) || 0), 0) : 0;
+              
+              // Get dynamic gap class based on row seat count
+              const dynamicGapClass = getDynamicGap(rowMaxColumn);
               
               // Check if this is Hall 6 for seat labeling (check both number and string, and hallName as fallback)
               const hallNo = seatLayout?.hallDetails?.hallNo;
@@ -1909,20 +1954,20 @@ export default function SeatSelection() {
               const isHall6 = hallNo === 6 || hallNo === '6' || hallName?.includes('6') || hallName?.toUpperCase()?.includes('HALL - 6');
               
               return (
-                <div key={rowLetter} className="flex items-center w-full min-w-0">
-                {/* Row Label Left */}
-                  <span className="text-[9px] sm:text-[10px] md:text-xs text-white/40 w-4 sm:w-5 md:w-6 lg:w-8 text-center font-medium shrink-0">{rowLetter}</span>
+                <div key={rowLetter} className="flex items-center w-full relative">
+                {/* Row Label Left - Fixed Position */}
+                  <span className="text-[9px] sm:text-[10px] md:text-xs text-white/40 w-6 sm:w-7 md:w-8 lg:w-10 text-center font-medium shrink-0 sticky left-0 z-20 pr-1">{rowLetter}</span>
                 
-                {/* Seats - Full Width Container with auto-adjusting gaps to fit screen */}
-                <div className="flex items-center flex-1 w-full min-w-0 ">
-                  <div className="flex items-center justify-evenly flex-wrap gap-0.5 sm:gap-1 md:gap-1.5 lg:gap-2 xl:gap-2.5 w-full max-w-full px-0.5 sm:px-1">
+                {/* Seats - Full Width Container - Takes remaining space */}
+                <div className="flex-1 min-w-0 flex items-center">
+                  <div className={`flex items-center justify-evenly w-full ${dynamicGapClass}`}>
                     {Array.from({ length: rowMaxColumn }, (_, i) => {
                       const column = i + 1;
                       const seat = rowSeats[column];
                       
                       if (!seat) {
-                        // Empty space - maintain spacing with responsive sizing
-                        return <div key={`${rowLetter}-${column}`} className="w-4 h-3 sm:w-5 sm:h-4 md:w-6 md:h-5 lg:w-7 lg:h-6 xl:w-8 xl:h-7 2xl:w-9 2xl:h-8 shrink-0"></div>;
+                        // Empty space - invisible spacer (no width, just maintains position)
+                        return <div key={`${rowLetter}-${column}`} className="shrink-0 w-0"></div>;
                       }
 
                       const isSelected = isSeatSelected(seat);
@@ -2021,7 +2066,7 @@ export default function SeatSelection() {
                             )}
                             </div>
                             {(seatLabel || partnerSeatLabel) && (
-                              <span className="text-[9px] sm:text-[10px] text-white font-semibold leading-tight whitespace-nowrap">
+                              <span className="text-[9px] sm:text-[10px] text-[#FFCA20] font-semibold leading-tight whitespace-nowrap">
                                 {seatLabel || partnerSeatLabel}
                               </span>
                             )}
@@ -2052,7 +2097,7 @@ export default function SeatSelection() {
                               />
                           </button>
                             {seatLabel && (
-                              <span className="text-[9px] sm:text-[10px] text-white font-semibold leading-tight whitespace-nowrap">{seatLabel}</span>
+                              <span className="text-[9px] sm:text-[10px] text-[#FFCA20] font-semibold leading-tight whitespace-nowrap">{seatLabel}</span>
                             )}
                           </div>
                     );
@@ -2061,39 +2106,18 @@ export default function SeatSelection() {
                   </div>
                 </div>
                 
-                {/* Row Label Right */}
-                <span className="text-[9px] sm:text-[10px] md:text-xs text-white/40 w-4 sm:w-5 md:w-6 lg:w-8 text-center font-medium shrink-0">{rowLetter}</span>
+                {/* Row Label Right - Fixed Position */}
+                <span className="text-[9px] sm:text-[10px] md:text-xs text-white/40 w-6 sm:w-7 md:w-8 lg:w-10 text-center font-medium shrink-0 sticky right-0 z-20 pl-1">{rowLetter}</span>
               </div>
             );
           })}
-        </div>
-
-        {/* Screen - Moved to bottom, reversed border with text above */}
-        <div className="mt-8 relative">
-          <svg width="100%" height="65" viewBox="0 0 898 65" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-auto" preserveAspectRatio="xMidYMid meet">
-            <defs>
-              <filter id="filter0_d_screen_reversed" x="0" y="2" width="898" height="62.5" filterUnits="userSpaceOnUse" colorInterpolationFilters="sRGB">
-                <feFlood floodOpacity="0" result="BackgroundImageFix"/>
-                <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
-                <feOffset dy="-4"/>
-                <feGaussianBlur stdDeviation="8.5"/>
-                <feComposite in2="hardAlpha" operator="out"/>
-                <feColorMatrix type="matrix" values="0 0 0 0 0.941176 0 0 0 0 0.941176 0 0 0 0 0.941176 0 0 0 1 0"/>
-                <feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_2065_2204"/>
-                <feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow_2065_2204" result="shape"/>
-              </filter>
-            </defs>
-            
-            <g filter="url(#filter0_d_screen_reversed)">
-              <path d="M19 15C19 15 280.919 40 449 40C617.081 40 879 15 879 15" stroke="#F0F0F0" strokeWidth="4" strokeLinecap="round"/>
-            </g>
-            
-            <g transform="translate(0, -40)">
-              <path d="M428.961 58.598C428.308 58.598 427.72 58.486 427.197 58.262C426.674 58.0287 426.264 57.702 425.965 57.282C425.666 56.862 425.517 56.372 425.517 55.812H427.225C427.262 56.232 427.426 56.5773 427.715 56.848C428.014 57.1187 428.429 57.254 428.961 57.254C429.512 57.254 429.941 57.1233 430.249 56.862C430.557 56.5913 430.711 56.246 430.711 55.826C430.711 55.4993 430.613 55.2333 430.417 55.028C430.23 54.8227 429.992 54.664 429.703 54.552C429.423 54.44 429.031 54.3187 428.527 54.188C427.892 54.02 427.374 53.852 426.973 53.684C426.581 53.5067 426.245 53.236 425.965 52.872C425.685 52.508 425.545 52.0227 425.545 51.416C425.545 50.856 425.685 50.366 425.965 49.946C426.245 49.526 426.637 49.204 427.141 48.98C427.645 48.756 428.228 48.644 428.891 48.644C429.834 48.644 430.604 48.882 431.201 49.358C431.808 49.8247 432.144 50.4687 432.209 51.29H430.445C430.417 50.9353 430.249 50.632 429.941 50.38C429.633 50.128 429.227 50.002 428.723 50.002C428.266 50.002 427.892 50.1187 427.603 50.352C427.314 50.5853 427.169 50.9213 427.169 51.36C427.169 51.6587 427.258 51.906 427.435 52.102C427.622 52.2887 427.855 52.438 428.135 52.55C428.415 52.662 428.798 52.7833 429.283 52.914C429.927 53.0913 430.45 53.2687 430.851 53.446C431.262 53.6233 431.607 53.8987 431.887 54.272C432.176 54.636 432.321 55.126 432.321 55.742C432.321 56.2367 432.186 56.7033 431.915 57.142C431.654 57.5807 431.266 57.9353 430.753 58.206C430.249 58.4673 429.652 58.598 428.961 58.598ZM433.672 54.636C433.672 53.8427 433.831 53.1473 434.148 52.55C434.475 51.9433 434.923 51.4767 435.492 51.15C436.062 50.8233 436.715 50.66 437.452 50.66C438.386 50.66 439.156 50.884 439.762 51.332C440.378 51.7707 440.794 52.4007 441.008 53.222H439.286C439.146 52.8393 438.922 52.5407 438.614 52.326C438.306 52.1113 437.919 52.004 437.452 52.004C436.799 52.004 436.276 52.2373 435.884 52.704C435.502 53.1613 435.31 53.8053 435.31 54.636C435.31 55.4667 435.502 56.1153 435.884 56.582C436.276 57.0487 436.799 57.282 437.452 57.282C438.376 57.282 438.988 56.876 439.286 56.064H441.008C440.784 56.848 440.364 57.4733 439.748 57.94C439.132 58.3973 438.367 58.626 437.452 58.626C436.715 58.626 436.062 58.4627 435.492 58.136C434.923 57.8 434.475 57.3333 434.148 56.736C433.831 56.1293 433.672 55.4293 433.672 54.636ZM444.195 51.906C444.428 51.514 444.736 51.2107 445.119 50.996C445.511 50.772 445.973 50.66 446.505 50.66V52.312H446.099C445.473 52.312 444.997 52.4707 444.671 52.788C444.353 53.1053 444.195 53.656 444.195 54.44V58.5H442.599V50.786H444.195V51.906ZM455.042 54.454C455.042 54.7433 455.023 55.0047 454.986 55.238H449.092C449.139 55.854 449.367 56.3487 449.778 56.722C450.189 57.0953 450.693 57.282 451.29 57.282C452.149 57.282 452.755 56.9227 453.11 56.204H454.832C454.599 56.9133 454.174 57.4967 453.558 57.954C452.951 58.402 452.195 58.626 451.29 58.626C450.553 58.626 449.89 58.4627 449.302 58.136C448.723 57.8 448.266 57.3333 447.93 56.736C447.603 56.1293 447.44 55.4293 447.44 54.636C447.44 53.8427 447.599 53.1473 447.916 52.55C448.243 51.9433 448.695 51.4767 449.274 51.15C449.862 50.8233 450.534 50.66 451.29 50.66C452.018 50.66 452.667 50.8187 453.236 51.136C453.805 51.4533 454.249 51.9013 454.566 52.48C454.883 53.0493 455.042 53.7073 455.042 54.454ZM453.376 53.95C453.367 53.362 453.157 52.8907 452.746 52.536C452.335 52.1813 451.827 52.004 451.22 52.004C450.669 52.004 450.198 52.1813 449.806 52.536C449.414 52.8813 449.181 53.3527 449.106 53.95H453.376ZM463.683 54.454C463.683 54.7433 463.664 55.0047 463.627 55.238H457.733C457.779 55.854 458.008 56.3487 458.419 56.722C458.829 57.0953 459.333 57.282 459.931 57.282C460.789 57.282 461.396 56.9227 461.751 56.204H463.472C463.239 56.9133 462.815 57.4967 462.199 57.954C461.592 58.402 460.836 58.626 459.931 58.626C459.193 58.626 458.531 58.4627 457.943 58.136C457.364 57.8 456.907 57.3333 456.571 56.736C456.244 56.1293 456.081 55.4293 456.081 54.636C456.081 53.8427 456.239 53.1473 456.557 52.55C456.883 51.9433 457.336 51.4767 457.915 51.15C458.503 50.8233 459.175 50.66 459.931 50.66C460.659 50.66 461.307 50.8187 461.877 51.136C462.446 51.4533 462.889 51.9013 463.207 52.48C463.524 53.0493 463.683 53.7073 463.683 54.454ZM462.017 53.95C462.007 53.362 461.797 52.8907 461.387 52.536C460.976 52.1813 460.467 52.004 459.861 52.004C459.31 52.004 458.839 52.1813 458.447 52.536C458.055 52.8813 457.821 53.3527 457.747 53.95H462.017ZM469.145 50.66C469.752 50.66 470.293 50.786 470.769 51.038C471.254 51.29 471.632 51.6633 471.903 52.158C472.174 52.6527 472.309 53.25 472.309 53.95V58.5H470.727V54.188C470.727 53.4973 470.554 52.97 470.209 52.606C469.864 52.2327 469.392 52.046 468.795 52.046C468.198 52.046 467.722 52.2327 467.367 52.606C467.022 52.97 466.849 53.4973 466.849 54.188V58.5H465.253V50.786H466.849V51.668C467.11 51.3507 467.442 51.1033 467.843 50.926C468.254 50.7487 468.688 50.66 469.145 50.66Z" fill="#FAFAFA"/>
-            </g>
-          </svg>
+          </div>
         </div>
       </div>
+
+
+
+            </div>
 
       {/* Footer - Selected Seats and Book Button - Full Width */}
       <div className="w-full px-4 sm:px-6 md:px-8 lg:px-12 mt-4 sm:mt-6">
@@ -2253,22 +2277,7 @@ export default function SeatSelection() {
                         )}
                       </div>
 
-                      {/* Passport No */}
-                      <div>
-                        <label className="block text-sm font-medium text-white/80 mb-2">
-                          Passport No
-                        </label>
-                        <input
-                          type="text"
-                          value={formData.passportNo}
-                          onChange={(e) => handleInputChange('passportNo', e.target.value)}
-                          className="w-full px-4 py-2.5 bg-[#2a2a2a] border border-[#3a3a3a] rounded-lg text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-[#FFCA20]"
-                          placeholder="Enter passport number (optional)"
-                        />
-                        {formErrors.passportNo && (
-                          <p className="text-xs text-red-400 mt-1">{formErrors.passportNo}</p>
-                        )}
-                      </div>
+                    
 
                       {/* Mobile */}
                       <div>

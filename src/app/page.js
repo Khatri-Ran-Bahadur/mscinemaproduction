@@ -10,9 +10,12 @@ import { APIError } from '@/services/api';
 import { ExperienceOurHall } from '@/components/Homepage/ExperienceOurHall';
 import { Promotions } from '@/components/Homepage/Promotions';
 import Loader from '@/components/Loader';
+import MovieCard from '@/components/MovieCard';
 import { encryptId } from '@/utils/encryption';
+import { useRouter } from 'next/navigation';
 
 export default function MovieStreamingSite() {
+  const router = useRouter();
   const [currentSlide, setCurrentSlide] = useState(0);
   const [activeMovieTab, setActiveMovieTab] = useState('now-showing');
   const [featuredMovies, setFeaturedMovies] = useState([]);
@@ -46,15 +49,24 @@ export default function MovieStreamingSite() {
   };
 
   // Handle watch trailer button click
-  const handleWatchTrailer = () => {
-    const currentHeroMovie = heroMovies[currentSlide];
-    if (currentHeroMovie && currentHeroMovie.trailerUrl) {
-      const videoId = getYouTubeVideoId(currentHeroMovie.trailerUrl);
+  const handleWatchTrailer = (movie) => {
+    const movieToUse = movie || heroMovies[currentSlide];
+    if (movieToUse && movieToUse.trailerUrl) {
+      const videoId = getYouTubeVideoId(movieToUse.trailerUrl);
       if (videoId) {
         setCurrentTrailerVideoId(videoId);
         setShowTrailerModal(true);
+      } else {
+        // If not a YouTube URL, open in new tab
+        window.open(movieToUse.trailerUrl, '_blank');
       }
     }
+  };
+
+  // Handle book now button click
+  const handleBookNow = (movie) => {
+    const movieId = movie.id || movie;
+    router.push(`/movie-detail?movieId=${encryptId(movieId)}`);
   };
 
   const loadMovies = async () => {
@@ -154,7 +166,7 @@ export default function MovieStreamingSite() {
                 }
             }
             
-            // Normal banner fallback or if movie not found
+            // Promotion and Concessions banner fallback or if movie not found
             return {
                 id: banner.id,
                 title: banner.title || '',
@@ -517,47 +529,22 @@ export default function MovieStreamingSite() {
 
                   return moviesToShow.length > 0 ? (
                     moviesToShow.map((movie) => {
-                      const releaseDate = movie.releaseDate ? new Date(movie.releaseDate.split('-').reverse().join('-')) : null;
-                      const formattedDate = releaseDate ? releaseDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }).toUpperCase() : '';
                       const isNewRelease = activeMovieTab === 'now-showing';
-                      const isLastChance = activeMovieTab === 'now-showing' && Math.random() > 0.7;
                       
                       return (
-                        <Link href={`/movie-detail?movieId=${encryptId(movie.id)}`} key={movie.id} className="shrink-0 w-48 lg:w-56">
-              <div className="group cursor-pointer">
-                <div className="relative rounded-lg overflow-hidden aspect-[2/3] mb-3">
-                  <img 
-                    src={movie.image}
-                    alt={movie.title}
-                                className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
-                                onError={(e) => {
-                                  e.target.src = `img/movies${(movie.id % 4) + 1}.png`;
-                                }}
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent opacity-0 group-hover:opacity-100 transition duration-300 flex items-end justify-center pb-4">
-                                <button className="bg-[#FFCA20] text-black p-3 rounded-full">
-                      <Play size={20} fill="currentColor" />
-                    </button>
-                  </div>
-                              {/* Tags */}
-                              <div className="absolute top-3 left-3 flex flex-col gap-2">
-                                {isNewRelease && (
-                                  <span className="bg-[#FFCA20] text-black px-2 py-1 rounded text-xs font-bold">New releases</span>
-                                )}
-                                {isLastChance && (
-                                  <span className="bg-red-600 text-white px-2 py-1 rounded text-xs font-bold">LAST CHANCE</span>
-                                )}
-                                {activeMovieTab === 'advance-booking' || activeMovieTab === 'coming-soon' ? (
-                                  formattedDate && (
-                                    <span className="bg-black/80 text-white px-2 py-1 rounded text-xs font-bold">
-                                      DI PAWAGAM {formattedDate.split(' ').slice(0, 3).join(' ').toUpperCase()}
-                                    </span>
-                                  )
-                                ) : null}
-                              </div>
-                  </div>
-                </div>
-                        </Link>
+                        <div key={movie.id} className="shrink-0 w-48 lg:w-56">
+                          <MovieCard
+                            movie={{
+                              ...movie,
+                              isNewRelease: isNewRelease,
+                              badge: isNewRelease ? 'New releases' : null
+                            }}
+                            onBookNow={handleBookNow}
+                            onWatchTrailer={handleWatchTrailer}
+                            showButtons={true}
+                            className="w-full"
+                          />
+                        </div>
                       );
                     })
                   ) : (

@@ -239,7 +239,7 @@ export default function MovieBooking() {
         setSelectedDateObj(dates[0].dateObj);
       }
       
-      console.log('Loaded show dates for movie', movieId, 'cinema', cinemaId, ':', dates.length, dates);
+      
     } catch (err) {
       console.error('Error loading show dates:', err);
       hasLoadedShowDates.current = false; // Reset on error to allow retry
@@ -457,9 +457,11 @@ export default function MovieBooking() {
   // Show dates are determined by API response, not by show times
 
   // Extract YouTube video ID from URL
-  const proceedToTicketType = () => {
-    if (selectedTime !== null) {
-      const show = filteredShowTimes[selectedTime];
+  const proceedToTicketType = (indexOverride) => {
+    const targetIndex = (indexOverride !== undefined && indexOverride !== null) ? indexOverride : selectedTime;
+    
+    if (targetIndex !== null) {
+      const show = filteredShowTimes[targetIndex];
       // Only proceed if: sellingStatus = 0 AND allowOnlineSales = true
       const isAvailable = show && show.sellingStatus === 0 && show.allowOnlineSales === true;
       
@@ -533,7 +535,14 @@ export default function MovieBooking() {
     
     if (isAvailable) {
       setSelectedTime(idx);
-      // Don't auto-navigate, let user click Continue button
+      
+      // Check if age is already confirmed in localStorage
+      const ageConfirmed = localStorage.getItem('age_confirmed');
+      if (!ageConfirmed) {
+        setShowAgeConfirmationModal(true);
+      } else {
+        proceedToTicketType(idx);
+      }
     } else {
       // Don't allow selection if not available
       setSelectedTime(null);
@@ -887,12 +896,12 @@ export default function MovieBooking() {
                         disabled={isSoldOut}
                         className={`p-3 rounded-lg border transition ${
                           isSoldOut
-                            ? 'bg-gray-800 border-red-500 text-gray-500 cursor-not-allowed opacity-60'
+                            ? 'bg-gray-800  text-gray-500 cursor-not-allowed opacity-60'
                             : selectedTime === idx
                             ? 'bg-[#FFCA20] border-[#FFCA20] text-black'
                             : show.sellingFast
                             ? 'bg-[#0a0a0a] border-[#FFCA20] text-[#FAFAFA] hover:border-[#FFCA20] hover:bg-[#151515]'
-                            : 'bg-[#0a0a0a] border-green-500 text-[#FAFAFA] hover:border-green-400 hover:bg-[#151515]'
+                            : 'bg-[#FFCA20] border-[#FFCA20] text-black'
                         }`}
                         title={isSoldOut 
                           ? (show.allowOnlineSales === false 
@@ -914,39 +923,14 @@ export default function MovieBooking() {
                     ? `No show times available for ${selectedDateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
                     : 'No show times available for this cinema.'
                   }
-                  <div className="text-xs mt-2 text-gray-500">
-                    Debug: filteredShowTimes.length = {filteredShowTimes.length}, allShowTimes.length = {allShowTimes.length}
-                  </div>
+                  
                 </div>
               )}
             </div>
           }
         </div>
 
-        {/* Continue Button */}
-        <div className="px-6 md:px-8 mb-8 flex justify-center">
-          <button
-            onClick={() => {
-              if (selectedTime !== null) {
-                // Check if age is already confirmed in localStorage
-                const ageConfirmed = localStorage.getItem('age_confirmed');
-                if (!ageConfirmed) {
-                  setShowAgeConfirmationModal(true);
-                } else {
-                  proceedToTicketType();
-                }
-              }
-            }}
-            disabled={selectedTime === null}
-            className={`px-8 py-2 rounded-lg font-semibold text-sm transition ${
-              selectedTime !== null
-                ? 'bg-[#FFCA20] text-black hover:bg-[#FFCA20]/90'
-                : 'bg-[#FFCA20]/30 text-black/50 cursor-not-allowed'
-            }`}
-          >
-            Continue
-          </button>
-        </div>
+
 
         </div>
       ) : null}

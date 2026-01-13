@@ -240,6 +240,8 @@ export async function sendForgotPasswordEmail(to, resetUrl) {
 export async function sendTicketEmail(to, ticketInfo) {
   const {
     customerName = 'Guest',
+    customerPhone = '',
+    customerEmail = '',
     movieName = 'Unknown Movie',
     movieImage = '/img/banner.jpg',
     genre = 'N/A',
@@ -251,9 +253,12 @@ export async function sendTicketEmail(to, ticketInfo) {
     showDate = '',
     showTime = '',
     seatDisplay = [],
+    ticketDetails = [], // Array of {seatNo, ticketType, price, surcharge}
     totalPersons = 0,
     bookingId = 'N/A',
     trackingId = 'N/A',
+    subCharge = 0,
+    grandTotal = 0,
   } = ticketInfo;
 
   // Format date and time
@@ -261,7 +266,10 @@ export async function sendTicketEmail(to, ticketInfo) {
     if (!dateStr) return '';
     try {
       const date = new Date(dateStr);
-      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      const day = date.getDate();
+      const month = date.toLocaleDateString('en-US', { month: 'short' });
+      const year = date.getFullYear();
+      return `${day} ${month} ${year}`;
     } catch {
       return dateStr;
     }
@@ -283,12 +291,50 @@ export async function sendTicketEmail(to, ticketInfo) {
   // Generate barcode URL
   const barcodeUrl = `https://barcode.tec-it.com/barcode.ashx?data=${encodeURIComponent(bookingId)}&code=Code128&translate-esc=on`;
 
-  // Format seat display
-  const seatDisplayText = seatDisplay.length > 0
-    ? seatDisplay.map((group, idx) => 
-        `${idx > 0 ? ' | ' : ''}${group.type} ${group.seats.join(', ')}`
-      ).join('')
-    : 'No seat information';
+  // Format printed date
+  const printedDate = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+
+  // Build ticket details table rows
+  const buildTicketRows = () => {
+    if (ticketDetails && ticketDetails.length > 0) {
+      return ticketDetails.map((ticket, index) => {
+        const seatNo = ticket.SeatNo || ticket.seatNo || ticket.Seat || ticket.seat || '';
+        const ticketType = ticket.TicketType || ticket.ticketType || ticket.Type || ticket.type || 'ADULT';
+        const price = ticket.Price || ticket.price || ticket.TicketPrice || ticket.ticketPrice || 0;
+        const surcharge = ticket.Surcharge || ticket.surcharge || 0;
+        const total = parseFloat(price) + parseFloat(surcharge);
+        
+        return `
+          <tr style="border-bottom: 1px solid #ddd;">
+            <td style="padding: 8px; text-align: left;">${hallName}</td>
+            <td style="padding: 8px; text-align: center;">${seatNo}</td>
+            <td style="padding: 8px; text-align: center;">${ticketType.toUpperCase()}</td>
+            <td style="padding: 8px; text-align: right;">RM${parseFloat(price).toFixed(2)}</td>
+            <td style="padding: 8px; text-align: right;">RM${parseFloat(surcharge).toFixed(2)}</td>
+            <td style="padding: 8px; text-align: right;">RM${total.toFixed(2)}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+    
+    // Fallback to seatDisplay if ticketDetails not available
+    if (seatDisplay && seatDisplay.length > 0) {
+      return seatDisplay.map((group) => {
+        return group.seats.map((seat) => `
+          <tr style="border-bottom: 1px solid #ddd;">
+            <td style="padding: 8px; text-align: left;">${hallName}</td>
+            <td style="padding: 8px; text-align: center;">${seat}</td>
+            <td style="padding: 8px; text-align: center;">${group.type.toUpperCase()}</td>
+            <td style="padding: 8px; text-align: right;">RM0.00</td>
+            <td style="padding: 8px; text-align: right;">RM0.00</td>
+            <td style="padding: 8px; text-align: right;">RM0.00</td>
+          </tr>
+        `).join('');
+      }).join('');
+    }
+    
+    return '<tr><td colspan="6" style="padding: 8px; text-align: center;">No ticket details available</td></tr>';
+  };
 
   const subject = `Your MS Cinema Ticket - ${movieName}`;
   const html = `
@@ -299,99 +345,137 @@ export async function sendTicketEmail(to, ticketInfo) {
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <title>Your Ticket - ${movieName}</title>
     </head>
-    <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #1c1c1c;">
-      <div style="background-color: #2a2a2a; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
-        <!-- Movie Poster Section -->
-        <div style="position: relative; width: 100%; height: 300px; background: linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 100%);">
-          <img src="${movieImage}" alt="${movieName}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.src='https://via.placeholder.com/600x300/1a1a1a/FFCA20?text=${encodeURIComponent(movieName)}';" />
-          <div style="position: absolute; top: 20px; left: 20px; background-color: rgba(0,0,0,0.7); padding: 10px 15px; border-radius: 5px;">
-            <h2 style="color: #FFCA20; margin: 0; font-size: 24px; font-weight: bold; text-transform: uppercase;">
-              ${movieName}
-            </h2>
+    <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 0 auto; padding: 20px; background-color: #f5f5f5;">
+      <div style="background-color: #ffffff; padding: 30px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+        <!-- Company Header -->
+        <div style="text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px;">
+          <h1 style="color: #333; margin: 0 0 10px 0; font-size: 24px; font-weight: bold;">MS CINEMAS SDN BHD</h1>
+          <div style="color: #666; font-size: 12px; line-height: 1.8;">
+            <p style="margin: 2px 0;">TK1 7-01,</p>
+            <p style="margin: 2px 0;">Terminal Kampar Putra,</p>
+            <p style="margin: 2px 0;">PT53493 & PT53494,</p>
+            <p style="margin: 2px 0;">Jalan Putra Permata 9,</p>
+            <p style="margin: 2px 0;">Taman Kampar</p>
+            <p style="margin: 2px 0;">31900 Kampar, Perak</p>
+            <p style="margin: 2px 0;">Malaysia</p>
           </div>
         </div>
 
-        <!-- Movie Title Section -->
-        <div style="padding: 20px; border-bottom: 2px dashed #4a4a4a;">
-          <h3 style="color: #FAFAFA; font-size: 22px; font-weight: bold; margin: 0 0 10px 0;">${movieName}</h3>
-          <p style="color: #D3D3D3; font-size: 14px; margin: 0;">
-            ${genre} | ${duration} | ${language}
+        <!-- Customer Information -->
+        <div style="margin-bottom: 20px;">
+          <p style="color: #333; font-size: 14px; margin: 5px 0;"><strong>Dear Customer,</strong></p>
+          <p style="color: #666; font-size: 12px; margin: 10px 0; line-height: 1.6;">
+            Thank you for your interest in MS Cinemas. Please note, this is not your ticket. Exchange this at the box office for your ticket. Your booking details are furnished below.
           </p>
         </div>
 
-        <!-- Ticket Holder Section -->
-        <div style="padding: 20px; border-bottom: 2px dashed #4a4a4a;">
-          <h4 style="color: #FAFAFA; font-size: 18px; font-weight: bold; margin: 0 0 10px 0;">${customerName}</h4>
-          <p style="color: #D3D3D3; font-size: 14px; margin: 5px 0;">
-            ${experienceType} | ${hallName}
-          </p>
-          <p style="color: #D3D3D3; font-size: 14px; margin: 5px 0;">
-            ${formatDate(showDate)} | ${formatTime(showTime)}
-          </p>
+        <div style="margin-bottom: 20px; padding: 15px; background-color: #f9f9f9; border-left: 4px solid #FFCA20;">
+          <p style="color: #333; font-size: 13px; margin: 5px 0;"><strong>Name:</strong> ${customerName}</p>
+          <p style="color: #333; font-size: 13px; margin: 5px 0;"><strong>Tel. No:</strong> ${customerPhone || 'N/A'}</p>
+          <p style="color: #333; font-size: 13px; margin: 5px 0;"><strong>Email:</strong> ${customerEmail || to}</p>
+          <p style="color: #333; font-size: 13px; margin: 5px 0;"><strong>Order No:</strong> ${bookingId}</p>
+          <p style="color: #333; font-size: 13px; margin: 5px 0;"><strong>Payment Transaction No:</strong> ${trackingId}</p>
+          <p style="color: #333; font-size: 13px; margin: 5px 0;"><strong>Printed On:</strong> ${printedDate}</p>
         </div>
 
-        <!-- Seat and Booking Details Section -->
-        <div style="padding: 20px; border-bottom: 2px dashed #4a4a4a;">
-          <!-- Seat Information -->
-          <div style="margin-bottom: 15px;">
-            <p style="color: #FAFAFA; font-size: 14px; margin: 0 0 10px 0;">
-              ${seatDisplayText}
-            </p>
-            <p style="color: #D3D3D3; font-size: 12px; margin: 0 0 15px 0;">${totalPersons} person${totalPersons !== 1 ? 's' : ''}</p>
+        <!-- Barcode -->
+        <div style="text-align: center; margin: 30px 0; padding: 20px; background-color: #f9f9f9;">
+          <div style="font-family: 'Courier New', monospace; font-size: 24px; font-weight: bold; letter-spacing: 3px; margin-bottom: 10px;">
+            ${bookingId}
           </div>
-          
-          <!-- Booking IDs -->
-          <div style="background-color: #1a1a1a; padding: 15px; border-radius: 5px;">
-            <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
-              <span style="color: #D3D3D3; font-size: 14px;">Booking ID</span>
-              <span style="color: #FAFAFA; font-size: 14px; font-weight: bold;">${bookingId}</span>
-            </div>
-            <div style="display: flex; justify-content: space-between;">
-              <span style="color: #D3D3D3; font-size: 14px;">Tracking ID</span>
-              <span style="color: #FAFAFA; font-size: 14px; font-weight: bold;">${trackingId}</span>
-            </div>
-          </div>
+          <img src="${barcodeUrl}" alt="Barcode" style="height: 60px; width: auto; max-width: 100%;" />
         </div>
 
-        <!-- Barcode Section -->
-        <div style="padding: 30px; background-color: rgba(0,0,0,0.3); text-align: center;">
-          <div style="background-color: #FFFFFF; padding: 20px; border-radius: 5px; display: inline-block;">
-            <p style="color: #000; font-size: 12px; margin: 0 0 10px 0; font-weight: bold;">SCAN AT ENTRANCE</p>
-            <img src="${barcodeUrl}" alt="Barcode" style="height: 80px; width: auto; max-width: 100%;" />
-            <p style="color: #000; font-size: 10px; margin: 10px 0 0 0;">${bookingId}</p>
-          </div>
+        <!-- Booking Details -->
+        <div style="margin-bottom: 30px;">
+          <h2 style="color: #333; font-size: 18px; font-weight: bold; margin-bottom: 15px; border-bottom: 2px solid #333; padding-bottom: 5px;">Booking Details</h2>
+          <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+            <tr style="background-color: #f0f0f0;">
+              <th style="padding: 10px; text-align: left; border: 1px solid #ddd; font-weight: bold;">Date</th>
+              <th style="padding: 10px; text-align: left; border: 1px solid #ddd; font-weight: bold;">Time</th>
+              <th style="padding: 10px; text-align: left; border: 1px solid #ddd; font-weight: bold;">Movie</th>
+            </tr>
+            <tr>
+              <td style="padding: 10px; border: 1px solid #ddd;">${formatDate(showDate)}</td>
+              <td style="padding: 10px; border: 1px solid #ddd;">${formatTime(showTime)}</td>
+              <td style="padding: 10px; border: 1px solid #ddd;">${movieName.toUpperCase()}</td>
+            </tr>
+          </table>
+
+          <table style="width: 100%; border-collapse: collapse;">
+            <tr style="background-color: #f0f0f0;">
+              <th style="padding: 8px; text-align: left; border: 1px solid #ddd; font-weight: bold;">Hall</th>
+              <th style="padding: 8px; text-align: center; border: 1px solid #ddd; font-weight: bold;">Seat No</th>
+              <th style="padding: 8px; text-align: center; border: 1px solid #ddd; font-weight: bold;">Ticket Type</th>
+              <th style="padding: 8px; text-align: right; border: 1px solid #ddd; font-weight: bold;">Ticket Price</th>
+              <th style="padding: 8px; text-align: right; border: 1px solid #ddd; font-weight: bold;">Surcharge</th>
+              <th style="padding: 8px; text-align: right; border: 1px solid #ddd; font-weight: bold;">Total</th>
+            </tr>
+            ${buildTicketRows()}
+            <tr style="background-color: #f9f9f9;">
+              <td colspan="5" style="padding: 8px; text-align: right; border: 1px solid #ddd; font-weight: bold;">Sub Charge(RM)</td>
+              <td style="padding: 8px; text-align: right; border: 1px solid #ddd; font-weight: bold;">RM${parseFloat(subCharge || 0).toFixed(2)}</td>
+            </tr>
+            <tr style="background-color: #FFCA20; font-weight: bold;">
+              <td colspan="5" style="padding: 10px; text-align: right; border: 1px solid #ddd;">Grand Total(RM)</td>
+              <td style="padding: 10px; text-align: right; border: 1px solid #ddd;">RM${parseFloat(grandTotal || 0).toFixed(2)}</td>
+            </tr>
+          </table>
         </div>
 
-        <!-- Footer -->
-        <div style="padding: 20px; background-color: #1a1a1a; text-align: center;">
-          <p style="color: #D3D3D3; font-size: 12px; margin: 0;">
-            Please present this ticket at the cinema entrance. Keep this email safe.
-          </p>
-          <p style="color: #D3D3D3; font-size: 11px; margin: 10px 0 0 0;">
-            © ${new Date().getFullYear()} MS Cinema. All rights reserved.
-          </p>
+        <!-- Terms & Conditions -->
+        <div style="margin-top: 30px; padding-top: 20px; border-top: 2px solid #ddd;">
+          <h3 style="color: #333; font-size: 16px; font-weight: bold; margin-bottom: 15px;">Terms & Conditions</h3>
+          <div style="color: #666; font-size: 11px; line-height: 1.6;">
+            <p style="margin: 8px 0;"><strong>APPLICATION OF THESE TERMS AND CONDITIONS</strong></p>
+            <p style="margin: 8px 0;">Your agree that your use of this Website and the purchase of any movie ticket, goods or services will be governed by these terms and conditions ("Terms of Use")</p>
+            <p style="margin: 8px 0;">If MS Cinemas suffers or incurs any loss or damage in connection with any breach of these Terms of Use you agree to indemnify MS Cinemas for those losses and damages.</p>
+            
+            <p style="margin: 8px 0; margin-top: 15px;"><strong>REGISTRATION</strong></p>
+            <p style="margin: 8px 0;">You may be asked to provide Personal Information to MS Cinemas before purchasing any movie ticket, goods or services from this Website, before entering any competition on the Website or before registering as a member of this Website. If you do not provide that Personal Information to MS Cinemas, MS Cinemas may not be able to sell you movie tickets, goods or services, enter you into that competition or register you as a member.</p>
+            <p style="margin: 8px 0;">All Personal Information MS Cinemas collects from this Website will be maintained in accordance with MS Cinema's Privacy Policy.</p>
+            <p style="margin: 8px 0;">You acknowledge that if you do not register as a member of this Website, parts of this Website designed for registered members may not be accessible to you. Employees of MS Cinemas and its related bodies corporate are entitled to become members of the Website, but are not entitled to enter any competitions on the Website.</p>
+            <p style="margin: 8px 0;">MS Cinemas will use its reasonable endeavors to maintain the security of any Personal Information that you provide. This Website has security measures in place to protect the loss, misuse and alteration of the information under MS Cinema's control. However, no data transmission over the internet can be completely secure, and MS Cinemas cannot give an absolute assurance that the information you provide to us will be secure at all times.</p>
+            <p style="margin: 8px 0;">MS Cinemas may use techniques designed to identify fraudulent activities on the Website, such as fraudulent activities on the Website, such as fraudulent credit card use. If any unauthorized use of your credit card occurs as a result of your credit card purchase on the Website, you should notify your credit card provider in accordance with its reporting rules and procedures.</p>
+            <p style="margin: 8px 0;">You agree that MS Cinemas may cancel your registration as a member and/or refuse you access to this Website at any time in its sole discretion.</p>
+          </div>
         </div>
       </div>
     </body>
     </html>
   `;
   const text = `
-Your MS Cinema Ticket - ${movieName}
+MS CINEMAS SDN BHD
+TK1 7-01, Terminal Kampar Putra, PT53493 & PT53494, Jalan Putra Permata 9, Taman Kampar, 31900 Kampar, Perak, Malaysia
 
-Movie: ${movieName}
-Genre: ${genre} | Duration: ${duration} | Language: ${language}
+Dear Customer,
 
-Ticket Holder: ${customerName}
-Experience: ${experienceType} | Hall: ${hallName}
-Date: ${formatDate(showDate)} | Time: ${formatTime(showTime)}
+Thank you for your interest in MS Cinemas. Please note, this is not your ticket. Exchange this at the box office for your ticket. Your booking details are furnished below.
 
-Seats: ${seatDisplayText}
-Total: ${totalPersons} person${totalPersons !== 1 ? 's' : ''}
+Name: ${customerName}
+Tel. No: ${customerPhone || 'N/A'}
+Email: ${customerEmail || to}
+Order No: ${bookingId}
+Payment Transaction No: ${trackingId}
+Printed On: ${printedDate}
 
-Booking ID: ${bookingId}
-Tracking ID: ${trackingId}
+${bookingId}
 
-Please present this ticket at the cinema entrance.
+Booking Details
+Date: ${formatDate(showDate)}
+Time: ${formatTime(showTime)}
+Movie: ${movieName.toUpperCase()}
+
+Hall | Seat No | Ticket Type | Ticket Price | Surcharge | Total
+${ticketDetails && ticketDetails.length > 0 ? ticketDetails.map(t => 
+  `${hallName} | ${t.SeatNo || t.seatNo || ''} | ${(t.TicketType || t.ticketType || 'ADULT').toUpperCase()} | RM${(t.Price || t.price || 0).toFixed(2)} | RM${(t.Surcharge || t.surcharge || 0).toFixed(2)} | RM${(parseFloat(t.Price || t.price || 0) + parseFloat(t.Surcharge || t.surcharge || 0)).toFixed(2)}`
+).join('\n') : 'No ticket details'}
+
+Sub Charge(RM): RM${parseFloat(subCharge || 0).toFixed(2)}
+Grand Total(RM): RM${parseFloat(grandTotal || 0).toFixed(2)}
+
+Terms & Conditions
+This document contains the terms and conditions governing your use of this Website and your purchase of any movie tickets, goods or services from MS Cinemas Sdn. Bhd. using this Website.
   `;
 
   return await sendEmail({ to, subject, html, text });
