@@ -486,7 +486,7 @@ export default function TicketSelection() {
               ticketData.priceDetails.map((price, idx) => {
                 const ticketCount = tickets[price.ticketTypeID] || 0;
                 const description = getTicketTypeDescription(price.ticketTypeName, price.ticketTypeID);
-                const isTwinSeats = ticketData?.generalInfo?.ticketTypeIDForTwinSeatsAndVIPSeats === price.ticketTypeID;
+                const isTwinSeats = ticketData?.generalInfo?.ticketTypeIDForTwinSeatsAndVIPSeats === price.ticketTypeID || price.ticketTypeName?.toUpperCase().includes('TWIN');
                 const canIncrement = totalTickets + (isTwinSeats ? 2 : 1) <= maxTickets;
                 
                 return (
@@ -507,7 +507,7 @@ export default function TicketSelection() {
                 </div>
                     </div>
                     <div className="text-center text-sm text-white/90">
-                      RM {price.totalTicketPrice.toFixed(2)}
+                      RM {(price.totalTicketPrice * (isTwinSeats ? 2 : 1)).toFixed(2)}
                     </div>
                 <div className="flex items-center justify-center gap-3">
                   <button

@@ -84,10 +84,23 @@ export async function sendEmail({ to, subject, html, text, from }) {
   try {
     // Validate required environment variables
     if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
+      console.error('Email Utils: Missing EMAIL_USER or EMAIL_PASSWORD');
+      console.log('Environment:', {
+        EMAIL_USER_SET: !!process.env.EMAIL_USER,
+        EMAIL_PASSWORD_SET: !!process.env.EMAIL_PASSWORD,
+        EMAIL_SERVICE: process.env.EMAIL_SERVICE,
+        EMAIL_HOST: process.env.EMAIL_HOST,
+        EMAIL_PORT: process.env.EMAIL_PORT,
+      });
       throw new Error('Email configuration is missing. Please set EMAIL_USER and EMAIL_PASSWORD environment variables.');
     }
 
     const transporter = createTransporter();
+    
+    // Log transporter details (safe)
+    const emailService = process.env.EMAIL_SERVICE || 'smtp';
+    console.log(`Email Utils: specific transporter created for service: ${emailService}`);
+
     const emailFrom = from || process.env.EMAIL_FROM || process.env.EMAIL_USER;
 
     const mailOptions = {
@@ -98,8 +111,10 @@ export async function sendEmail({ to, subject, html, text, from }) {
       text: text || html.replace(/<[^>]*>/g, ''), // Strip HTML tags for plain text fallback
     };
 
+    console.log('Email Utils: Verifying transporter...');
     // Verify transporter configuration
     await transporter.verify();
+    console.log('Email Utils: Transporter verified. Sending email...');
 
     // Send email
     const info = await transporter.sendMail(mailOptions);
@@ -108,6 +123,7 @@ export async function sendEmail({ to, subject, html, text, from }) {
       messageId: info.messageId,
       to: to,
       subject: subject,
+      response: info.response,
     });
 
     return {
@@ -117,6 +133,8 @@ export async function sendEmail({ to, subject, html, text, from }) {
     };
   } catch (error) {
     console.error('Email sending error:', error);
+    if (error.code) console.error('Error Code:', error.code);
+    if (error.command) console.error('Error Command:', error.command);
     throw new Error(`Failed to send email: ${error.message}`);
   }
 }

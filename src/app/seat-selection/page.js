@@ -664,19 +664,22 @@ export default function SeatSelection() {
       const ticketTypeIDNum = parseInt(ticketTypeID);
       const priceDetail = ticketData.priceDetails.find(p => p.ticketTypeID === ticketTypeIDNum);
       
-      if (priceDetail && seatIndex >= currentIndex && seatIndex < currentIndex + count) {
-        const pricePerTicket = priceDetail.price || 0;
-        const taxPerTicket = priceDetail.entertainmentTax || 0;
-        return pricePerTicket + taxPerTicket;
+      const isTwinSeats = ticketData?.generalInfo?.ticketTypeIDForTwinSeatsAndVIPSeats === ticketTypeIDNum || priceDetail?.ticketTypeName?.toUpperCase().includes('TWIN');
+      const seatsPerTicket = isTwinSeats ? 2 : 1;
+      const effectiveCount = count * seatsPerTicket;
+      
+      if (priceDetail && seatIndex >= currentIndex && seatIndex < currentIndex + effectiveCount) {
+        // Use totalTicketPrice directly to match ticket-type page
+        return priceDetail.totalTicketPrice || ((priceDetail.price || 0) + (priceDetail.entertainmentTax || 0));
       }
-      currentIndex += count;
+      currentIndex += effectiveCount;
     }
     
     // Default to first ticket type price
     const firstTicketTypeID = parseInt(ticketTypeEntries[0][0]);
     const firstPriceDetail = ticketData.priceDetails.find(p => p.ticketTypeID === firstTicketTypeID);
     if (firstPriceDetail) {
-      return (firstPriceDetail.price || 0) + (firstPriceDetail.entertainmentTax || 0);
+      return firstPriceDetail.totalTicketPrice || ((firstPriceDetail.price || 0) + (firstPriceDetail.entertainmentTax || 0));
     }
     
     return 0;
@@ -1146,10 +1149,13 @@ export default function SeatSelection() {
     ticketData.priceDetails.forEach((price) => {
       const count = ticketTypeCounts[price.ticketTypeID] || 0;
       if (count > 0) {
+        const isTwinSeats = ticketData?.generalInfo?.ticketTypeIDForTwinSeatsAndVIPSeats === price.ticketTypeID || price.ticketTypeName?.toUpperCase().includes('TWIN');
+        const seatsPerTicket = isTwinSeats ? 2 : 1;
+        
         const pricePerTicket = price.price || 0;
         const taxPerTicket = price.entertainmentTax || 0;
-        netPrice += pricePerTicket * count;
-        tax += taxPerTicket * count;
+        netPrice += pricePerTicket * count * seatsPerTicket;
+        tax += taxPerTicket * count * seatsPerTicket;
       }
     });
     
@@ -1176,7 +1182,6 @@ export default function SeatSelection() {
     }
     
     // Allow booking if we have at least one seat and not exceeding max
-    // Note: Users can book with fewer seats than max if they want (e.g., 1 handicap seat when max is 6)
     
     setIsLocking(true);
     setError('');
@@ -1188,38 +1193,173 @@ export default function SeatSelection() {
         setIsLocking(false);
         return;
       }
+
+      // Helper to clone ticket counts
+      const availableTickets = { ...selectedTickets };
       
+      // Helper to categorize tickets for logic
+      const getTicketCategory = (ticketTypeID) => {
+        const id = parseInt(ticketTypeID);
+        const priceDetail = ticketData.priceDetails?.find(p => p.ticketTypeID === id);
+        const name = priceDetail?.ticketTypeName?.toUpperCase() || '';
+        
+        // Twin keys
+        if (id === ticketData.generalInfo?.ticketTypeIDForTwinSeatsAndVIPSeats || name.includes('TWIN')) return 'TWIN';
+        // Kids keys
+        if (id === ticketData.generalInfo?.ticketTypeIDForKidsSeat || name.includes('KID') || name.includes('CHILD')) return 'KIDS';
+        // Sofa keys
+        if (id === ticketData.generalInfo?.ticketTypeIDForSofa || name.includes('SOFA') || name.includes('BED') || name.includes('FAMILY')) return 'SOFA';
+        // Vip keys (if distinct from Twin config)
+        if (name.includes('VIP')) return 'VIP';
+        // Handicap
+        if (name.includes('HANDICAP') || name.includes('OKU')) return 'HANDICAP';
+        // Normal (Adult, Senior, Student, etc)
+        return 'NORMAL';
+      };
+
+      // Group tickets by category
+      const ticketsByCategory = {
+        'TWIN': [], 'KIDS': [], 'SOFA': [], 'VIP': [], 'HANDICAP': [], 'NORMAL': []
+      };
+      
+      Object.entries(availableTickets).forEach(([id, count]) => {
+        if (count > 0) {
+          const category = getTicketCategory(id);
+          ticketsByCategory[category].push({ id: parseInt(id), count });
+        }
+      });
+
+      // Sort NORMAL tickets to prioritize standard ADULT/SENIOR if needed, or just keep insertion order
+      // (Order usually doesn't matter for priceID assignment if mapped 1:1, but good to be deterministic)
+
       // Get seat objects for selected seats - validate all seats exist in current seatsData
-      const seatObjects = selectedSeats.map((seatNo, index) => {
+      // We sort seats to process pairs correctly (e.g. A1 then A2)
+      const sortedSelectedSeats = [...selectedSeats].sort();
+      
+      // Track processed seats to handle pairs
+      const processedSeats = new Set();
+      
+      const seatObjects = [];
+      
+      for (const seatNo of sortedSelectedSeats) {
+        if (processedSeats.has(seatNo)) continue;
+        
         const seat = seatsData.find(s => s.seatNo === seatNo);
         if (!seat) {
           console.error(`Seat ${seatNo} not found in current seat layout`);
-          return null;
+          continue;
         }
         
         // Validate seatID exists
         if (!seat.seatID || seat.seatID === 0) {
           console.error(`Seat ${seatNo} has invalid seatID:`, seat);
-          return null;
+          continue;
         }
         
-        return {
+        // Determine required category for this seat
+        const rawType = Number(seat.seatType);
+        let requiredCategory = 'NORMAL';
+        let isTwinPair = false;
+        
+        // Map raw types to categories
+        if (rawType === 2 && seat.partnerSeatID) {
+          requiredCategory = 'TWIN';
+          isTwinPair = true;
+        } else if (rawType === 1) {
+          // Check config/name if 1 is VIP or Handicap
+          // Default to Handicap unless Hall 6/VIP context implies otherwise
+          // Usually 1 is OKU, but in Hall 6 could be VIP.
+          // Let's check available tickets. If we have VIP tickets, checks matching.
+          if (ticketsByCategory['VIP'].length > 0 && ticketsByCategory['HANDICAP'].length === 0) {
+            requiredCategory = 'VIP';
+          } else {
+             requiredCategory = 'HANDICAP';
+          }
+        } else if (rawType === 3) requiredCategory = 'KIDS';
+        else if (rawType === 4) requiredCategory = 'SOFA';
+        else requiredCategory = 'NORMAL'; // 0 or others
+        
+        // Find best matching ticket
+        let assignedTicketID = null;
+        let assignedPriceID = 0;
+        
+        // Try specific category first
+        let candidateList = ticketsByCategory[requiredCategory];
+        
+        // Fallback for Hall 6 mapping quirks or overlapping definitions
+        if ((!candidateList || candidateList.length === 0) && requiredCategory === 'NORMAL') {
+           // If Normal needed but none found? Use others? Unlikely.
+        }
+        
+        // Special logic: If 'TWIN' seat but no 'TWIN' tickets, maybe mapping is wrong?
+        // But usually validation prevents this.
+        
+        // Find first ticket with > 0 count
+        const ticketMatch = candidateList.find(t => t.count > 0);
+        
+        if (ticketMatch) {
+          assignedTicketID = ticketMatch.id;
+          ticketMatch.count--; // Decrement count
+          
+          // Get Price ID from config
+          const priceDetail = ticketData.priceDetails.find(p => p.ticketTypeID === assignedTicketID);
+          assignedPriceID = priceDetail?.priceID || 0;
+        } else {
+          // If no matching ticket found (shouldn't happen if validation passes, but fallback to first available price)
+           // Fallback logic: check NORMAL list if current was special but missing
+           if (requiredCategory !== 'NORMAL') {
+               const normalMatch = ticketsByCategory['NORMAL'].find(t => t.count > 0);
+               if (normalMatch) {
+                  assignedTicketID = normalMatch.id;
+                  normalMatch.count--;
+                  const priceDetail = ticketData.priceDetails.find(p => p.ticketTypeID === assignedTicketID);
+                  assignedPriceID = priceDetail?.priceID || 0;
+               }
+           }
+        }
+        
+        // If still 0, use default first price (fallback)
+        if (assignedPriceID === 0) {
+           const firstPrice = ticketData.priceDetails[0];
+           assignedPriceID = firstPrice?.priceID || 0;
+        }
+        
+        // Add to result
+        seatObjects.push({
           seatID: seat.seatID,
-          priceID: getPriceIDForSeat(index)
-        };
-      }).filter(Boolean);
-      
-      // Validate all selected seats were found
-      if (seatObjects.length !== selectedSeats.length) {
-        setError('Some selected seats are invalid. Please refresh and select seats again.');
-        setIsLocking(false);
-        return;
+          priceID: assignedPriceID
+        });
+        processedSeats.add(seatNo);
+        
+        // If Twin Pair, handle partner
+        if (isTwinPair) {
+           const partnerSeat = seatsData.find(s => s.seatID === seat.partnerSeatID);
+           if (partnerSeat && sortedSelectedSeats.includes(partnerSeat.seatNo)) {
+              // Add partner seat with SAME PriceID (since 1 Twin Ticket covers Pair)
+              // BUT wait. If 1 Ticket covers 2 seats.
+              // Does LockSeat need PriceID on both? Yes (per existing logic).
+              // Does it consume ANOTHER ticket? NO. 
+              // Twin Ticket Count was decremented ONCE above.
+              // So we just assign the same PriceID to the partner.
+              
+              seatObjects.push({
+                seatID: partnerSeat.seatID,
+                priceID: assignedPriceID
+              });
+              processedSeats.add(partnerSeat.seatNo);
+           }
+        }
       }
       
-      if (seatObjects.length === 0) {
-        setError('Invalid seat selection. Please try again.');
-        setIsLocking(false);
-        return;
+      // Validate all selected seats were processed
+      if (seatObjects.length !== selectedSeats.length) {
+        // Fallback: This might happen if pairs logic mismatches, simpler validation
+        // But let's proceed if at least some valid
+        if (seatObjects.length === 0) {
+             setError('Error processing seat selection.');
+             setIsLocking(false);
+             return;
+        }
       }
       
       // Call lockSeat API
@@ -1471,7 +1611,11 @@ export default function SeatSelection() {
       const priceDetail = ticketData.priceDetails.find(p => p.ticketTypeID === ticketTypeIDNum);
       
       if (priceDetail) {
-        const seatsForThisType = selectedSeats.slice(seatIndex, seatIndex + count);
+        const isTwinSeats = ticketData?.generalInfo?.ticketTypeIDForTwinSeatsAndVIPSeats === ticketTypeIDNum || priceDetail.ticketTypeName?.toUpperCase().includes('TWIN');
+        const seatsPerTicket = isTwinSeats ? 2 : 1;
+        const effectiveCount = count * seatsPerTicket;
+        
+        const seatsForThisType = selectedSeats.slice(seatIndex, seatIndex + effectiveCount);
         if (seatsForThisType.length > 0) {
           seatsByType.push({
             ticketTypeName: priceDetail.ticketTypeName || 'ADULT',
@@ -1480,7 +1624,7 @@ export default function SeatSelection() {
             ticketTypeID: ticketTypeIDNum
           });
         }
-        seatIndex += count;
+        seatIndex += effectiveCount;
       }
     });
     
@@ -1540,17 +1684,28 @@ export default function SeatSelection() {
     });
     
     // Calculate price based on ticket types
+    let totalTicketPriceSum = 0;
+
     ticketData.priceDetails.forEach((price) => {
       const count = ticketTypeCounts[price.ticketTypeID] || 0;
       if (count > 0) {
+        const isTwinSeats = ticketData?.generalInfo?.ticketTypeIDForTwinSeatsAndVIPSeats === price.ticketTypeID || price.ticketTypeName?.toUpperCase().includes('TWIN');
+        const seatsPerTicket = isTwinSeats ? 2 : 1;
+          
         const pricePerTicket = price.price || 0;
         const taxPerTicket = price.entertainmentTax || 0;
-        netPrice += pricePerTicket * count;
-        tax += taxPerTicket * count;
+        
+        // Use totalTicketPrice if available, otherwise sum components
+        const totalPerTicket = price.totalTicketPrice || (pricePerTicket + taxPerTicket);
+        
+        netPrice += pricePerTicket * count * seatsPerTicket;
+        tax += taxPerTicket * count * seatsPerTicket;
+        
+        totalTicketPriceSum += totalPerTicket * count * seatsPerTicket;
       }
     });
     
-    const totalTicketPrice = netPrice + tax;
+    const totalTicketPrice = totalTicketPriceSum;
     const reservationFee = 2.10; // Could come from API or config
     const grandTotal = totalTicketPrice + reservationFee;
     

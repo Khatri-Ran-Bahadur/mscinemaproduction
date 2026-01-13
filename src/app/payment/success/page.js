@@ -111,6 +111,15 @@ function PaymentSuccessContent() {
 
   // Function to send ticket email after payment success
   const sendTicketEmailAfterPayment = async (bookingData, ticketData, referenceNo, orderIdOverride) => {
+    // Check if email already sent for this transaction
+    const uniqueId = orderIdOverride || referenceNo;
+    const emailSentKey = `ticket_email_sent_${uniqueId}`;
+    
+    if (typeof window !== 'undefined' && localStorage.getItem(emailSentKey)) {
+      console.log(`Email already sent for order ${uniqueId}, skipping.`);
+      return;
+    }
+
     try {
       // Get customer email from booking data or payment result
       let customerEmail = bookingData?.formData?.email || 
@@ -130,12 +139,14 @@ function PaymentSuccessContent() {
                            '';
           }
         } catch (e) {
-          // Ignore
+          console.error('Error parsing paymentResult for email:', e);
         }
       }
       
+      console.log('Customer Email resolved to:', customerEmail); // LOGGING
+
       if (!customerEmail) {
-        console.warn('No email found in booking data, skipping ticket email');
+        console.warn('No email found in booking data or payment result, skipping ticket email');
         return;
       }
 
@@ -243,7 +254,7 @@ function PaymentSuccessContent() {
         seats.forEach((seat, index) => {
           const ticket = selectedTickets[index];
           const ticketType = ticket?.ticketType || ticket?.type || 'Adult';
-          const seatNo = seat?.seatNo || seat?.seat || '';
+          const seatNo = ticket?.seatNo || seat?.seatNo || seat?.seat || ''; // Fixed mapping
           if (seatNo) {
             if (!seatGroups[ticketType]) {
               seatGroups[ticketType] = [];
@@ -273,6 +284,8 @@ function PaymentSuccessContent() {
       ticketInfo.seatDisplay = formatSeats();
       ticketInfo.totalPersons = Object.values(seatGroups).reduce((sum, seats) => sum + seats.length, 0) || ticketDetails.length || 0;
 
+      console.log('Sending ticket email payload:', { email: customerEmail, ticketInfo }); // LOGGING
+
       // Call API to send ticket email
       const emailResponse = await fetch('/api/auth/send-ticket-email', {
         method: 'POST',
@@ -285,15 +298,22 @@ function PaymentSuccessContent() {
         }),
       });
 
+      console.log('Email API response status:', emailResponse.status); // LOGGING
+
       const emailData = await emailResponse.json();
+      console.log('Email API response data:', emailData); // LOGGING
 
       if (!emailResponse.ok) {
         console.error('Failed to send ticket email:', emailData.error || emailData.message);
       } else {
         console.log('Ticket email sent successfully:', emailData.messageId);
+        // Mark as sent
+        if (typeof window !== 'undefined') {
+          localStorage.setItem(emailSentKey, 'true');
+        }
       }
     } catch (error) {
-      console.error('Error sending ticket email:', error);
+      console.error('Error in sendTicketEmailAfterPayment:', error);
       // Don't fail the payment success flow if email fails
     }
   };
