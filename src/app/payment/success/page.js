@@ -78,7 +78,8 @@ function PaymentSuccessContent() {
                         localStorage.setItem('ticketData', JSON.stringify(fetchedTicketData));
                         
                         // Send ticket email after ticket data is loaded
-                        sendTicketEmailAfterPayment(parsed, fetchedTicketData, referenceNo);
+                        console.log('Sending ticket email after payment...');
+                        sendTicketEmailAfterPayment(parsed, fetchedTicketData, referenceNo, orderIdFromUrl);
                       }
                     }
                   } catch (error) {
@@ -109,7 +110,7 @@ function PaymentSuccessContent() {
   };
 
   // Function to send ticket email after payment success
-  const sendTicketEmailAfterPayment = async (bookingData, ticketData, referenceNo) => {
+  const sendTicketEmailAfterPayment = async (bookingData, ticketData, referenceNo, orderIdOverride) => {
     try {
       // Get customer email from booking data or payment result
       let customerEmail = bookingData?.formData?.email || 
@@ -192,7 +193,8 @@ function PaymentSuccessContent() {
                  bookingData?.showTimeDetails?.time || 
                  bookingData?.showTimeDetails?.ShowTime ||
                  '',
-        bookingId: ticketData?.BookingID || ticketData?.bookingID || 
+        bookingId: orderIdOverride || 
+                  ticketData?.BookingID || ticketData?.bookingID || 
                   ticketData?.ReferenceNo || ticketData?.referenceNo || 
                   bookingData?.confirmedReferenceNo || 
                   bookingData?.referenceNo || 
@@ -395,6 +397,7 @@ function PaymentSuccessContent() {
         ticketData={ticketData}
         isOpen={showTicketModal}
         onClose={handleCloseTicket}
+        bookingId={orderid}
       />
     </div>
   );

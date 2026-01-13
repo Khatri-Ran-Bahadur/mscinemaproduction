@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
 
-export default function TicketModal({ ticketData, isOpen, onClose }) {
+export default function TicketModal({ ticketData, isOpen, onClose, bookingId }) {
   const [mergedData, setMergedData] = useState(null);
 
   // Merge ticket data with booking data from localStorage
@@ -91,7 +91,8 @@ export default function TicketModal({ ticketData, isOpen, onClose }) {
           ticketDetails: ticketData.TicketDetails || ticketData.ticketDetails || ticketData.ticketDetails || [],
           
           // Booking IDs - try multiple sources
-          bookingID: ticketData.BookingID || ticketData.bookingID || 
+          bookingID: bookingId || 
+                    ticketData.BookingID || ticketData.bookingID || 
                     ticketData.ReferenceNo || ticketData.referenceNo || 
                     bookingData?.confirmedReferenceNo || 
                     bookingData?.referenceNo || 
@@ -137,7 +138,7 @@ export default function TicketModal({ ticketData, isOpen, onClose }) {
             showDate: bookingData?.showTimeDetails?.showDate || bookingData?.showTimeDetails?.date || '',
             showTime: bookingData?.showTimeDetails?.showTime || bookingData?.showTimeDetails?.time || '',
             ticketDetails: [],
-            bookingID: bookingData?.confirmedReferenceNo || bookingData?.referenceNo || paymentResult?.orderId || 'N/A',
+            bookingID: bookingId || bookingData?.confirmedReferenceNo || bookingData?.referenceNo || paymentResult?.orderId || 'N/A',
             trackingID: paymentResult?.data?.tranID || paymentResult?.data?.tranId || 'N/A',
           };
           
@@ -255,7 +256,7 @@ export default function TicketModal({ ticketData, isOpen, onClose }) {
   const totalPersons = Object.values(seatGroups).reduce((sum, seats) => sum + seats.length, 0) || ticketDetails.length || 0;
 
   // Get booking and tracking IDs
-  const bookingId = mergedData.bookingID || mergedData.referenceNo || mergedData.bookingId || 'N/A';
+  const displayBookingId = mergedData.bookingID || mergedData.referenceNo || mergedData.bookingId || 'N/A';
   const trackingId = mergedData.trackingID || mergedData.trackingId || mergedData.transactionNo || 'N/A';
 
   return (
@@ -334,7 +335,7 @@ export default function TicketModal({ ticketData, isOpen, onClose }) {
             <div className="space-y-2">
               <div className="flex justify-between items-center">
                 <span className="text-sm text-gray-400">Booking ID</span>
-                <span className="text-sm text-white font-semibold">{bookingId}</span>
+                <span className="text-sm text-white font-semibold">{displayBookingId}</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-sm text-gray-400">Tracking ID</span>
@@ -349,7 +350,7 @@ export default function TicketModal({ ticketData, isOpen, onClose }) {
               {/* Barcode */}
               <div className="flex items-center justify-center">
                 <img
-                  src={`https://barcode.tec-it.com/barcode.ashx?data=${encodeURIComponent(bookingId)}&code=Code128&translate-esc=on`}
+                  src={`https://barcode.tec-it.com/barcode.ashx?data=${encodeURIComponent(displayBookingId)}&code=Code128&translate-esc=on`}
                   alt="Barcode"
                   className="h-20 w-auto"
                   onError={(e) => {
