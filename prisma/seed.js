@@ -36,7 +36,6 @@ async function main() {
   });
 
   if (existingAdmin) {
-    console.log('✅ Admin user already exists');
     return;
   }
 
