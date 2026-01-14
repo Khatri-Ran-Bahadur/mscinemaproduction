@@ -72,10 +72,10 @@ export const releaseLockedSeats = async (cinemaId, showId, referenceNo) => {
 export const confirmLockedSeats = async (
   showId,
   referenceNo,
-  userId = 0,
+  userId = -1,
   email = '',
   membershipId = 0,
-  paymentVia = 0,
+  paymentVia = 3,
   name = '',
   passportNo = '',
   mobileNo = ''
