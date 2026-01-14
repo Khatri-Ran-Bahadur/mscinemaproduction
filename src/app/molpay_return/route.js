@@ -239,29 +239,45 @@ function mapChannelToCardType(channel) {
 
 /**
  * Call ReserveBooking API (using direct fetch to avoid server-side module issues)
+ * REQUIRED: This must succeed before redirecting to success page
  */
 async function callReserveBooking(orderid, tranID, channel, appcode, returnData) {
   try {
-    // Extract booking details from orderid and return URL
-    const returnUrl = returnData.returnUrl || returnData.mpsreturnurl || '';
-    const bookingDetails = extractBookingDetails(orderid, returnUrl);
+    // Extract booking details from returnData (query params from return URL)
+    // Booking details are added to return URL in create-request route
+    let cinemaId = returnData.cinemaId || returnData.cinema_id || '';
+    let showId = returnData.showId || returnData.show_id || '';
+    let referenceNo = returnData.referenceNo || returnData.reference_no || returnData.refno || '';
+    let membershipId = returnData.membershipId || returnData.membership_id || '0';
     
-    const { cinemaId, showId, referenceNo } = bookingDetails;
-    
-    // Try to get membershipId from return URL or default to 0
-    let membershipId = '0';
-    if (returnUrl) {
-      try {
-        const url = new URL(returnUrl);
-        membershipId = url.searchParams.get('membershipId') || url.searchParams.get('membership_id') || '0';
-      } catch (e) {
-        // Invalid URL, use default
+    // If not in returnData, try to extract from return URL
+    if (!cinemaId || !showId || !referenceNo) {
+      const returnUrl = returnData.returnUrl || returnData.mpsreturnurl || '';
+      if (returnUrl) {
+        try {
+          const url = new URL(returnUrl);
+          cinemaId = cinemaId || url.searchParams.get('cinemaId') || url.searchParams.get('cinema_id') || '';
+          showId = showId || url.searchParams.get('showId') || url.searchParams.get('show_id') || '';
+          referenceNo = referenceNo || url.searchParams.get('referenceNo') || url.searchParams.get('reference_no') || url.searchParams.get('refno') || '';
+          membershipId = membershipId || url.searchParams.get('membershipId') || url.searchParams.get('membership_id') || '0';
+        } catch (e) {
+          // Invalid URL, continue
+        }
+      }
+      
+      // Last resort: try to extract from orderid format
+      if (!cinemaId || !showId || !referenceNo) {
+        const bookingDetails = extractBookingDetails(orderid, returnUrl);
+        cinemaId = cinemaId || bookingDetails.cinemaId || '';
+        showId = showId || bookingDetails.showId || '';
+        referenceNo = referenceNo || bookingDetails.referenceNo || '';
       }
     }
     
     if (!cinemaId || !showId || !referenceNo) {
-      console.warn('[MOLPay Return] Missing booking details for ReserveBooking - will be handled by client-side');
-      return { success: false, error: 'Missing booking details - will be handled by client-side', skip: true };
+      const error = 'Missing booking details for ReserveBooking';
+      console.error('[MOLPay Return] ReserveBooking ERROR:', error, { orderid, returnData });
+      return { success: false, error, skip: false };
     }
     
     const transactionNo = tranID || orderid;
@@ -279,7 +295,9 @@ async function callReserveBooking(orderid, tranID, channel, appcode, returnData)
     
     const url = `${API_CONFIG.API_BASE_URL}/Booking/ReserveBooking/${cinemaId}/${showId}/${referenceNo}/${membershipId}?${queryParams.toString()}`;
     
-    console.log('[MOLPay Return] Calling ReserveBooking:', url);
+    console.log('[MOLPay Return] ===== CALLING ReserveBooking API =====');
+    console.log('[MOLPay Return] URL:', url);
+    console.log('[MOLPay Return] Params:', { cinemaId, showId, referenceNo, membershipId, transactionNo, cardType, authorizeId, remarks });
     
     // Use fetch directly to avoid server-side module loading issues
     const response = await fetch(url, {
@@ -292,33 +310,59 @@ async function callReserveBooking(orderid, tranID, channel, appcode, returnData)
     
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`ReserveBooking failed: ${response.status} ${errorText}`);
+      const error = `ReserveBooking failed: ${response.status} ${errorText}`;
+      console.error('[MOLPay Return] ReserveBooking ERROR:', error);
+      return { success: false, error, skip: false };
     }
     
     const data = await response.json();
-    console.log('[MOLPay Return] ReserveBooking response:', data);
+    console.log('[MOLPay Return] ReserveBooking SUCCESS:', data);
     return { success: true, data };
   } catch (error) {
-    // Log error but don't throw - let client-side handle ReserveBooking
-    console.warn('[MOLPay Return] ReserveBooking error (will be handled by client-side):', error.message);
-    return { success: false, error: error.message, skip: true };
+    const errorMsg = error.message || 'Unknown error';
+    console.error('[MOLPay Return] ReserveBooking EXCEPTION:', errorMsg, error);
+    return { success: false, error: errorMsg, skip: false };
   }
 }
 
 /**
  * Call CancelBooking API (using direct fetch to avoid server-side module issues)
+ * REQUIRED: This must succeed before redirecting to failed page
  */
 async function callCancelBooking(orderid, tranID, channel, errorDesc, returnData) {
   try {
-    // Extract booking details from orderid and return URL
-    const returnUrl = returnData.returnUrl || returnData.mpsreturnurl || '';
-    const bookingDetails = extractBookingDetails(orderid, returnUrl);
+    // Extract booking details from returnData (query params from return URL)
+    let cinemaId = returnData.cinemaId || returnData.cinema_id || '';
+    let showId = returnData.showId || returnData.show_id || '';
+    let referenceNo = returnData.referenceNo || returnData.reference_no || returnData.refno || '';
     
-    const { cinemaId, showId, referenceNo } = bookingDetails;
+    // If not in returnData, try to extract from return URL
+    if (!cinemaId || !showId || !referenceNo) {
+      const returnUrl = returnData.returnUrl || returnData.mpsreturnurl || '';
+      if (returnUrl) {
+        try {
+          const url = new URL(returnUrl);
+          cinemaId = cinemaId || url.searchParams.get('cinemaId') || url.searchParams.get('cinema_id') || '';
+          showId = showId || url.searchParams.get('showId') || url.searchParams.get('show_id') || '';
+          referenceNo = referenceNo || url.searchParams.get('referenceNo') || url.searchParams.get('reference_no') || url.searchParams.get('refno') || '';
+        } catch (e) {
+          // Invalid URL, continue
+        }
+      }
+      
+      // Last resort: try to extract from orderid format
+      if (!cinemaId || !showId || !referenceNo) {
+        const bookingDetails = extractBookingDetails(orderid, returnUrl);
+        cinemaId = cinemaId || bookingDetails.cinemaId || '';
+        showId = showId || bookingDetails.showId || '';
+        referenceNo = referenceNo || bookingDetails.referenceNo || '';
+      }
+    }
     
     if (!cinemaId || !showId || !referenceNo) {
-      console.warn('[MOLPay Return] Missing booking details for CancelBooking - will be handled by client-side');
-      return { success: false, error: 'Missing booking details - will be handled by client-side', skip: true };
+      const error = 'Missing booking details for CancelBooking';
+      console.error('[MOLPay Return] CancelBooking ERROR:', error, { orderid, returnData });
+      return { success: false, error, skip: false };
     }
     
     const transactionNo = tranID || orderid;
@@ -334,7 +378,9 @@ async function callCancelBooking(orderid, tranID, channel, errorDesc, returnData
     
     const url = `${API_CONFIG.API_BASE_URL}/Booking/CancelBooking/${cinemaId}/${showId}/${referenceNo}?${queryParams.toString()}`;
     
-    console.log('[MOLPay Return] Calling CancelBooking:', url);
+    console.log('[MOLPay Return] ===== CALLING CancelBooking API =====');
+    console.log('[MOLPay Return] URL:', url);
+    console.log('[MOLPay Return] Params:', { cinemaId, showId, referenceNo, transactionNo, cardType, remarks });
     
     // Use fetch directly to avoid server-side module loading issues
     const response = await fetch(url, {
@@ -347,16 +393,18 @@ async function callCancelBooking(orderid, tranID, channel, errorDesc, returnData
     
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`CancelBooking failed: ${response.status} ${errorText}`);
+      const error = `CancelBooking failed: ${response.status} ${errorText}`;
+      console.error('[MOLPay Return] CancelBooking ERROR:', error);
+      return { success: false, error, skip: false };
     }
     
     const data = await response.json();
-    console.log('[MOLPay Return] CancelBooking response:', data);
+    console.log('[MOLPay Return] CancelBooking SUCCESS:', data);
     return { success: true, data };
   } catch (error) {
-    // Log error but don't throw - let client-side handle CancelBooking
-    console.warn('[MOLPay Return] CancelBooking error (will be handled by client-side):', error.message);
-    return { success: false, error: error.message, skip: true };
+    const errorMsg = error.message || 'Unknown error';
+    console.error('[MOLPay Return] CancelBooking EXCEPTION:', errorMsg, error);
+    return { success: false, error: errorMsg, skip: false };
   }
 }
 
@@ -421,6 +469,26 @@ async function handleReturn(request) {
     }
     const actualUrl = `${protocol}://${host}`;
     orderid = returnData.orderid || 'unknown';
+    
+    // Save initial return data to JSON file for debugging
+    try {
+      const fs = await import('fs');
+      const path = await import('path');
+      const logsDir = path.join(process.cwd(), 'public', 'payment-logs');
+      if (!fs.existsSync(logsDir)) {
+        fs.mkdirSync(logsDir, { recursive: true });
+      }
+      const logFile = path.join(logsDir, `molpay-return-${Date.now()}-${orderid}-raw.json`);
+      fs.writeFileSync(logFile, JSON.stringify({
+        timestamp: new Date().toISOString(),
+        orderid: orderid,
+        returnData: returnData,
+        rawPostData: rawPostData
+      }, null, 2), 'utf8');
+      console.log(`[MOLPay Return] Raw return data saved: ${logFile}`);
+    } catch (logError) {
+      console.warn('[MOLPay Return] Failed to save raw return data:', logError.message);
+    }
 
     // ============================================
     // STEP 2: Extract all fields (like PHP)
@@ -465,57 +533,107 @@ async function handleReturn(request) {
     // ============================================
     if (finalStatus === '00' || finalStatus === '22') {
       // Payment successful (like PHP: if ( $status == "00" ))
-      // Try to call ReserveBooking API (non-blocking - client-side will handle if this fails)
+      // REQUIRED: Call ReserveBooking API - MUST succeed before redirecting
+      console.log('[MOLPay Return] ===== PAYMENT SUCCESS - Calling ReserveBooking =====');
+      const reserveResult = await callReserveBooking(orderid, tranID, channel, appcode, returnData);
+      
+      // Save debug log
       try {
-        const result = await callReserveBooking(orderid, tranID, channel, appcode, returnData);
-        if (result.skip) {
-          console.log('[MOLPay Return] ReserveBooking skipped - will be handled by client-side');
+        const fs = await import('fs');
+        const path = await import('path');
+        const logsDir = path.join(process.cwd(), 'public', 'payment-logs');
+        if (!fs.existsSync(logsDir)) {
+          fs.mkdirSync(logsDir, { recursive: true });
         }
-      } catch (err) {
-        // Log but don't throw - always redirect to success page
-        console.warn('[MOLPay Return] ReserveBooking failed - will be handled by client-side:', err.message);
+        const logFile = path.join(logsDir, `molpay-return-${Date.now()}-${orderid}-success.json`);
+        fs.writeFileSync(logFile, JSON.stringify({
+          timestamp: new Date().toISOString(),
+          orderid,
+          status: finalStatus,
+          paymentSuccess: true,
+          reserveBookingResult: reserveResult,
+          returnData: returnData,
+          rawPostData: rawPostData
+        }, null, 2), 'utf8');
+        console.log(`[MOLPay Return] Debug log saved: ${logFile}`);
+      } catch (logError) {
+        console.warn('[MOLPay Return] Failed to save debug log:', logError.message);
       }
       
-      // Only pass orderid in URL for security - payment data will be in localStorage
-      // The success page will read from localStorage or fetch from API
-      // Use HTML redirect to ensure it works even in popups/iframes
+      if (!reserveResult.success) {
+        // ReserveBooking failed - redirect to failed page
+        console.error('[MOLPay Return] ReserveBooking FAILED - redirecting to failed page');
+        const redirectUrl = `${actualUrl}/payment/failed?orderid=${encodeURIComponent(orderid)}&error=reserve_booking_failed&error_desc=${encodeURIComponent(reserveResult.error || 'ReserveBooking failed')}`;
+        return createRedirectResponse(redirectUrl);
+      }
+      
+      // ReserveBooking successful - redirect to success page
+      console.log('[MOLPay Return] ReserveBooking SUCCESS - redirecting to success page');
       const redirectUrl = `${actualUrl}/payment/success?orderid=${encodeURIComponent(orderid)}`;
       return createRedirectResponse(redirectUrl);
     } else if (finalStatus === '11') {
       // Payment pending
-      // Try to call CancelBooking API (non-blocking - client-side will handle if this fails)
+      console.log('[MOLPay Return] ===== PAYMENT PENDING - Calling CancelBooking =====');
+      const cancelResult = await callCancelBooking(orderid, tranID, channel, 'Payment is pending', returnData);
+      
+      // Save debug log
       try {
-        const result = await callCancelBooking(orderid, tranID, channel, 'Payment is pending', returnData);
-        if (result.skip) {
-          console.log('[MOLPay Return] CancelBooking skipped - will be handled by client-side');
+        const fs = await import('fs');
+        const path = await import('path');
+        const logsDir = path.join(process.cwd(), 'public', 'payment-logs');
+        if (!fs.existsSync(logsDir)) {
+          fs.mkdirSync(logsDir, { recursive: true });
         }
-      } catch (err) {
-        // Log but don't throw - always redirect to failed page
-        console.warn('[MOLPay Return] CancelBooking failed - will be handled by client-side:', err.message);
+        const logFile = path.join(logsDir, `molpay-return-${Date.now()}-${orderid}-pending.json`);
+        fs.writeFileSync(logFile, JSON.stringify({
+          timestamp: new Date().toISOString(),
+          orderid,
+          status: finalStatus,
+          paymentPending: true,
+          cancelBookingResult: cancelResult,
+          returnData: returnData,
+          rawPostData: rawPostData
+        }, null, 2), 'utf8');
+        console.log(`[MOLPay Return] Debug log saved: ${logFile}`);
+      } catch (logError) {
+        console.warn('[MOLPay Return] Failed to save debug log:', logError.message);
       }
       
-      // Redirect to failed page with minimal params
-      // Use HTML redirect to ensure it works even in popups/iframes
+      // Redirect to failed page
       const redirectUrl = `${actualUrl}/payment/failed?orderid=${encodeURIComponent(orderid)}&status=${finalStatus}`;
       return createRedirectResponse(redirectUrl);
     } else {
       // Payment failed or invalid signature
       const errorMessage = error_desc || `Payment failed with status: ${finalStatus}`;
+      console.log('[MOLPay Return] ===== PAYMENT FAILED - Calling CancelBooking =====');
+      const cancelResult = await callCancelBooking(orderid, tranID, channel, errorMessage, returnData);
       
-      // Try to call CancelBooking API (non-blocking - client-side will handle if this fails)
+      // Save debug log
       try {
-        const result = await callCancelBooking(orderid, tranID, channel, errorMessage, returnData);
-        if (result.skip) {
-          console.log('[MOLPay Return] CancelBooking skipped - will be handled by client-side');
+        const fs = await import('fs');
+        const path = await import('path');
+        const logsDir = path.join(process.cwd(), 'public', 'payment-logs');
+        if (!fs.existsSync(logsDir)) {
+          fs.mkdirSync(logsDir, { recursive: true });
         }
-      } catch (err) {
-        // Log but don't throw - always redirect to failed page
-        console.warn('[MOLPay Return] CancelBooking failed - will be handled by client-side:', err.message);
+        const logFile = path.join(logsDir, `molpay-return-${Date.now()}-${orderid}-failed.json`);
+        fs.writeFileSync(logFile, JSON.stringify({
+          timestamp: new Date().toISOString(),
+          orderid,
+          status: finalStatus,
+          paymentFailed: true,
+          errorMessage: errorMessage,
+          cancelBookingResult: cancelResult,
+          returnData: returnData,
+          rawPostData: rawPostData
+        }, null, 2), 'utf8');
+        console.log(`[MOLPay Return] Debug log saved: ${logFile}`);
+      } catch (logError) {
+        console.warn('[MOLPay Return] Failed to save debug log:', logError.message);
       }
       
-      // Redirect to failed page with minimal params
-      // Use HTML redirect to ensure it works even in popups/iframes
-      const redirectUrl = `${actualUrl}/payment/failed?orderid=${encodeURIComponent(orderid)}&status=${finalStatus}`;
+      // Redirect to failed page
+      const redirectUrl = `${actualUrl}/payment/failed?orderid=${encodeURIComponent(orderid)}&status=${finalStatus}&error_desc=${encodeURIComponent(errorMessage)}`;
       return createRedirectResponse(redirectUrl);
     }
   } catch (error) {
