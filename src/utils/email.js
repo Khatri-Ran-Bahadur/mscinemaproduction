@@ -217,7 +217,7 @@ export async function sendForgotPasswordEmail(to, resetUrl) {
 }
 
 /**
- * Send ticket confirmation email with ticket details and barcode
+ * Send ticket confirmation email with ticket details and QR code
  * @param {string} to - Recipient email
  * @param {object} ticketInfo - Ticket information object
  * @param {string} ticketInfo.customerName - Customer name
@@ -256,6 +256,7 @@ export async function sendTicketEmail(to, ticketInfo) {
     ticketDetails = [], // Array of {seatNo, ticketType, price, surcharge}
     totalPersons = 0,
     bookingId = 'N/A',
+    referenceNo = 'N/A',
     trackingId = 'N/A',
     subCharge = 0,
     grandTotal = 0,
@@ -288,8 +289,9 @@ export async function sendTicketEmail(to, ticketInfo) {
     }
   };
 
-  // Generate barcode URL
-  const barcodeUrl = `https://barcode.tec-it.com/barcode.ashx?data=${encodeURIComponent(bookingId)}&code=Code128&translate-esc=on`;
+  // Generate QR code URL using booking reference number (priority: referenceNo, fallback to bookingId)
+  const qrCodeData = referenceNo !== 'N/A' ? referenceNo : bookingId;
+  const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(qrCodeData)}`;
 
   // Format printed date
   const printedDate = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -378,12 +380,12 @@ export async function sendTicketEmail(to, ticketInfo) {
           <p style="color: #333; font-size: 13px; margin: 5px 0;"><strong>Printed On:</strong> ${printedDate}</p>
         </div>
 
-        <!-- Barcode -->
+        <!-- QR Code -->
         <div style="text-align: center; margin: 30px 0; padding: 20px; background-color: #f9f9f9;">
           <div style="font-family: 'Courier New', monospace; font-size: 24px; font-weight: bold; letter-spacing: 3px; margin-bottom: 10px;">
-            ${bookingId}
+            ${qrCodeData}
           </div>
-          <img src="${barcodeUrl}" alt="Barcode" style="height: 60px; width: auto; max-width: 100%;" />
+          <img src="${qrCodeUrl}" alt="QR Code" style="width: 200px; height: 200px; max-width: 100%; margin: 0 auto; display: block;" />
         </div>
 
         <!-- Booking Details -->
@@ -459,7 +461,7 @@ Order No: ${bookingId}
 Payment Transaction No: ${trackingId}
 Printed On: ${printedDate}
 
-${bookingId}
+${qrCodeData}
 
 Booking Details
 Date: ${formatDate(showDate)}

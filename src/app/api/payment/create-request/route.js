@@ -79,18 +79,15 @@ export async function POST(request) {
       membershipId = '', // Membership ID for ReserveBooking API
     } = paymentData;
 
-    // Generate order ID if not provided (like process_order.php does)
-    // Include reference number in orderid if provided for easier tracking
+    // Generate order ID if not provided - shorter and unique format
+    // Format: MS{timestamp(10 digits)}{random(6 chars)} = ~16 characters total
     let orderId = paymentData.orderId;
     if (!orderId) {
-      const timestamp = Date.now();
-      const random = Math.random().toString(36).substr(2, 9);
-      if (referenceNo) {
-        // Include reference number in orderid: MS{timestamp}{random}_{refNo}
-        orderId = `MS${timestamp}${random}_${referenceNo}`;
-      } else {
-        orderId = `MS${timestamp}${random}`;
-      }
+      // Use last 10 digits of timestamp (milliseconds since epoch)
+      const timestamp = Date.now().toString().slice(-10);
+      // Generate 6-character random string (base36)
+      const random = Math.random().toString(36).substring(2, 8).toUpperCase();
+      orderId = `MS${timestamp}${random}`;
     }
 
     // Use return URL and cancel URL from env if provided, otherwise use from request

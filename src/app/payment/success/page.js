@@ -61,9 +61,10 @@ function PaymentSuccessContent() {
               setBookingData(parsed);
               
               // Call GetTickets API to fetch ticket data (non-blocking)
+              // Use referenceNo from lockSeats (not confirmedReferenceNo) as per API requirements
               const cinemaId = parsed.cinemaDetails?.cinemaID || parsed.cinemaId || parsed.cinemaDetails?.cinemaId;
               const showId = parsed.showTimeDetails?.showID || parsed.showId || parsed.showTimeDetails?.showId;
-              const referenceNo = parsed.confirmedReferenceNo || parsed.referenceNo || orderIdFromUrl;
+              const referenceNo = parsed.referenceNo || parsed.confirmedReferenceNo || orderIdFromUrl;
               
               if (cinemaId && showId && referenceNo) {
                 setIsLoadingTicket(true);
@@ -220,6 +221,11 @@ function PaymentSuccessContent() {
         trackingId: ticketData?.TrackingID || ticketData?.trackingID || 
                    ticketData?.TransactionNo || ticketData?.transactionNo || 
                    'N/A',
+        referenceNo: ticketData?.ReferenceNo || ticketData?.referenceNo || 
+                    bookingData?.confirmedReferenceNo || 
+                    bookingData?.referenceNo || 
+                    referenceNo ||
+                    'N/A',
       };
 
       // Get tracking ID from paymentResult in localStorage if available

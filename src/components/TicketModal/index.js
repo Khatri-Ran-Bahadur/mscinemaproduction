@@ -99,6 +99,13 @@ export default function TicketModal({ ticketData, isOpen, onClose, bookingId }) 
                     paymentResult?.orderId || 
                     paymentResult?.data?.orderid || 
                     'N/A',
+          // Booking Reference Number for QR code
+          referenceNo: ticketData.ReferenceNo || ticketData.referenceNo || 
+                      bookingData?.confirmedReferenceNo || 
+                      bookingData?.referenceNo || 
+                      ticketData.BookingID || ticketData.bookingID ||
+                      bookingId ||
+                      'N/A',
           trackingID: ticketData.TrackingID || ticketData.trackingID || 
                      ticketData.TransactionNo || ticketData.transactionNo || 
                      paymentResult?.data?.tranID || 
@@ -258,6 +265,8 @@ export default function TicketModal({ ticketData, isOpen, onClose, bookingId }) 
   // Get booking and tracking IDs
   const displayBookingId = mergedData.bookingID || mergedData.referenceNo || mergedData.bookingId || 'N/A';
   const trackingId = mergedData.trackingID || mergedData.trackingId || mergedData.transactionNo || 'N/A';
+  // Get reference number for QR code (priority: referenceNo from ticket data or booking data)
+  const referenceNo = mergedData.referenceNo || 'N/A';
 
   return (
     <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4 overflow-y-auto">
@@ -344,17 +353,20 @@ export default function TicketModal({ ticketData, isOpen, onClose, bookingId }) 
             </div>
           </div>
 
-          {/* Barcode Section */}
+          {/* QR Code Section */}
           <div className="px-6 py-6 bg-black/30 flex justify-center">
             <div className="bg-white p-4 rounded">
-              {/* Barcode */}
-              <div className="flex items-center justify-center">
+              {/* QR Code */}
+              <div className="flex flex-col items-center justify-center">
+                <div className="font-mono text-lg font-bold mb-2 tracking-wider text-black">
+                  {referenceNo}
+                </div>
                 <img
-                  src={`https://barcode.tec-it.com/barcode.ashx?data=${encodeURIComponent(displayBookingId)}&code=Code128&translate-esc=on`}
-                  alt="Barcode"
-                  className="h-20 w-auto"
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(referenceNo)}`}
+                  alt="QR Code"
+                  className="w-48 h-48"
                   onError={(e) => {
-                    // Fallback if barcode service fails
+                    // Fallback if QR code service fails
                     e.target.style.display = 'none';
                   }}
                 />
