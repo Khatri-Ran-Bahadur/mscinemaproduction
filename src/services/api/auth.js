@@ -311,15 +311,18 @@ export const getPublicToken = async () => {
  * @param {object} profileData - Profile data with optional PassportNo, Mobile, MembershipNo, ImageURL
  * @returns {Promise<object>} Updated user data
  */
-export const updateUserProfile = async (userId, email, profileData = {}) => {
+export const updateUserProfile = async (userId, profileData = {}) => {
   try {
-    const { PassportNo, Mobile, MembershipNo, ImageURL } = profileData;
+    const { name, PassportNo, Mobile, MembershipNo, ImageURL } = profileData;
 
     // Build endpoint with path parameters
-    let endpoint = `/User/UpdateUserProfile/${userId}/${encodeURIComponent(email)}/PassportNo/Mobile/MembershipNo/ImageURL`;
+    let endpoint = `/User/UpdateUserProfile/${userId}/${encodeURIComponent(name)}/PassportNo/Mobile/MembershipNo/ImageURL`;
 
     // Build query parameters for optional fields
     const queryParams = [];
+    if (name) {
+      queryParams.push(`Name=${encodeURIComponent(name)}`);
+    }
     if (PassportNo) {
       queryParams.push(`PassportNo=${encodeURIComponent(PassportNo)}`);
     }

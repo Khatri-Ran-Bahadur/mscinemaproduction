@@ -80,7 +80,7 @@ function createTransporter() {
  * @param {string} options.from - Sender email address (optional, uses EMAIL_FROM env var)
  * @returns {Promise<Object>} - Send result
  */
-export async function sendEmail({ to, subject, html, text, from }) {
+export async function sendEmail({ to, subject, html, text, from, attachments }) {
   try {
     // Validate required environment variables
     if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
@@ -109,6 +109,7 @@ export async function sendEmail({ to, subject, html, text, from }) {
       subject: subject,
       html: html,
       text: text || html.replace(/<[^>]*>/g, ''), // Strip HTML tags for plain text fallback
+      attachments: attachments,
     };
 
     console.log('Email Utils: Verifying transporter...');
@@ -237,40 +238,45 @@ export async function sendForgotPasswordEmail(to, resetUrl) {
  * @param {string} ticketInfo.trackingId - Tracking/Transaction ID
  * @returns {Promise<Object>} - Send result
  */
-export async function sendTicketEmail(to, ticketInfo) {
+// ... imports
+import QRCode from 'qrcode';
+
+// ... existing code ...
+
+/**
+ * Send ticket confirmation email with ticket details and QR code
+ */
+export const sendTicketEmail = async (to, ticketData, corporateInfoPassed = null) => {
   const {
     customerName = 'Guest',
     customerPhone = '',
     customerEmail = '',
     movieName = 'Unknown Movie',
-    movieImage = '/img/banner.jpg',
+    movieImage = '/img/banner.jpg', // Ideally this should be a full URL
     genre = 'N/A',
     duration = 'N/A',
     language = 'English',
     experienceType = 'Standard',
     hallName = 'N/A',
-    cinemaName = 'N/A',
+    cinemaName = 'MS Cinemas',
     showDate = '',
     showTime = '',
     seatDisplay = [],
-    ticketDetails = [], // Array of {seatNo, ticketType, price, surcharge}
+    ticketDetails = [], 
     totalPersons = 0,
     bookingId = 'N/A',
     referenceNo = 'N/A',
     trackingId = 'N/A',
     subCharge = 0,
     grandTotal = 0,
-  } = ticketInfo;
+  } = ticketData;
 
   // Format date and time
   const formatDate = (dateStr) => {
     if (!dateStr) return '';
     try {
       const date = new Date(dateStr);
-      const day = date.getDate();
-      const month = date.toLocaleDateString('en-US', { month: 'short' });
-      const year = date.getFullYear();
-      return `${day} ${month} ${year}`;
+      return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
     } catch {
       return dateStr;
     }
@@ -289,199 +295,457 @@ export async function sendTicketEmail(to, ticketInfo) {
     }
   };
 
-  // Generate QR code URL using booking reference number (priority: referenceNo, fallback to bookingId)
-  const qrCodeData = referenceNo !== 'N/A' ? referenceNo : bookingId;
-  const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(qrCodeData)}`;
+  // If no ticket details, try to get from booking data
+  if (ticketDetails.length === 0 && bookingData) {
+    const seats = bookingData?.seats || [];
+    const selectedTickets = bookingData?.selectedTickets || [];
+    const seatGroups = {}; // Temporary object to build seatDisplay
 
-  // Format printed date
-  const printedDate = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    seats.forEach((seat, index) => {
+      const ticket = selectedTickets[index];
+      const ticketType = ticket?.ticketTypeName || ticket?.TicketTypeName || ticket?.ticketType || ticket?.type || 'Adult';
+      const seatNo = ticket?.seatNo || seat?.seatNo || seat?.seat || '';
+      const price = ticket?.price || 0;
+      const surcharge = ticket?.surcharge || 0;
 
-  // Build ticket details table rows
-  const buildTicketRows = () => {
-    if (ticketDetails && ticketDetails.length > 0) {
-      return ticketDetails.map((ticket, index) => {
-        const seatNo = ticket.SeatNo || ticket.seatNo || ticket.Seat || ticket.seat || '';
-        const ticketType = ticket.TicketType || ticket.ticketType || ticket.Type || ticket.type || 'ADULT';
-        const price = ticket.Price || ticket.price || ticket.TicketPrice || ticket.ticketPrice || 0;
-        const surcharge = ticket.Surcharge || ticket.surcharge || 0;
-        const total = parseFloat(price) + parseFloat(surcharge);
+      if (seatNo) {
+        if (!seatGroups[ticketType]) {
+          seatGroups[ticketType] = [];
+        }
+        seatGroups[ticketType].push(seatNo);
+
+        // Populate ticketDetails for the table
+        ticketDetails.push({
+            TicketType: ticketType,
+            SeatNo: seatNo,
+            Price: price,
+            Surcharge: surcharge
+        });
+      }
+    });
+
+    // Format seat display
+    const formatSeats = () => {
+      const parts = [];
+      Object.entries(seatGroups).forEach(([type, seatList]) => {
+        const seatNumbers = seatList.map(s => {
+          const seatStr = String(s);
+          const match = seatStr.match(/([A-Z])(\d+)/);
+          if (match) {
+            return match[1] + match[2];
+          }
+          return seatStr;
+        });
+        parts.push({ type, seats: seatNumbers });
+      });
+      return parts;
+    };
+
+    ticketData.seatDisplay = formatSeats();
+    ticketData.totalPersons = Object.values(seatGroups).reduce((sum, seats) => sum + seats.length, 0) || ticketDetails.length || 0;
+    
+    // Add ticket details with pricing for email template
+    ticketData.ticketDetails = ticketDetails.length > 0 ? ticketDetails : [];
+    
+    // Calculate totals correctly including taxes
+    let totalPrice = 0;
+    let totalSurcharge = 0;
+    let calculatedGrandTotal = 0;
+    
+    if (ticketDetails.length > 0) {
+      ticketDetails.forEach(t => {
+        // Price components extraction for verification/fallback
+        const price = parseFloat(t.Price || t.price || t.TicketPrice || t.ticketPrice || 0);
+        const eTax = parseFloat(t.entertainmentTax || t.EntertainmentTax || 0);
+        const gTax = parseFloat(t.govtTax || t.GovtTax || 0);
+        const onlineCharge = parseFloat(t.onlineCharge || t.OnlineCharge || 0);
+        const sur = parseFloat(t.Surcharge || t.surcharge || t.surCharge || 0);
+        const ticketTotal = parseFloat(t.totalTicketPrice || t.TotalTicketPrice || 0);
+
+        // Fallback row calculations
+        const displayPrice = price + eTax + gTax;
+        const displaySurcharge = sur;
+        const rowTotal = ticketTotal ? (ticketTotal - onlineCharge) : (displayPrice + displaySurcharge);
         
-        return `
-          <tr style="border-bottom: 1px solid #ddd;">
-            <td style="padding: 8px; text-align: left;">${hallName}</td>
-            <td style="padding: 8px; text-align: center;">${seatNo}</td>
-            <td style="padding: 8px; text-align: center;">${ticketType.toUpperCase()}</td>
-            <td style="padding: 8px; text-align: right;">RM${parseFloat(price).toFixed(2)}</td>
-            <td style="padding: 8px; text-align: right;">RM${parseFloat(surcharge).toFixed(2)}</td>
-            <td style="padding: 8px; text-align: right;">RM${total.toFixed(2)}</td>
-          </tr>
-        `;
-      }).join('');
+        // Use Ticket Total for Grand Total sum (Source of Truth)
+        calculatedGrandTotal += ticketTotal || (rowTotal + onlineCharge);
+        
+        // Sum Online Charges for Sub Charge display
+        totalSurcharge += onlineCharge; 
+      });
+      
+      // Update ticketData values
+      // subCharge field -> Total Online Charges
+      ticketData.subCharge = totalSurcharge;
+      ticketData.grandTotal = calculatedGrandTotal;
+    } else {
+        // Fallback or existing values
+       ticketData.subCharge = parseFloat(bookingData?.subCharge || ticketData?.subCharge || subCharge || 0);
+       ticketData.grandTotal = parseFloat(bookingData?.grandTotal || ticketData?.grandTotal || grandTotal || 0);
     }
-    
-    // Fallback to seatDisplay if ticketDetails not available
-    if (seatDisplay && seatDisplay.length > 0) {
-      return seatDisplay.map((group) => {
-        return group.seats.map((seat) => `
-          <tr style="border-bottom: 1px solid #ddd;">
-            <td style="padding: 8px; text-align: left;">${hallName}</td>
-            <td style="padding: 8px; text-align: center;">${seat}</td>
-            <td style="padding: 8px; text-align: center;">${group.type.toUpperCase()}</td>
-            <td style="padding: 8px; text-align: right;">RM0.00</td>
-            <td style="padding: 8px; text-align: right;">RM0.00</td>
-            <td style="padding: 8px; text-align: right;">RM0.00</td>
-          </tr>
-        `).join('');
-      }).join('');
-    }
-    
-    return '<tr><td colspan="6" style="padding: 8px; text-align: center;">No ticket details available</td></tr>';
+  }
+
+
+  // Generate QR code as Buffer for attachment
+  const qrCodeData = referenceNo !== 'N/A' ? referenceNo : bookingId;
+  let qrCodeBuffer;
+  try {
+    qrCodeBuffer = await QRCode.toBuffer(qrCodeData, {
+      width: 300,
+      margin: 1,
+      color: {
+        dark: '#000000',
+        light: '#ffffff'
+      }
+    });
+  } catch (err) {
+    console.error('Error generating QR code for email:', err);
+    // Continue without QR buffer if fails (shouldn't happen)
+  }
+
+  // Fetch Corporate Info
+  let corporateInfo = {
+    companyName: 'MS Cinemas Sdn. Bhd.',
+    displayName: 'MS Cinemas',
+    address: 'TK1 7-01, Terminal Kampar Putra, 31900 Kampar, Perak',
+    email: 'admin@mscinemas.my',
+    phone: '',
+    website: 'www.mscinemas.my',
+    logo: 'https://image.mscinemas.my/webimg/graphics_web/MSCinemas178_100.png'
   };
 
-  const subject = `Your MS Cinema Ticket - ${movieName}`;
+  try {
+    const corpResponse = await fetch('http://cinemaapi5.ddns.net/api/CorporateDetails/GetCorporateInfo');
+    if (corpResponse.ok) {
+      const corpData = await corpResponse.json();
+      corporateInfo = {
+        companyName: corpData.companyName || corporateInfo.companyName,
+        displayName: corpData.displayName || corporateInfo.displayName,
+        address: corpData.address || corporateInfo.address,
+        city: corpData.city || '',
+        state: corpData.state || '',
+        zip: corpData.zip || '',
+        country: corpData.country || '',
+        email: corpData.email || corporateInfo.email,
+        phone: corpData.phone || corporateInfo.phone,
+        website: corpData.webUrl || corporateInfo.website,
+        logo: corpData.logo || corporateInfo.logo
+      };
+    }
+  } catch (error) {
+    console.warn('Failed to fetch corporate info for email:', error);
+  }
+
+  // Format full address
+  const formatAddressHtml = (info) => {
+    let addr = info.address || '';
+    // Replace \r<br> or \n with <br>
+    addr = addr.replace(/\\r<br>/g, '<br>').replace(/\r\n/g, '<br>').replace(/\n/g, '<br>');
+    
+    const cityStateZip = [info.zip, info.city, info.state].filter(Boolean).join(' ');
+    const country = info.country || '';
+    
+    return `${addr}<br>${cityStateZip}<br>${country}`;
+  };
+
+  const formatAddressText = (info) => {
+    let addr = info.address || '';
+    // Replace \r<br> or <br> with \n
+    addr = addr.replace(/\\r<br>/g, '\n').replace(/<br>/g, '\n').replace(/\r\n/g, '\n');
+    
+    const cityStateZip = [info.zip, info.city, info.state].filter(Boolean).join(' ');
+    const country = info.country || '';
+    
+    return `${addr}\n${cityStateZip}\n${country}`;
+  };
+
+  const fullAddressHtml = formatAddressHtml(corporateInfo);
+  const fullAddressText = formatAddressText(corporateInfo);
+
+  const printedDate = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+  // Seats string
+  const seatsString = seatDisplay.map(g => `${g.type}: ${g.seats.join(', ')}`).join(' | ');
+
+  /* CSS Styles for Dark Theme */
+  const colors = {
+    gold: '#FFCA20',
+    dark: '#1a1a1a',
+    darker: '#111111',
+    light: '#ffffff',
+    gray: '#888888',
+    border: '#333333',
+    tableHeader: '#000000',
+    tableRow: '#222222'
+  };
+
+  const subject = `Your Ticket: ${movieName} - ${corporateInfo.displayName}`;
+  
   const html = `
     <!DOCTYPE html>
     <html>
     <head>
       <meta charset="utf-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Your Ticket - ${movieName}</title>
+      <title>Ticket Confirmation</title>
     </head>
-    <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 0 auto; padding: 20px; background-color: #f5f5f5;">
-      <div style="background-color: #ffffff; padding: 30px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-        <!-- Company Header -->
-        <div style="text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px;">
-          <h1 style="color: #333; margin: 0 0 10px 0; font-size: 24px; font-weight: bold;">MS CINEMAS SDN BHD</h1>
-          <div style="color: #666; font-size: 12px; line-height: 1.8;">
-            <p style="margin: 2px 0;">TK1 7-01,</p>
-            <p style="margin: 2px 0;">Terminal Kampar Putra,</p>
-            <p style="margin: 2px 0;">PT53493 & PT53494,</p>
-            <p style="margin: 2px 0;">Jalan Putra Permata 9,</p>
-            <p style="margin: 2px 0;">Taman Kampar</p>
-            <p style="margin: 2px 0;">31900 Kampar, Perak</p>
-            <p style="margin: 2px 0;">Malaysia</p>
-          </div>
-        </div>
-
-        <!-- Customer Information -->
-        <div style="margin-bottom: 20px;">
-          <p style="color: #333; font-size: 14px; margin: 5px 0;"><strong>Dear Customer,</strong></p>
-          <p style="color: #666; font-size: 12px; margin: 10px 0; line-height: 1.6;">
-            Thank you for your interest in MS Cinemas. Please note, this is not your ticket. Exchange this at the box office for your ticket. Your booking details are furnished below.
-          </p>
-        </div>
-
-        <div style="margin-bottom: 20px; padding: 15px; background-color: #f9f9f9; border-left: 4px solid #FFCA20;">
-          <p style="color: #333; font-size: 13px; margin: 5px 0;"><strong>Name:</strong> ${customerName}</p>
-          <p style="color: #333; font-size: 13px; margin: 5px 0;"><strong>Tel. No:</strong> ${customerPhone || 'N/A'}</p>
-          <p style="color: #333; font-size: 13px; margin: 5px 0;"><strong>Email:</strong> ${customerEmail || to}</p>
-          <p style="color: #333; font-size: 13px; margin: 5px 0;"><strong>Order No:</strong> ${bookingId}</p>
-          <p style="color: #333; font-size: 13px; margin: 5px 0;"><strong>Payment Transaction No:</strong> ${trackingId}</p>
-          <p style="color: #333; font-size: 13px; margin: 5px 0;"><strong>Printed On:</strong> ${printedDate}</p>
-        </div>
-
-        <!-- QR Code -->
-        <div style="text-align: center; margin: 30px 0; padding: 20px; background-color: #f9f9f9;">
-          <div style="font-family: 'Courier New', monospace; font-size: 24px; font-weight: bold; letter-spacing: 3px; margin-bottom: 10px;">
-            ${qrCodeData}
-          </div>
-          <img src="${qrCodeUrl}" alt="QR Code" style="width: 200px; height: 200px; max-width: 100%; margin: 0 auto; display: block;" />
-        </div>
-
-        <!-- Booking Details -->
-        <div style="margin-bottom: 30px;">
-          <h2 style="color: #333; font-size: 18px; font-weight: bold; margin-bottom: 15px; border-bottom: 2px solid #333; padding-bottom: 5px;">Booking Details</h2>
-          <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
-            <tr style="background-color: #f0f0f0;">
-              <th style="padding: 10px; text-align: left; border: 1px solid #ddd; font-weight: bold;">Date</th>
-              <th style="padding: 10px; text-align: left; border: 1px solid #ddd; font-weight: bold;">Time</th>
-              <th style="padding: 10px; text-align: left; border: 1px solid #ddd; font-weight: bold;">Movie</th>
-            </tr>
-            <tr>
-              <td style="padding: 10px; border: 1px solid #ddd;">${formatDate(showDate)}</td>
-              <td style="padding: 10px; border: 1px solid #ddd;">${formatTime(showTime)}</td>
-              <td style="padding: 10px; border: 1px solid #ddd;">${movieName.toUpperCase()}</td>
-            </tr>
-          </table>
-
-          <table style="width: 100%; border-collapse: collapse;">
-            <tr style="background-color: #f0f0f0;">
-              <th style="padding: 8px; text-align: left; border: 1px solid #ddd; font-weight: bold;">Hall</th>
-              <th style="padding: 8px; text-align: center; border: 1px solid #ddd; font-weight: bold;">Seat No</th>
-              <th style="padding: 8px; text-align: center; border: 1px solid #ddd; font-weight: bold;">Ticket Type</th>
-              <th style="padding: 8px; text-align: right; border: 1px solid #ddd; font-weight: bold;">Ticket Price</th>
-              <th style="padding: 8px; text-align: right; border: 1px solid #ddd; font-weight: bold;">Surcharge</th>
-              <th style="padding: 8px; text-align: right; border: 1px solid #ddd; font-weight: bold;">Total</th>
-            </tr>
-            ${buildTicketRows()}
-            <tr style="background-color: #f9f9f9;">
-              <td colspan="5" style="padding: 8px; text-align: right; border: 1px solid #ddd; font-weight: bold;">Sub Charge(RM)</td>
-              <td style="padding: 8px; text-align: right; border: 1px solid #ddd; font-weight: bold;">RM${parseFloat(subCharge || 0).toFixed(2)}</td>
-            </tr>
-            <tr style="background-color: #FFCA20; font-weight: bold;">
-              <td colspan="5" style="padding: 10px; text-align: right; border: 1px solid #ddd;">Grand Total(RM)</td>
-              <td style="padding: 10px; text-align: right; border: 1px solid #ddd;">RM${parseFloat(grandTotal || 0).toFixed(2)}</td>
-            </tr>
-          </table>
-        </div>
-
-        <!-- Terms & Conditions -->
-        <div style="margin-top: 30px; padding-top: 20px; border-top: 2px solid #ddd;">
-          <h3 style="color: #333; font-size: 16px; font-weight: bold; margin-bottom: 15px;">Terms & Conditions</h3>
-          <div style="color: #666; font-size: 11px; line-height: 1.6;">
-            <p style="margin: 8px 0;"><strong>APPLICATION OF THESE TERMS AND CONDITIONS</strong></p>
-            <p style="margin: 8px 0;">Your agree that your use of this Website and the purchase of any movie ticket, goods or services will be governed by these terms and conditions ("Terms of Use")</p>
-            <p style="margin: 8px 0;">If MS Cinemas suffers or incurs any loss or damage in connection with any breach of these Terms of Use you agree to indemnify MS Cinemas for those losses and damages.</p>
+    <body style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 14px; line-height: 1.5; color: ${colors.light}; margin: 0; padding: 0; background-color: ${colors.darker};">
+      
+      <!-- Main Container -->
+      <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: ${colors.darker}; padding: 20px;">
+        <tr>
+          <td align="center">
             
-            <p style="margin: 8px 0; margin-top: 15px;"><strong>REGISTRATION</strong></p>
-            <p style="margin: 8px 0;">You may be asked to provide Personal Information to MS Cinemas before purchasing any movie ticket, goods or services from this Website, before entering any competition on the Website or before registering as a member of this Website. If you do not provide that Personal Information to MS Cinemas, MS Cinemas may not be able to sell you movie tickets, goods or services, enter you into that competition or register you as a member.</p>
-            <p style="margin: 8px 0;">All Personal Information MS Cinemas collects from this Website will be maintained in accordance with MS Cinema's Privacy Policy.</p>
-            <p style="margin: 8px 0;">You acknowledge that if you do not register as a member of this Website, parts of this Website designed for registered members may not be accessible to you. Employees of MS Cinemas and its related bodies corporate are entitled to become members of the Website, but are not entitled to enter any competitions on the Website.</p>
-            <p style="margin: 8px 0;">MS Cinemas will use its reasonable endeavors to maintain the security of any Personal Information that you provide. This Website has security measures in place to protect the loss, misuse and alteration of the information under MS Cinema's control. However, no data transmission over the internet can be completely secure, and MS Cinemas cannot give an absolute assurance that the information you provide to us will be secure at all times.</p>
-            <p style="margin: 8px 0;">MS Cinemas may use techniques designed to identify fraudulent activities on the Website, such as fraudulent activities on the Website, such as fraudulent credit card use. If any unauthorized use of your credit card occurs as a result of your credit card purchase on the Website, you should notify your credit card provider in accordance with its reporting rules and procedures.</p>
-            <p style="margin: 8px 0;">You agree that MS Cinemas may cancel your registration as a member and/or refuse you access to this Website at any time in its sole discretion.</p>
-          </div>
-        </div>
-      </div>
+            <div style="max-width: 600px; margin: 0 auto; background-color: ${colors.dark}; border: 1px solid ${colors.border}; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.5);">
+              
+              <!-- Header -->
+              <div style="background-color: #000000; padding: 30px 20px; text-align: center; border-bottom: 3px solid ${colors.gold};">
+                <img src="${corporateInfo.logo || 'https://image.mscinemas.my/webimg/graphics_web/MSCinemas178_100.png'}" alt="${corporateInfo.displayName}" style="max-height: 80px; width: auto; display: block; margin: 0 auto 15px auto;" />
+                <div style="color: ${colors.gray}; font-size: 11px; line-height: 1.4;">
+                  <strong style="color: ${colors.light}; font-size: 14px;">MS CINEMAS SDN BHD</strong><br>
+
+                 
+TK1 7-01, <br>
+Terminal Kampar Putra,<br>
+PT53493 & PT53494,<br>
+Jalan Putra Permata 9,<br>
+Taman Kampar<br>
+31900 Kampar, Perak<br>
+Malaysia
+                </div>
+              </div>
+
+              <div style="padding: 30px;">
+                
+                <p style="color: ${colors.gray}; font-size: 13px; margin-bottom: 25px; text-align: center;">
+                  Dear Customer, thank you for choosing <strong style="color: ${colors.gold};">${corporateInfo.displayName}</strong>.<br>
+                  Please exchange this receipt at the box office for your ticket.
+                </p>
+
+                <!-- Info Grid -->
+                <table width="100%" border="0" cellspacing="0" cellpadding="5" style="margin-bottom: 30px; border-collapse: collapse;">
+                  <tr>
+                    <td width="35%" style="color: ${colors.gray}; font-weight: bold; border-bottom: 1px solid ${colors.border};">Name:</td>
+                    <td style="color: ${colors.light}; border-bottom: 1px solid ${colors.border};">${customerName}</td>
+                  </tr>
+                  <tr>
+                    <td style="color: ${colors.gray}; font-weight: bold; border-bottom: 1px solid ${colors.border};">Tel. No:</td>
+                    <td style="color: ${colors.light}; border-bottom: 1px solid ${colors.border};">${customerPhone}</td>
+                  </tr>
+                  <tr>
+                    <td style="color: ${colors.gray}; font-weight: bold; border-bottom: 1px solid ${colors.border};">Email:</td>
+                    <td style="color: ${colors.light}; border-bottom: 1px solid ${colors.border};">${customerEmail}</td>
+                  </tr>
+                  <tr>
+                    <td style="color: ${colors.gray}; font-weight: bold; border-bottom: 1px solid ${colors.border};">Order No:</td>
+                    <td style="color: ${colors.gold}; font-family: monospace; font-size: 14px; border-bottom: 1px solid ${colors.border};">${bookingId}</td>
+                  </tr>
+                  <tr>
+                    <td style="color: ${colors.gray}; font-weight: bold; border-bottom: 1px solid ${colors.border};">Transaction No:</td>
+                    <td style="color: ${colors.light}; font-family: monospace; border-bottom: 1px solid ${colors.border};">${trackingId}</td>
+                  </tr>
+                  <tr>
+                    <td style="color: ${colors.gray}; font-weight: bold; border-bottom: 1px solid ${colors.border};">Printed On:</td>
+                    <td style="color: ${colors.light}; border-bottom: 1px solid ${colors.border};">${printedDate}</td>
+                  </tr>
+                </table>
+
+                <!-- QR Code Section -->
+                <div style="text-align: center; margin-bottom: 30px; padding: 20px; background-color: #000000; border-radius: 8px; border: 1px dashed ${colors.border};">
+                  <div style="color: ${colors.gold}; font-weight: bold; font-size: 18px; margin-bottom: 15px; letter-spacing: 2px; font-family: monospace;">${referenceNo}</div>
+                  <div style="background-color: ${colors.light}; padding: 10px; display: inline-block; border-radius: 4px;">
+                    <img src="cid:qrcode" alt="QR Code" width="160" height="160" style="display: block;" />
+                  </div>
+                  <div style="color: ${colors.gray}; font-size: 11px; margin-top: 10px; text-transform: uppercase; letter-spacing: 1px;">Scan at Entrance</div>
+                </div>
+
+                <!-- Booking Details Table -->
+                <h3 style="color: ${colors.gold}; margin-top: 0; border-bottom: 1px solid ${colors.border}; padding-bottom: 10px; font-size: 16px; text-transform: uppercase;">Booking Details</h3>
+                <table width="100%" border="0" cellspacing="0" cellpadding="10" style="margin-bottom: 20px; border-collapse: separate; border-spacing: 0; width: 100%;">
+                  <thead>
+                    <tr style="background-color: ${colors.tableHeader};">
+                      <th align="left" style="color: ${colors.gray}; font-size: 11px; text-transform: uppercase; padding: 10px; border-top-left-radius: 4px;">Date</th>
+                      <th align="left" style="color: ${colors.gray}; font-size: 11px; text-transform: uppercase; padding: 10px;">Time</th>
+                      <th align="left" style="color: ${colors.gray}; font-size: 11px; text-transform: uppercase; padding: 10px; border-top-right-radius: 4px;">Movie</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr style="background-color: ${colors.tableRow};">
+                      <td style="border-bottom: 1px solid ${colors.border}; color: ${colors.light}; font-weight: bold;">${formatDate(showDate)}</td>
+                      <td style="border-bottom: 1px solid ${colors.border}; color: ${colors.light}; font-weight: bold;">${formatTime(showTime)}</td>
+                      <td style="border-bottom: 1px solid ${colors.border}; color: ${colors.gold}; font-weight: bold;">${movieName.toUpperCase()}</td>
+                    </tr>
+                  </tbody>
+                </table>
+
+                <!-- Ticket Details Table -->
+                <table width="100%" border="0" cellspacing="0" cellpadding="10" style="border-collapse: separate; border-spacing: 0; width: 100%; margin-bottom: 20px;">
+                  <thead>
+                     <tr style="background-color: ${colors.tableHeader};">
+                       <th align="left" style="color: ${colors.gray}; font-size: 11px; text-transform: uppercase; padding: 10px; border-top-left-radius: 4px;">Hall</th>
+                       <th align="left" style="color: ${colors.gray}; font-size: 11px; text-transform: uppercase; padding: 10px;">Seat</th>
+                       <th align="left" style="color: ${colors.gray}; font-size: 11px; text-transform: uppercase; padding: 10px;">Type</th>
+                       <th align="right" style="color: ${colors.gray}; font-size: 11px; text-transform: uppercase; padding: 10px;">Price</th>
+                       <th align="right" style="color: ${colors.gray}; font-size: 11px; text-transform: uppercase; padding: 10px;">Surcharge</th>
+                       <th align="right" style="color: ${colors.gray}; font-size: 11px; text-transform: uppercase; padding: 10px; border-top-right-radius: 4px;">Total</th>
+                     </tr>
+                  </thead>
+                  <tbody>
+                    ${(() => {
+                        let calcSubCharge = 0;
+                        let calcGrandTotal = 0;
+                        
+                        // Render Rows
+                        const rows = ticketDetails.map((t, index) => {
+                           // 1. Price Components
+                           const price = parseFloat(t.Price || t.price || t.TicketPrice || t.ticketPrice || 0);
+                           const eTax = parseFloat(t.entertainmentTax || t.EntertainmentTax || 0);
+                           const gTax = parseFloat(t.govtTax || t.GovtTax || 0);
+                           
+                           // 2. Charge Components
+                           const onlineCharge = parseFloat(t.onlineCharge || t.OnlineCharge || 0);
+                           const sur = parseFloat(t.Surcharge || t.surcharge || t.surCharge || 0);
+                           const ticketTotal = parseFloat(t.totalTicketPrice || t.TotalTicketPrice || 0);
+                           
+                           // 3. Display Logic
+                           // Price = Base + Entertainment Tax + Govt Tax
+                           const displayPrice = price + eTax + gTax;
+                           
+                           // Surcharge = Surcharge ONLY (exclude Online Charge)
+                           const displaySurcharge = sur;
+                           
+                           // Row Total = Total Ticket Price - Online Charge
+                           // If totalTicketPrice is missing of 0, fallback to (Price + Tax + Surcharge)
+                           // NOTE: User said totalTicketPrice is always correct.
+                           const rowTotal = ticketTotal ? (ticketTotal - onlineCharge) : (displayPrice + displaySurcharge);
+                           
+                           // Accumulate totals
+                           calcSubCharge += onlineCharge; 
+                           // Grand Total = Sum of all Ticket Total Prices
+                           calcGrandTotal += ticketTotal || (rowTotal + onlineCharge);
+
+                           const rowColor = index % 2 === 0 ? colors.tableRow : '#2a2a2a';
+                           
+                           // Fix Ticket Type Mapping (Added ticketTypeName support)
+                           const type = t.ticketTypeName || t.TicketTypeName || t.TicketType || t.ticketType || t.Type || t.type || 'Adult';
+                           const seat = t.SeatNo || t.seatNo || t.Seat || t.seat || '';
+                           
+                           return `
+                           <tr style="background-color: ${rowColor};">
+                             <td style="border-bottom: 1px solid ${colors.border}; color: ${colors.light};">${hallName}</td>
+                             <td style="border-bottom: 1px solid ${colors.border}; color: ${colors.gold}; font-weight: bold;">${seat.replace(/[A-Za-z]+/, '').padStart(2, '0') ? seat : seat}</td>
+                             <td style="border-bottom: 1px solid ${colors.border}; color: ${colors.light}; font-size: 12px;">${type}</td>
+                             <td align="right" style="border-bottom: 1px solid ${colors.border}; color: ${colors.light};">RM${displayPrice.toFixed(2)}</td>
+                             <td align="right" style="border-bottom: 1px solid ${colors.border}; color: ${colors.light};">RM${displaySurcharge.toFixed(2)}</td>
+                             <td align="right" style="border-bottom: 1px solid ${colors.border}; color: ${colors.light}; font-weight: bold;">RM${rowTotal.toFixed(2)}</td>
+                           </tr>
+                           `;
+                        }).join('');
+
+                        // Output with calculated totals
+                        return `
+                          ${rows}
+                          <!-- Totals -->
+                          <tr style="background-color: #000000;">
+                            <td colspan="5" align="right" style="padding: 15px; text-transform: uppercase; font-size: 12px; color: ${colors.gray}; border-top: 1px solid ${colors.gold};">Sub Charge</td>
+                            <td align="right" style="padding: 15px; color: ${colors.light}; border-top: 1px solid ${colors.gold};">RM${calcSubCharge.toFixed(2)}</td>
+                          </tr>
+                          <tr style="background-color: #000000;">
+                            <td colspan="5" align="right" style="padding: 15px; text-transform: uppercase; font-size: 14px; color: ${colors.gold}; font-weight: bold;">Grand Total</td>
+                            <td align="right" style="padding: 15px; font-size: 18px; color: ${colors.gold}; font-weight: bold;">RM${calcGrandTotal.toFixed(2)}</td>
+                          </tr>
+                        `;
+                    })()}
+                  </tbody>
+                </table>
+
+                <!-- Terms -->
+                <div style="margin-top: 40px; padding-top: 20px; border-top: 1px dashed ${colors.border};">
+                  <h3 style="color: ${colors.gray}; font-size: 12px; text-transform: uppercase; margin-bottom: 15px;">Terms & Conditions</h3>
+                  
+                  <div style="font-size: 10px; color: #666; line-height: 1.6; text-align: justify;">
+                    <p style="margin-bottom: 10px;">This document contains the terms and conditions governing your use of this Website and your purchase of any movie tickets, goods or services from MS Cinemas Sdn. Bhd. using this Website.</p>
+                    
+                    <strong style="color: #888;">APPLICATION OF THESE TERMS AND CONDITIONS</strong>
+                    <ol>
+                      <li>Your agree that your use of this Website and the purchase of any movie ticket, goods or services will be governed by these terms and conditions ("Terms of Use").</li>
+                      <li>If MS Cinemas suffers or incurs any loss or damage in connection with any breach of these Terms of Use you agree to indemnify MS Cinemas for those losses and damages.</li>
+                    </ol>
+
+                    <strong style="color: #888;">REGISTRATION</strong>
+                    <ol>
+                      <li>You may be asked to provide Personal Information to MS Cinemas before purchasing any movie ticket, goods or services from this Website, before entering any competition on the Website or before registering as a member of this Website. If you do not provide that Personal Information to MS Cinemas, MS Cinemas may not be able to sell you movie tickets, goods or services, enter you into that competition or register you as a member. </li>
+                      <li>All Personal Information MS Cinemas collects from this Website will be maintained in accordance with MS Cinema's Privacy Policy.</li>
+                      <li>You acknowledge that if you do not register as a member of this Website, parts of this Website designed for registered members may not be accessible to you. Employees of MS Cinemas and its related bodies corporate are entitled to become members of the Website, but are not entitled to enter any competitions on the Website.</li>
+                      <li>MS Cinemas will use its reasonable endeavors to maintain the security of any Personal Information that you provide. This Website has security measures in place to protect the loss, misuse and alteration of the information under MS Cinema's control. However, no data transmission over the internet can be completely secure, and MS Cinemas cannot give an absolute assurance that the information you provide to us will be secure at all times.</li>
+                      <li>MS Cinemas may use techniques designed to identify fraudulent activities on the Website, such as fraudulent activities on the Website, such as fraudulent credit card use. If any unauthorized use of your credit card occurs as a result of your credit card purchase on the Website, you should notify your credit card provider in accordance with its reporting rules and procedures.</li>
+                      <li>You agree that MS Cinemas may cancel your registration as a member and/or refuse you access to this Website at any time in its sole discretion.</li>
+                    </ol>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          </td>
+        </tr>
+      </table>
     </body>
     </html>
   `;
+
   const text = `
-MS CINEMAS SDN BHD
-TK1 7-01, Terminal Kampar Putra, PT53493 & PT53494, Jalan Putra Permata 9, Taman Kampar, 31900 Kampar, Perak, Malaysia
-
-Dear Customer,
-
-Thank you for your interest in MS Cinemas. Please note, this is not your ticket. Exchange this at the box office for your ticket. Your booking details are furnished below.
-
-Name: ${customerName}
-Tel. No: ${customerPhone || 'N/A'}
-Email: ${customerEmail || to}
-Order No: ${bookingId}
-Payment Transaction No: ${trackingId}
-Printed On: ${printedDate}
-
-${qrCodeData}
-
-Booking Details
-Date: ${formatDate(showDate)}
-Time: ${formatTime(showTime)}
-Movie: ${movieName.toUpperCase()}
-
-Hall | Seat No | Ticket Type | Ticket Price | Surcharge | Total
-${ticketDetails && ticketDetails.length > 0 ? ticketDetails.map(t => 
-  `${hallName} | ${t.SeatNo || t.seatNo || ''} | ${(t.TicketType || t.ticketType || 'ADULT').toUpperCase()} | RM${(t.Price || t.price || 0).toFixed(2)} | RM${(t.Surcharge || t.surcharge || 0).toFixed(2)} | RM${(parseFloat(t.Price || t.price || 0) + parseFloat(t.Surcharge || t.surcharge || 0)).toFixed(2)}`
-).join('\n') : 'No ticket details'}
-
-Sub Charge(RM): RM${parseFloat(subCharge || 0).toFixed(2)}
-Grand Total(RM): RM${parseFloat(grandTotal || 0).toFixed(2)}
-
-Terms & Conditions
-This document contains the terms and conditions governing your use of this Website and your purchase of any movie tickets, goods or services from MS Cinemas Sdn. Bhd. using this Website.
+    
+    Ref No: ${referenceNo}
+    Date: ${formatDate(showDate)}
+    Time: ${formatTime(showTime)}
+    Hall: ${hallName}
+    Seats: ${seatsString}
+    
+    Cinema: ${cinemaName}
+    Total Paid: RM${parseFloat(ticketData.grandTotal).toFixed(2)}
+    
+    Please show the QR Code attached to this email at the entrance.
+    
+    ${corporateInfo.companyName}
+    ${fullAddressText}
   `;
 
-  return await sendEmail({ to, subject, html, text });
+  // Attachments array
+  const attachments = [];
+  if (qrCodeBuffer) {
+    attachments.push({
+      filename: 'qrcode.png',
+      content: qrCodeBuffer,
+      cid: 'qrcode' // Matches src="cid:qrcode"
+    });
+  }
+
+  // Pass attachments to sendEmail 
+  // IMPORTANT: We need to modify sendEmail to support attachments or assume it passes ...options through
+  
+  // Checking sendEmail implementation:
+  // It constructs mailOptions manually. We need to make sure it handles 'attachments'.
+  // We'll update calls below.
+  
+  const emailFrom = process.env.EMAIL_FROM || process.env.EMAIL_USER;
+  
+  // Since sendEmail wrapper might not support attachments directly in its arguments deconstruction,
+  // we might need to bypass it or update it. 
+  // Let's check sendEmail again. It takes { to, subject, html, text, from }.
+  // We need to update sendEmail to accept 'attachments'.
+  
+  // For now, let's assume we update sendEmail to accept 'attachments' (I will do this in the same file step).
+  // Send email with attachments (QR code)
+  return await sendEmail({ 
+    to, 
+    subject, 
+    html, 
+    text, 
+    attachments 
+  });
 }
+
+// ... sendEmail implementation needs small update to accept attachments
+
 
 export default {
   sendEmail,

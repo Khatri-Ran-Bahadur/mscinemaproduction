@@ -5,6 +5,7 @@
 
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
+import { storeBookingDetails } from '@/utils/booking-storage';
 
 // Fiuu Payment Gateway Configuration from environment variables
 const FIUU_CONFIG = {
@@ -77,6 +78,7 @@ export async function POST(request) {
       cinemaId = '', // Cinema ID for ReserveBooking API
       showId = '', // Show ID for ReserveBooking API
       membershipId = '', // Membership ID for ReserveBooking API
+      token = '', // Auth token from client
     } = paymentData;
 
     // Generate order ID if not provided - shorter and unique format
@@ -103,10 +105,37 @@ export async function POST(request) {
         if (referenceNo) returnUrlObj.searchParams.set('referenceNo', referenceNo);
         if (membershipId) returnUrlObj.searchParams.set('membershipId', membershipId);
         finalReturnUrl = returnUrlObj.toString();
+        
+        // Store booking details for retrieval during callbacks
+        const bookingDetails = {
+          cinemaId,
+          showId,
+          referenceNo,
+          membershipId,
+          returnUrl: finalReturnUrl,
+          token // Store the token
+        };
+        
+        console.log('[Payment Create] Storing booking details for orderid:', orderId, { ...bookingDetails, token: token ? '***' : 'null' });
+        const stored = storeBookingDetails(orderId, bookingDetails);
+        
+        if (stored) {
+          console.log('[Payment Create] ✅ Booking details stored successfully for:', orderId);
+        } else {
+          console.error('[Payment Create] ❌ Failed to store booking details for:', orderId);
+        }
       } catch (e) {
         // Invalid URL, use as is
         console.warn('[Payment Create] Invalid return URL, cannot add booking details:', e);
       }
+    } else {
+      console.warn('[Payment Create] ⚠️ No booking details to store - missing cinemaId, showId, or referenceNo', {
+        orderId,
+        cinemaId,
+        showId,
+        referenceNo,
+        hasReturnUrl: !!finalReturnUrl
+      });
     }
     
     // Validate required fields (matching process_order.php logic)

@@ -14,6 +14,7 @@ export default function ProfilePage() {
   const [isEditing, setIsEditing] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [editFormData, setEditFormData] = useState({
+    name: '',
     email: '',
     mobile: '',
     passportNo: '',
@@ -41,6 +42,7 @@ export default function ProfilePage() {
 
       setUserData(user);
       setEditFormData({
+        name: user?.name || '',
         email: user?.email || '',
         mobile: user?.mobile || '',
         passportNo: user?.passportNo || '',
@@ -63,6 +65,7 @@ export default function ProfilePage() {
   const handleCancelEdit = () => {
     setIsEditing(false);
     setEditFormData({
+      name: userData?.name || '',
       email: userData?.email || '',
       mobile: userData?.mobile || '',
       passportNo: userData?.passportNo || '',
@@ -102,16 +105,18 @@ export default function ProfilePage() {
       }
 
       const profileData = {};
+      if (editFormData.name) profileData.name = editFormData.name;
       if (editFormData.passportNo) profileData.PassportNo = editFormData.passportNo;
       if (editFormData.mobile) profileData.Mobile = editFormData.mobile;
       if (editFormData.membershipNo) profileData.MembershipNo = editFormData.membershipNo;
       if (editFormData.imageURL) profileData.ImageURL = editFormData.imageURL;
 
-      await auth.updateUserProfile(userData.userID, editFormData.email, profileData);
+      await auth.updateUserProfile(userData.userID, profileData);
 
       // Update local user data
       const updatedUserData = {
         ...userData,
+        name: editFormData.name,  
         email: editFormData.email,
         mobile: editFormData.mobile || userData.mobile,
         passportNo: editFormData.passportNo || userData.passportNo,
@@ -323,6 +328,21 @@ export default function ProfilePage() {
 
           {isEditing ? (
             <div className="space-y-4">
+              {/* Name */}
+              <div className="flex items-start gap-4 pb-4 border-b border-[#2a2a2a]">
+                <User className="w-5 h-5 text-[#FFCA20] mt-1 flex-shrink-0" />
+                <div className="flex-1">
+                  <label className="text-sm text-[#D3D3D3] mb-1 block">Name *</label>
+                  <input
+                    type="text"
+                    value={editFormData.name}
+                    onChange={(e) => handleEditInputChange('name', e.target.value)}
+                    className="w-full bg-[#2a2a2a] border border-[#4a4a4a] rounded-lg px-4 py-3 text-white focus:outline-none focus:border-[#FFCA20] transition"
+                    placeholder="Enter your name"
+                  />
+                  {errors.name && <p className="text-red-400 text-sm mt-1">{errors.name}</p>}
+                </div>
+              </div>
               {/* Email */}
               <div className="flex items-start gap-4 pb-4 border-b border-[#2a2a2a]">
                 <Mail className="w-5 h-5 text-[#FFCA20] mt-1 flex-shrink-0" />

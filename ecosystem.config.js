@@ -17,7 +17,8 @@ module.exports = {
     env: {
       NODE_ENV: 'production',
       PORT: 3000,
-      NODE_OPTIONS: '--max-old-space-size=768' // Limit Node.js memory
+      NODE_OPTIONS: '--max-old-space-size=768', // Limit Node.js memory
+      TZ: 'Asia/Kuala_Lumpur'
     },
     error_file: '/var/log/pm2/mscinemas-error.log',
     out_file: '/var/log/pm2/mscinemas-out.log',

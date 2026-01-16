@@ -14,6 +14,10 @@ export default function BannersPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [currentBanner, setCurrentBanner] = useState(null); // specific banner for edit/delete
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [previewImage, setPreviewImage] = useState(null);
+
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL;
   
   // Form State
   const [formData, setFormData] = useState({
@@ -72,6 +76,7 @@ export default function BannersPage() {
       isActive: true
     });
     setCurrentBanner(null);
+    setPreviewImage(null);
   };
 
   const handleOpenModal = (banner = null) => {
@@ -87,6 +92,7 @@ export default function BannersPage() {
         order: banner.order || 0,
         isActive: banner.isActive
       });
+      setPreviewImage(null);
     } else {
       resetForm();
     }
@@ -127,6 +133,7 @@ export default function BannersPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isSubmitting) return;
     
     // Basic validation
     if (!formData.image) {
@@ -145,6 +152,7 @@ export default function BannersPage() {
     };
 
     try {
+      setIsSubmitting(true);
       let res;
       if (currentBanner) {
         // Update
@@ -173,6 +181,8 @@ export default function BannersPage() {
     } catch (error) {
       console.error('Error saving banner:', error);
       alert('An error occurred while saving the banner');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -182,6 +192,9 @@ export default function BannersPage() {
 
     const uploadData = new FormData();
     uploadData.append('file', file);
+    
+    // Set immediate preview
+    setPreviewImage(URL.createObjectURL(file));
 
     try {
       setIsUploading(true);
@@ -218,6 +231,13 @@ export default function BannersPage() {
   const getMovieName = (id) => {
     const movie = movies.find(m => m.movieID === id || m.id === id);
     return movie ? (movie.movieName || movie.title) : 'Unknown Movie';
+  };
+
+  const getValidImageUrl = (imagePath) => {
+    if (!imagePath) return null;
+    if (imagePath.startsWith('http')) return imagePath;
+    if (imagePath.startsWith('/')) return `${baseUrl}${imagePath}`;
+    return imagePath;
   };
 
   if (isLoading) {
@@ -266,7 +286,7 @@ export default function BannersPage() {
                 {/* Banner Image */}
                 <div className="w-full md:w-64 h-32 relative bg-[#1a1a1a] rounded overflow-hidden flex-shrink-0">
                   <img 
-                    src={banner.image} 
+                    src={`${baseUrl}${banner.image}`} 
                     alt={banner.title || 'Banner'} 
                     className="w-full h-full object-cover"
                     onError={(e) => {e.target.src = '/placeholder.png'}}
@@ -424,9 +444,9 @@ export default function BannersPage() {
 
                   {/* Image Preview */}
                   <div className="w-full h-32 bg-[#1a1a1a] rounded-lg border border-[#3a3a3a] flex items-center justify-center overflow-hidden">
-                    {formData.image ? (
+                    {previewImage || formData.image ? (
                       <img 
-                        src={formData.image} 
+                        src={previewImage || getValidImageUrl(formData.image)} 
                         alt="Preview" 
                         className="w-full h-full object-cover"
                         onError={(e) => {e.target.style.display='none'}}
@@ -496,10 +516,15 @@ export default function BannersPage() {
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2 bg-[#FFCA20] text-black font-semibold rounded hover:bg-[#FFCA20]/90 transition shadow-lg shadow-[#FFCA20]/20 flex items-center gap-2"
+                  disabled={isSubmitting || isUploading}
+                  className={`px-6 py-2 bg-[#FFCA20] text-black font-semibold rounded transition shadow-lg shadow-[#FFCA20]/20 flex items-center gap-2 ${(isSubmitting || isUploading) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-[#FFCA20]/90'}`}
                 >
-                  <Save className="w-4 h-4" />
-                  {currentBanner ? 'Update Banner' : 'Create Banner'}
+                  {isSubmitting ? (
+                    <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <Save className="w-4 h-4" />
+                  )}
+                  {isSubmitting ? 'Saving...' : (currentBanner ? 'Update Banner' : 'Create Banner')}
                 </button>
               </div>
             </form>

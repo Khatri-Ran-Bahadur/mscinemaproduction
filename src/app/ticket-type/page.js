@@ -33,6 +33,7 @@ export default function TicketSelection() {
   const [error, setError] = useState('');
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
   const [confirmationCategory, setConfirmationCategory] = useState(null);
+  const [confirmationDescription, setConfirmationDescription] = useState(null);
   const [pendingIncrement, setPendingIncrement] = useState(null); // Store ticketTypeID that needs confirmation before incrementing
   
   const hasLoadedData = useRef(false);
@@ -162,11 +163,14 @@ export default function TicketSelection() {
     if (ticketTypeName.includes('FAMILY BED')) {
       return 'Family Bed';
     }
-    if (ticketTypeName.includes('CHILDREN') || ticketTypeName.includes('CHILD') || ticketTypeName.includes('KIDS')) {
-      return 'Children/Kids';
+    if (ticketTypeName.includes('CHILDREN') || ticketTypeName.includes('CHILD')) {
+      return 'Children';
+    }
+    if (ticketTypeName.includes('KIDS')) {
+      return 'Kids';
     }
     if (ticketTypeName.includes('SENIOR') || ticketTypeName.includes('SENIOR-CITIZEN')) {
-      return 'Senior-citizen (60 years old and above)';
+      return 'Senior-citizen';
     }
     if (ticketTypeName.includes('HANDICAP') || ticketTypeName.includes('OKU')) {
       return 'Handicap (OKU)';
@@ -179,10 +183,12 @@ export default function TicketSelection() {
   };
 
   const increment = (ticketTypeID) => {
-    // Check if this ticket type requires confirmation
+    // Check if this ticket type requires confirmation\\
+    const catNme=getCategoryName(ticketTypeID);
     if (requiresConfirmation(ticketTypeID)) {
       setPendingIncrement(ticketTypeID);
-      setConfirmationCategory(getCategoryName(ticketTypeID));
+      setConfirmationCategory(catNme);
+      setConfirmationDescription(getShowDescription(catNme));
       setShowConfirmationModal(true);
       return;
     }
@@ -230,43 +236,27 @@ export default function TicketSelection() {
     router.back();
   };
 
-  // Check if user has selected tickets that require confirmation
-  const checkForConfirmation = () => {
-    if (!ticketData?.priceDetails) return null;
-    
-    for (const price of ticketData.priceDetails) {
-      const ticketCount = tickets[price.ticketTypeID] || 0;
-      if (ticketCount > 0) {
-        const ticketTypeName = price.ticketTypeName?.toUpperCase() || '';
-        
-        if (ticketTypeName.includes('FAMILY BED')) {
-          return 'Family Bed';
-        }
-        if (ticketTypeName.includes('CHILDREN') || ticketTypeName.includes('CHILD') || ticketTypeName.includes('KIDS')) {
-          return 'Children/Kids';
-        }
-        if (ticketTypeName.includes('HANDICAP') || ticketTypeName.includes('OKU')) {
-          return 'Handicap';
-        }
-        if (ticketTypeName.includes('SENIOR') || ticketTypeName.includes('SENIOR-CITIZEN')) {
-          return 'Senior-citizen';
-        }
-        if (ticketTypeName.includes('STUDENT')) {
-          return 'Student';
-        }
-      }
+  const getShowDescription=(categoryName)=>{
+    if(!categoryName) return '';
+    if(categoryName.includes('Family Bed')){
+      return '2 adult and 2 kids age below 10 years';
     }
-    return null;
-  };
+    if(categoryName.includes('Children') || categoryName.includes('Child') || categoryName.includes('Kids')){
+      return 'The Height must below 90cm (0.9)';
+    }
+    if(categoryName.includes('Senior') || categoryName.includes('Senior-Citizen')){
+      return 'Age 60 years and above';
+    }
+    if(categoryName.includes('Kids')){
+      return 'The seat is only for children aged between 2-12 years old';
+    }
+    return '';
+  }
+
+
 
   const handleContinue = () => {
-    const category = checkForConfirmation();
-    if (category) {
-      setConfirmationCategory(category);
-      setShowConfirmationModal(true);
-    } else {
-      proceedToSeatSelection();
-    }
+    proceedToSeatSelection();
   };
 
   const handleConfirmCategory = () => {
@@ -618,7 +608,7 @@ export default function TicketSelection() {
               {/* Confirmation Text */}
               <div className="text-center mb-6">
                 <p className="text-[#FAFAFA] text-sm leading-relaxed">
-                  Please confirm you are under this particular category <span className="font-bold text-[#FFCA20]">"{confirmationCategory}"</span>, verification will be done at the checkpoint.
+                  Please confirm you are under this particular category <span className="font-bold text-[#FFCA20]">"{confirmationCategory} {confirmationDescription?`(${confirmationDescription})`:''}" </span>, verification will be done at the checkpoint.
                 </p>
               </div>
 

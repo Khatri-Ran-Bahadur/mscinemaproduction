@@ -1,14 +1,24 @@
 "use client";
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 
 export default function Footer() {
+    const [serverTime, setServerTime] = useState('');
+
+    useEffect(() => {
+        fetch('/api/time')
+            .then(res => res.json())
+            .then(data => setServerTime(data.malaysiaTime))
+            .catch(err => console.error('Time fetch error:', err));
+    }, []);
+
     return (
         <footer className="bg-[#1a1a1a] text-[#FAFAFA]">
             <div className="container mx-auto px-4 md:px-6 py-8 md:py-12">
                 {/* Top Section - 3 Columns on Desktop, Stacked on Mobile */}
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-8 mb-8 md:mb-12">
+                     {/* ... (rest of the content remains the same until bottom section) ... */}
                     {/* Left Column - Navigation Links */}
                     <div>
                         <ul className="space-y-3 text-sm">
@@ -103,7 +113,9 @@ export default function Footer() {
                         </div>
                         
                         {/* Copyright - Right aligned on Desktop, Centered on Mobile */}
-                        <p className="text-center md:text-right">Copyright © 2025 MS Cinemas. All rights reserved.</p>
+                        <div className="text-center md:text-right">
+                            <p>Copyright © 2025 MS Cinemas. All rights reserved.</p>
+                        </div>
                     </div>
                 </div>
             </div>

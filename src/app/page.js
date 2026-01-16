@@ -29,6 +29,15 @@ export default function MovieStreamingSite() {
   const [showTrailerModal, setShowTrailerModal] = useState(false);
   const [currentTrailerVideoId, setCurrentTrailerVideoId] = useState(null);
 
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || '';
+
+  const getValidImageUrl = (imagePath) => {
+    if (!imagePath) return "img/banner1.jpg";
+    if (imagePath.startsWith('http')) return imagePath;
+    if (imagePath.startsWith('/')) return `${baseUrl}${imagePath}`;
+    return imagePath;
+  };
+
   // Ensure currentSlide doesn't exceed available movies
   useEffect(() => {
     if (currentSlide >= heroMovies.length && heroMovies.length > 0) {
@@ -158,7 +167,7 @@ export default function MovieStreamingSite() {
                         id: movie.id,
                         title: movie.title.toUpperCase(),
                         subtitle: `${movie.genre} | ${movie.duration}`,
-                        image: banner.image || movie.image, // Prefer banner image
+                        image: getValidImageUrl(banner.image) || movie.image, // Prefer banner image
                         type: movie.type,
                         trailerUrl: movie.trailerUrl,
                         isMovie: true
@@ -171,7 +180,7 @@ export default function MovieStreamingSite() {
                 id: banner.id,
                 title: banner.title || '',
                 subtitle: banner.description || '',
-                image: banner.image,
+                image: getValidImageUrl(banner.image),
                 link: banner.link,
                 type: 'PROMO',
                 isMovie: false
@@ -450,49 +459,18 @@ export default function MovieStreamingSite() {
                     const isNewRelease = activeMovieTab === 'now-showing';
                     
                     return (
-                      <div key={movie.id}>
-                        <Link href={`/movie-detail?movieId=${movie.id}`} className="group cursor-pointer block">
-                          <div className="relative rounded-lg overflow-hidden border-2 border-[#FFCA20] aspect-[2/3] transition-all duration-300">
-                            {/* Movie Image */}
-                            <img
-                              src={movie.image || `/img/movies${(movie.id % 4) + 1}.png`}
-                              alt={movie.title}
-                              className="w-full h-full object-cover"
-                              onError={(e) => {
-                                e.target.src = `/img/movies${(movie.id % 4) + 1}.png`;
-                              }}
-                            />
-                            
-                            {/* Gradient Overlay - like experience cards */}
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/60 to-transparent"></div>
-                            
-                            {/* Tags */}
-                            {isNewRelease && index === 0 && (
-                              <div className="absolute top-2 left-2 z-10">
-                                <span className="bg-[#FFCA20] text-black px-2 py-1 rounded-full text-[10px] font-bold">New releases</span>
-                              </div>
-                            )}
-                            
-                            {/* Glassmorphism Footer with Content - Transparent glass showing image through */}
-                            <div className="absolute bottom-0 left-0 right-0 p-3 backdrop-blur-lg bg-black/10 border-t border-white/5">
-                              <h3 className="text-sm font-bold text-white mb-2 line-clamp-1">{movie.title}</h3>
-                              <div className="flex flex-col gap-1.5 text-xs text-white">
-                                <div className="flex items-center gap-2">
-                                  <Film size={12} className="text-[#FFCA20] flex-shrink-0" />
-                                  <span className="text-white">{movie.genre || 'Action'}</span>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <Clock size={12} className="text-[#FFCA20] flex-shrink-0" />
-                                  <span className="text-white">{movie.duration || '1 hr 48 mins'}</span>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <Volume2 size={12} className="text-[#FFCA20] flex-shrink-0" />
-                                  <span className="text-white">{movie.language || 'English'}</span>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        </Link>
+                      <div key={movie.id} className="col-span-1">
+                        <MovieCard
+                          movie={{
+                            ...movie,
+                            isNewRelease: isNewRelease,
+                            badge: isNewRelease ? 'New releases' : null
+                          }}
+                          onBookNow={handleBookNow}
+                          onWatchTrailer={handleWatchTrailer}
+                          showButtons={true}
+                          className="w-full h-full"
+                        />
                       </div>
                     );
                     })

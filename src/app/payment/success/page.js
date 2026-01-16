@@ -79,7 +79,6 @@ function PaymentSuccessContent() {
                         localStorage.setItem('ticketData', JSON.stringify(fetchedTicketData));
                         
                         // Send ticket email after ticket data is loaded
-                        console.log('Sending ticket email after payment...');
                         sendTicketEmailAfterPayment(parsed, fetchedTicketData, referenceNo, orderIdFromUrl);
                       }
                     }

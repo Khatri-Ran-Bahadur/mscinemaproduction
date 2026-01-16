@@ -69,7 +69,7 @@ export default function AdminLoginPage() {
       <div className="w-full max-w-md">
         {/* Logo/Header */}
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-[#FFCA20] mb-2">MS Cinema</h1>
+          <h1 className="text-3xl font-bold text-[#FFCA20] mb-2">MS Cinemas</h1>
           <h2 className="text-xl text-[#FAFAFA]">Admin Panel</h2>
         </div>
 

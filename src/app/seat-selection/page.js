@@ -480,31 +480,26 @@ export default function SeatSelection() {
     }
   };
 
-  // Map seatRow numbers to row letters (1=A, 3=B, 4=C, etc.)
-  const getRowLetter = (seatRow) => {
-    const rowMap = { 1: 'A', 3: 'B', 4: 'C', 5: 'D', 6: 'E', 7: 'F', 8: 'G', 9: 'H', 10: 'J', 11: 'K' };
-    return rowMap[seatRow] || String.fromCharCode(64 + seatRow);
-  };
-
   // Build seat grid from API data
   const buildSeatGrid = () => {
     if (!seatsData || seatsData.length === 0) return {};
 
     const grid = {};
     
-    // Find the maximum column number from actual seat data (not hardcoded)
+    // Find the maximum column number from actual seat data
     const maxColumn = Math.max(...seatsData.map(seat => seat.seatColumn || 0), 0);
 
-    // Group seats by row
+    // Group seats by row - using dynamic row letter from seatNo
     seatsData.forEach(seat => {
-      const rowLetter = getRowLetter(seat.seatRow);
+      // Extract non-numeric part as row letter (e.g., "A1" -> "A", "AA1" -> "AA")
+      const rowLetter = seat.seatNo.replace(/[0-9]/g, '').trim(); 
       if (!grid[rowLetter]) {
         grid[rowLetter] = {};
       }
       grid[rowLetter][seat.seatColumn] = seat;
     });
 
-    // Fill in missing columns with null for spacing (only up to maxColumn found in data)
+    // Fill in missing columns with null for spacing
     Object.keys(grid).forEach(rowLetter => {
       for (let col = 1; col <= maxColumn; col++) {
         if (!grid[rowLetter][col]) {
@@ -517,6 +512,11 @@ export default function SeatSelection() {
   };
 
   const seatGrid = buildSeatGrid();
+  // Sort rows alphabetically (A, B, C...) then reverse if needed for display (Screen at top vs bottom)
+  // Usually cinema maps show A at screen (Top) or Back (Bottom). 
+  // Code previously used .sort().reverse().
+  // If we want natural order (A first), or reverse. 
+  // Previous code: Object.keys(seatGrid).sort().reverse();
   const rowLetters = Object.keys(seatGrid).sort().reverse();
   
   // Calculate total seats across all rows for dynamic gap calculation
@@ -535,15 +535,13 @@ export default function SeatSelection() {
   const totalSeats = calculateTotalSeats();
   
   // Calculate dynamic gap based on row seat count
-  // More seats = smaller gap, fewer seats = larger gap
-  // This ensures seats fill the width properly
   const getDynamicGap = (rowMaxColumn) => {
-    if (rowMaxColumn <= 8) return 'gap-3 sm:gap-4 md:gap-5 lg:gap-6';
-    if (rowMaxColumn <= 12) return 'gap-2 sm:gap-2.5 md:gap-3 lg:gap-4';
-    if (rowMaxColumn <= 18) return 'gap-1.5 sm:gap-2 md:gap-2.5 lg:gap-3';
-    if (rowMaxColumn <= 25) return 'gap-1 sm:gap-1.5 md:gap-2 lg:gap-2.5';
-    if (rowMaxColumn <= 35) return 'gap-0.5 sm:gap-1 md:gap-1.5 lg:gap-2';
-    return 'gap-0.5 sm:gap-0.5 md:gap-1 lg:gap-1.5'; // For very large rows (35+)
+    if (rowMaxColumn <= 8) return 'gap-4 sm:gap-5 md:gap-6 lg:gap-7';
+    if (rowMaxColumn <= 12) return 'gap-3 sm:gap-3.5 md:gap-4 lg:gap-5';
+    if (rowMaxColumn <= 18) return 'gap-2 sm:gap-2.5 md:gap-3 lg:gap-3.5';
+    if (rowMaxColumn <= 25) return 'gap-1.5 sm:gap-2 md:gap-2.5 lg:gap-3';
+    if (rowMaxColumn <= 35) return 'gap-1 sm:gap-1.5 md:gap-2 lg:gap-2.5';
+    return 'gap-1 sm:gap-1 md:gap-1.5 lg:gap-2';
   };
 
   // Get priceID for a seat based on ticket type mapping
@@ -1939,7 +1937,7 @@ export default function SeatSelection() {
           {/* Scrollable Container - Scrolls INSIDE the dark box */}
           <div className="w-full overflow-x-auto no-scrollbar relative pb-4" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
             <div className="w-full flex flex-col items-stretch">
-              <div className="flex flex-col gap-1.5 sm:gap-2 md:gap-3 lg:gap-4 xl:gap-5 w-full">
+              <div className="flex flex-col gap-3 sm:gap-4 md:gap-5 lg:gap-6 w-full">
             {rowLetters.map((rowLetter, rowIndex) => {
               const rowSeats = seatGrid[rowLetter];
               // Get max column from actual seat data in this row (or use 0 if no seats)
@@ -1962,7 +1960,7 @@ export default function SeatSelection() {
                 <div className="flex-1 min-w-0 flex items-center">
                   <div className={`flex items-center justify-evenly w-full ${dynamicGapClass}`}>
                     {Array.from({ length: rowMaxColumn }, (_, i) => {
-                      const column = i + 1;
+                      const column = rowMaxColumn - i;
                       const seat = rowSeats[column];
                       
                       if (!seat) {
@@ -2031,7 +2029,7 @@ export default function SeatSelection() {
                               <button
                               onClick={() => toggleSeat(seat)}
                               disabled={isOccupied || partnerIsOccupied || isDisabled || partnerIsDisabled}
-                              className={`rounded-l shrink-0 transition-all ${
+                              className={`relative rounded-l shrink-0 transition-all ${
                                 bothSelected
                                   ? '' 
                                   : (isOccupied || partnerIsOccupied || isDisabled || partnerIsDisabled)
@@ -2049,7 +2047,7 @@ export default function SeatSelection() {
                               <button
                                 onClick={() => toggleSeat(partnerSeat)}
                                 disabled={isOccupied || partnerIsOccupied || isDisabled || partnerIsDisabled}
-                                className={`rounded-r shrink-0 transition-all ${
+                                className={`relative rounded-r shrink-0 transition-all ${
                                   bothSelected
                                     ? '' 
                                     : (isOccupied || partnerIsOccupied || isDisabled || partnerIsDisabled)
@@ -2064,6 +2062,22 @@ export default function SeatSelection() {
                                 />
                               </button>
                             )}
+                            </div>
+                            {/* Seat Number Below Icon */}
+                            <div className="flex gap-2">
+                                <span className={`text-[9px] sm:text-[10px] font-semibold leading-tight whitespace-nowrap ${
+                                  (isOccupied || partnerIsOccupied) ? 'text-zinc-600' : 'text-zinc-400'
+                                }`}>
+                                  {/* Reconstruct full seat ID for display since seatNumber might be stripped */}
+                                  {seat.seatNo}
+                                </span>
+                                {partnerSeat && (
+                                  <span className={`text-[9px] sm:text-[10px] font-semibold leading-tight whitespace-nowrap ${
+                                    (isOccupied || partnerIsOccupied) ? 'text-zinc-600' : 'text-zinc-400'
+                                  }`}>
+                                    {partnerSeat.seatNo}
+                                  </span>
+                                )}
                             </div>
                             {(seatLabel || partnerSeatLabel) && (
                               <span className="text-[9px] sm:text-[10px] text-[#FFCA20] font-semibold leading-tight whitespace-nowrap">
@@ -2082,7 +2096,7 @@ export default function SeatSelection() {
                           <button
                             onClick={() => toggleSeat(seat)}
                               disabled={isOccupied || isDisabled}
-                              className={`rounded shrink-0 transition-all min-w-0 ${
+                              className={`relative rounded shrink-0 transition-all min-w-0 ${
                               isSelected 
                                   ? '' 
                                   : (isOccupied || isDisabled)
@@ -2096,6 +2110,13 @@ export default function SeatSelection() {
                                 className={isSelected ? '' : isOccupied ? '' : 'text-gray-400'}
                               />
                           </button>
+                          
+                          {/* Seat Number for Single Seat */}
+                          <span className={`text-[9px] sm:text-[10px] font-semibold leading-tight whitespace-nowrap ${
+                            isOccupied ? 'text-zinc-600' : 'text-zinc-400'
+                          }`}>
+                            {seat.seatNo}
+                          </span>
                             {seatLabel && (
                               <span className="text-[9px] sm:text-[10px] text-[#FFCA20] font-semibold leading-tight whitespace-nowrap">{seatLabel}</span>
                             )}

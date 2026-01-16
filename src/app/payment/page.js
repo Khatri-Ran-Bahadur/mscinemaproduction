@@ -335,9 +335,20 @@ export default function PaymentPage() {
     formDataToSend.append('total_amount', amount);
     formDataToSend.append('payment_options', method.channel);
     formDataToSend.append('referenceNo', bookingData.confirmedReferenceNo || bookingData.referenceNo || '');
+    formDataToSend.append('cinemaId', bookingData.cinemaId || '');
+    formDataToSend.append('showId', bookingData.showId || '');
+    formDataToSend.append('membershipId', '0'); // Default membership ID
     formDataToSend.append('returnUrl', returnUrl);
     formDataToSend.append('cancelUrl', cancelUrl);
     formDataToSend.append('notifyUrl', `${typeof window !== 'undefined' ? window.location.origin : ''}/api/payment/notify`);
+
+    // Get auth token from localStorage to support API calls during callback
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('ms_cinema_token') || localStorage.getItem('ms_cinema_public_token');
+      if (token) {
+        formDataToSend.append('token', token);
+      }
+    }
 
     // Don't set isProcessing to true here - allow multiple clicks
     setError('');
@@ -355,13 +366,18 @@ export default function PaymentPage() {
 
         // Create Order in Database using the ID returned from payment gateway
         const orderData = {
-            referenceNo: data.mpsorderid, // Use the ID from payment gateway
+            orderId: data.mpsorderid, // Payment Gateway Order ID
+            referenceNo: bookingData.confirmedReferenceNo || bookingData.referenceNo, // Ticket Reference
+            transactionNo: null,
             customerName: billName,
             customerEmail: billEmail,
             customerPhone: billMobile,
             movieTitle: movieTitle,
+            movieId: bookingData.movieId,
             cinemaName: cinemaName,
+            cinemaId: bookingData.cinemaId,
             hallName: hallName,
+            showId: bookingData.showId,
             showTime: bookingData.showTimeDetails?.showTime,
             seats: bookingData.seats,
             ticketType: bookingData.ticketType || 'Standard',

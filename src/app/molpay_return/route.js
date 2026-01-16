@@ -8,6 +8,9 @@
 
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
+import { PaymentLogger } from '@/utils/logger';
+import { getBookingDetails, deleteBookingDetails } from '@/utils/booking-storage';
+import prisma from '@/lib/prisma';
 
 
 // Razer Merchant Services Configuration
@@ -242,7 +245,11 @@ function mapChannelToCardType(channel) {
  * REQUIRED: This must succeed before redirecting to success page
  */
 async function callReserveBooking(orderid, tranID, channel, appcode, returnData) {
+  const logger = new PaymentLogger(orderid);
+  
   try {
+   
+    
     // Extract booking details from returnData (query params from return URL)
     // Booking details are added to return URL in create-request route
     let cinemaId = returnData.cinemaId || returnData.cinema_id || '';
@@ -250,9 +257,25 @@ async function callReserveBooking(orderid, tranID, channel, appcode, returnData)
     let referenceNo = returnData.referenceNo || returnData.reference_no || returnData.refno || '';
     let membershipId = returnData.membershipId || returnData.membership_id || '0';
     
+    
+    // If not in returnData, try to retrieve from storage (for callbacks)
+    if (!cinemaId || !showId || !referenceNo) {
+      const storedDetails = getBookingDetails(orderid);
+      if (storedDetails) {
+        cinemaId = cinemaId || storedDetails.cinemaId || '';
+        showId = showId || storedDetails.showId || '';
+        referenceNo = referenceNo || storedDetails.referenceNo || '';
+        membershipId = membershipId || storedDetails.membershipId || '0';
+        var token = storedDetails.token || '';
+        
+     
+      } 
+    }
+    
     // If not in returnData, try to extract from return URL
     if (!cinemaId || !showId || !referenceNo) {
       const returnUrl = returnData.returnUrl || returnData.mpsreturnurl || '';
+      
       if (returnUrl) {
         try {
           const url = new URL(returnUrl);
@@ -260,8 +283,9 @@ async function callReserveBooking(orderid, tranID, channel, appcode, returnData)
           showId = showId || url.searchParams.get('showId') || url.searchParams.get('show_id') || '';
           referenceNo = referenceNo || url.searchParams.get('referenceNo') || url.searchParams.get('reference_no') || url.searchParams.get('refno') || '';
           membershipId = membershipId || url.searchParams.get('membershipId') || url.searchParams.get('membership_id') || '0';
+          
         } catch (e) {
-          // Invalid URL, continue
+          
         }
       }
       
@@ -271,12 +295,13 @@ async function callReserveBooking(orderid, tranID, channel, appcode, returnData)
         cinemaId = cinemaId || bookingDetails.cinemaId || '';
         showId = showId || bookingDetails.showId || '';
         referenceNo = referenceNo || bookingDetails.referenceNo || '';
+      
       }
     }
     
+    // Final validation
     if (!cinemaId || !showId || !referenceNo) {
       const error = 'Missing booking details for ReserveBooking';
-      console.error('[MOLPay Return] ReserveBooking ERROR:', error, { orderid, returnData });
       return { success: false, error, skip: false };
     }
     
@@ -292,35 +317,42 @@ async function callReserveBooking(orderid, tranID, channel, appcode, returnData)
     queryParams.append('CardType', cardType);
     queryParams.append('AuthorizeId', authorizeId);
     queryParams.append('Remarks', remarks);
-    
-    const url = `${API_CONFIG.API_BASE_URL}/Booking/ReserveBooking/${cinemaId}/${showId}/${referenceNo}/${membershipId}?${queryParams.toString()}`;
-    
-    console.log('[MOLPay Return] ===== CALLING ReserveBooking API =====');
-    console.log('[MOLPay Return] URL:', url);
-    console.log('[MOLPay Return] Params:', { cinemaId, showId, referenceNo, membershipId, transactionNo, cardType, authorizeId, remarks });
+    //http://cinemaapi5.ddns.net/api/Booking/ReserveBooking/7001/31546/U6REPB7G/0/TransactionNo/CardType/AuthorizeId/Remarks?TransactionNo=xfjksdfhsdf&CardType=Credetcard&AuthorizeId=fjhdkfhjksdfsdf&Remarks=sdfsdfs
+    const url = `${API_CONFIG.API_BASE_URL}/Booking/ReserveBooking/${cinemaId}/${showId}/${referenceNo}/${membershipId}/TransactionNo/CardType/AuthorizeId/Remarks?${queryParams.toString()}`;
     
     // Use fetch directly to avoid server-side module loading issues
+    const headers = {
+      'accept': '*/*',
+      'Content-Type': 'application/json',
+    };
+    
+    // Add Authorization header if token exists
+    // Note: token might be accessed from outer scope variable 'token' if defined, 
+    // strictly we should pass it or extract it. 
+    // In the block above, I defined 'var token'.
+    if (typeof token !== 'undefined' && token) {
+       headers['Authorization'] = `Bearer ${token}`;
+    }
+
     const response = await fetch(url, {
       method: 'POST',
-      headers: {
-        'accept': '*/*',
-        'Content-Type': 'application/json',
-      },
+      headers: headers,
     });
     
     if (!response.ok) {
       const errorText = await response.text();
       const error = `ReserveBooking failed: ${response.status} ${errorText}`;
-      console.error('[MOLPay Return] ReserveBooking ERROR:', error);
       return { success: false, error, skip: false };
     }
     
     const data = await response.json();
-    console.log('[MOLPay Return] ReserveBooking SUCCESS:', data);
+    
+    // Clean up stored booking details after successful processing
+    deleteBookingDetails(orderid);
+    
     return { success: true, data };
   } catch (error) {
     const errorMsg = error.message || 'Unknown error';
-    console.error('[MOLPay Return] ReserveBooking EXCEPTION:', errorMsg, error);
     return { success: false, error: errorMsg, skip: false };
   }
 }
@@ -330,23 +362,40 @@ async function callReserveBooking(orderid, tranID, channel, appcode, returnData)
  * REQUIRED: This must succeed before redirecting to failed page
  */
 async function callCancelBooking(orderid, tranID, channel, errorDesc, returnData) {
+  const logger = new PaymentLogger(orderid);
+  
   try {
+    
     // Extract booking details from returnData (query params from return URL)
     let cinemaId = returnData.cinemaId || returnData.cinema_id || '';
     let showId = returnData.showId || returnData.show_id || '';
     let referenceNo = returnData.referenceNo || returnData.reference_no || returnData.refno || '';
     
+    
+    // If not in returnData, try to retrieve from storage (for callbacks)
+    if (!cinemaId || !showId || !referenceNo) {
+      const storedDetails = getBookingDetails(orderid);
+      if (storedDetails) {
+        cinemaId = cinemaId || storedDetails.cinemaId || '';
+        showId = showId || storedDetails.showId || '';
+        referenceNo = referenceNo || storedDetails.referenceNo || '';
+        var token = storedDetails.token || '';
+        
+      } 
+    }
+    
     // If not in returnData, try to extract from return URL
     if (!cinemaId || !showId || !referenceNo) {
       const returnUrl = returnData.returnUrl || returnData.mpsreturnurl || '';
+      
       if (returnUrl) {
         try {
           const url = new URL(returnUrl);
           cinemaId = cinemaId || url.searchParams.get('cinemaId') || url.searchParams.get('cinema_id') || '';
           showId = showId || url.searchParams.get('showId') || url.searchParams.get('show_id') || '';
           referenceNo = referenceNo || url.searchParams.get('referenceNo') || url.searchParams.get('reference_no') || url.searchParams.get('refno') || '';
+          
         } catch (e) {
-          // Invalid URL, continue
         }
       }
       
@@ -356,18 +405,21 @@ async function callCancelBooking(orderid, tranID, channel, errorDesc, returnData
         cinemaId = cinemaId || bookingDetails.cinemaId || '';
         showId = showId || bookingDetails.showId || '';
         referenceNo = referenceNo || bookingDetails.referenceNo || '';
+        
       }
     }
     
+    // Final validation
     if (!cinemaId || !showId || !referenceNo) {
       const error = 'Missing booking details for CancelBooking';
-      console.error('[MOLPay Return] CancelBooking ERROR:', error, { orderid, returnData });
       return { success: false, error, skip: false };
     }
     
     const transactionNo = tranID || orderid;
     const cardType = mapChannelToCardType(channel);
     const remarks = errorDesc || `Payment failed via ${channel || 'MOLPay'}`;
+    
+    
     
     // Use direct API call instead of booking service to avoid server-side module issues
     const { API_CONFIG } = await import('@/config/api');
@@ -376,34 +428,38 @@ async function callCancelBooking(orderid, tranID, channel, errorDesc, returnData
     queryParams.append('CardType', cardType);
     queryParams.append('Remarks', remarks);
     
-    const url = `${API_CONFIG.API_BASE_URL}/Booking/CancelBooking/${cinemaId}/${showId}/${referenceNo}?${queryParams.toString()}`;
-    
-    console.log('[MOLPay Return] ===== CALLING CancelBooking API =====');
-    console.log('[MOLPay Return] URL:', url);
-    console.log('[MOLPay Return] Params:', { cinemaId, showId, referenceNo, transactionNo, cardType, remarks });
+    const url = `${API_CONFIG.API_BASE_URL}/Booking/CancelBooking/${cinemaId}/${showId}/${referenceNo}/TransactionNo/CardType/Remarks?${queryParams.toString()}`;
     
     // Use fetch directly to avoid server-side module loading issues
+    const headers = {
+      'accept': '*/*',
+      'Content-Type': 'application/json',
+    };
+    
+    if (typeof token !== 'undefined' && token) {
+       headers['Authorization'] = `Bearer ${token}`;
+    }
+
     const response = await fetch(url, {
       method: 'POST',
-      headers: {
-        'accept': '*/*',
-        'Content-Type': 'application/json',
-      },
+      headers: headers,
     });
+    
     
     if (!response.ok) {
       const errorText = await response.text();
       const error = `CancelBooking failed: ${response.status} ${errorText}`;
-      console.error('[MOLPay Return] CancelBooking ERROR:', error);
       return { success: false, error, skip: false };
     }
     
     const data = await response.json();
-    console.log('[MOLPay Return] CancelBooking SUCCESS:', data);
+    
+    // Clean up stored booking details after successful processing
+    deleteBookingDetails(orderid);
+    
     return { success: true, data };
   } catch (error) {
     const errorMsg = error.message || 'Unknown error';
-    console.error('[MOLPay Return] CancelBooking EXCEPTION:', errorMsg, error);
     return { success: false, error: errorMsg, skip: false };
   }
 }
@@ -470,25 +526,8 @@ async function handleReturn(request) {
     const actualUrl = `${protocol}://${host}`;
     orderid = returnData.orderid || 'unknown';
     
-    // Save initial return data to JSON file for debugging
-    try {
-      const fs = await import('fs');
-      const path = await import('path');
-      const logsDir = path.join(process.cwd(), 'public', 'payment-logs');
-      if (!fs.existsSync(logsDir)) {
-        fs.mkdirSync(logsDir, { recursive: true });
-      }
-      const logFile = path.join(logsDir, `molpay-return-${Date.now()}-${orderid}-raw.json`);
-      fs.writeFileSync(logFile, JSON.stringify({
-        timestamp: new Date().toISOString(),
-        orderid: orderid,
-        returnData: returnData,
-        rawPostData: rawPostData
-      }, null, 2), 'utf8');
-      console.log(`[MOLPay Return] Raw return data saved: ${logFile}`);
-    } catch (logError) {
-      console.warn('[MOLPay Return] Failed to save raw return data:', logError.message);
-    }
+    // Logging raw data disabled for production performance
+    // console.log(`[MOLPay Return] Order ID: ${orderid}`);
 
     // ============================================
     // STEP 2: Extract all fields (like PHP)
@@ -509,11 +548,13 @@ async function handleReturn(request) {
       nbcb
     } = returnData;
 
-    // If this is a callback or notification (nbcb=1 or 2), verify signature first, then acknowledge
-    if (nbcb === '1' || nbcb === '2') {
-      // Still verify signature for callbacks to ensure data integrity
-      verifyReturnSignature(returnData);
-      return acknowledgeResponse();
+    // If this is a callback or notification (nbcb=1 or 2), we need to process it but return RECEIVEOK
+    // IMPORTANT: We still need to call ReserveBooking/CancelBooking for callbacks!
+    const isCallback = nbcb === '1' || nbcb === '2';
+    
+    if (isCallback) {
+      console.log('[MOLPay Return] ===== CALLBACK DETECTED (nbcb=' + nbcb + ') =====');
+      console.log('[MOLPay Return] Will process booking and return RECEIVEOK');
     }
 
     // ============================================
@@ -537,38 +578,60 @@ async function handleReturn(request) {
       console.log('[MOLPay Return] ===== PAYMENT SUCCESS - Calling ReserveBooking =====');
       const reserveResult = await callReserveBooking(orderid, tranID, channel, appcode, returnData);
       
-      // Save debug log
-      try {
-        const fs = await import('fs');
-        const path = await import('path');
-        const logsDir = path.join(process.cwd(), 'public', 'payment-logs');
-        if (!fs.existsSync(logsDir)) {
-          fs.mkdirSync(logsDir, { recursive: true });
-        }
-        const logFile = path.join(logsDir, `molpay-return-${Date.now()}-${orderid}-success.json`);
-        fs.writeFileSync(logFile, JSON.stringify({
-          timestamp: new Date().toISOString(),
-          orderid,
-          status: finalStatus,
-          paymentSuccess: true,
-          reserveBookingResult: reserveResult,
-          returnData: returnData,
-          rawPostData: rawPostData
-        }, null, 2), 'utf8');
-        console.log(`[MOLPay Return] Debug log saved: ${logFile}`);
-      } catch (logError) {
-        console.warn('[MOLPay Return] Failed to save debug log:', logError.message);
-      }
+      // Debug logging disabled for performance
       
       if (!reserveResult.success) {
-        // ReserveBooking failed - redirect to failed page
-        console.error('[MOLPay Return] ReserveBooking FAILED - redirecting to failed page');
+        // ReserveBooking failed
+        console.error('[MOLPay Return] ReserveBooking FAILED');
+        if (isCallback) {
+          // For callbacks, return RECEIVEOK even on failure
+          console.log('[MOLPay Return] Callback - returning RECEIVEOK despite failure');
+          return acknowledgeResponse();
+        }
+        // Check if order is already PAID/CONFIRMED in DB (handling duplicate calls)
+        try {
+            const existingOrder = await prisma.order.findUnique({
+                where: { orderId: orderid }
+            });
+            
+            if (existingOrder && (existingOrder.paymentStatus === 'PAID' || existingOrder.status === 'CONFIRMED')) {
+                console.log('[MOLPay Return] Order already PAID in DB - treating validation failure as duplicate success');
+                // Redirect to success
+                const redirectUrl = `${actualUrl}/payment/success?orderid=${encodeURIComponent(orderid)}`;
+                return createRedirectResponse(redirectUrl);
+            }
+        } catch (dbCheckErr) {
+            console.error('[MOLPay Return] Database check failed:', dbCheckErr);
+        }
+
         const redirectUrl = `${actualUrl}/payment/failed?orderid=${encodeURIComponent(orderid)}&error=reserve_booking_failed&error_desc=${encodeURIComponent(reserveResult.error || 'ReserveBooking failed')}`;
         return createRedirectResponse(redirectUrl);
       }
       
-      // ReserveBooking successful - redirect to success page
-      console.log('[MOLPay Return] ReserveBooking SUCCESS - redirecting to success page');
+      // ReserveBooking successful
+      console.log('[MOLPay Return] ReserveBooking SUCCESS');
+      
+      // Update Order in DB to PAID
+      try {
+          await prisma.order.update({
+             where: { orderId: orderid },
+             data: { 
+                 paymentStatus: 'PAID',
+                 status: 'CONFIRMED',
+                 transactionNo: tranID
+             }
+          });
+          console.log('[MOLPay Return] Database updated: PAID/CONFIRMED');
+      } catch (dbErr) {
+          console.error('[MOLPay Return] DB Update Error:', dbErr);
+          // Continue even if DB update fails
+      }
+
+      if (isCallback) {
+        // For callbacks, return RECEIVEOK
+        console.log('[MOLPay Return] Callback - returning RECEIVEOK');
+        return acknowledgeResponse();
+      }
       const redirectUrl = `${actualUrl}/payment/success?orderid=${encodeURIComponent(orderid)}`;
       return createRedirectResponse(redirectUrl);
     } else if (finalStatus === '11') {
@@ -599,7 +662,11 @@ async function handleReturn(request) {
         console.warn('[MOLPay Return] Failed to save debug log:', logError.message);
       }
       
-      // Redirect to failed page
+      // Return response based on callback status
+      if (isCallback) {
+        console.log('[MOLPay Return] Callback - returning RECEIVEOK for pending payment');
+        return acknowledgeResponse();
+      }
       const redirectUrl = `${actualUrl}/payment/failed?orderid=${encodeURIComponent(orderid)}&status=${finalStatus}`;
       return createRedirectResponse(redirectUrl);
     } else {
@@ -632,7 +699,11 @@ async function handleReturn(request) {
         console.warn('[MOLPay Return] Failed to save debug log:', logError.message);
       }
       
-      // Redirect to failed page
+      // Return response based on callback status
+      if (isCallback) {
+        console.log('[MOLPay Return] Callback - returning RECEIVEOK for failed payment');
+        return acknowledgeResponse();
+      }
       const redirectUrl = `${actualUrl}/payment/failed?orderid=${encodeURIComponent(orderid)}&status=${finalStatus}&error_desc=${encodeURIComponent(errorMessage)}`;
       return createRedirectResponse(redirectUrl);
     }
@@ -651,7 +722,7 @@ async function handleReturn(request) {
       const baseUrl = `${protocol}://${host}`;
       errorRedirectUrl = `${baseUrl}/payment/failed?error=processing_error&error_desc=${encodeURIComponent(error.message || 'An error occurred processing your payment')}`;
     }
-    return createRedirectResponse(errorRedirectUrl);
+    return createRedirectResponse(errorRedirectUrl.toString());
   }
 }
 

@@ -10,7 +10,6 @@ import { sendTicketEmail } from '@/utils/email';
 export async function POST(request) {
   try {
     const body = await request.json();
-    console.log('API /api/auth/send-ticket-email received request:', JSON.stringify(body, null, 2));
 
     const { email, ticketInfo } = body;
 

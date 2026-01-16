@@ -86,7 +86,9 @@ model ContactInfo {
 // Order/Booking Model
 model Order {
   id            Int      @id @default(autoincrement())
-  referenceNo   String   @unique // Ext Booking Ref or Generated
+  orderId       String?  @unique // Payment Gateway Order ID (MS...)
+  referenceNo   String   // Booking Reference Number (B1A...) - Ticket Ref
+  transactionNo String?  // Payment Transaction ID
   customerName  String?
   customerEmail String?
   customerPhone String?
@@ -95,7 +97,9 @@ model Order {
   movieId       Int?     // Optional link if we track movies locally later
   movieTitle    String
   cinemaName    String?
+  cinemaId      String?
   hallName      String?
+  showId        String?
   showTime      DateTime? // Date and time of the show
   
   // Booking Details

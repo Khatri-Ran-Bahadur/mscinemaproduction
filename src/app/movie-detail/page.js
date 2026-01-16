@@ -670,8 +670,8 @@ export default function MovieBooking() {
           </button>
         </div>
 
-        {/* Breadcrumb */}
-        <div className="absolute top-4 right-6 z-10">
+        {/* Breadcrumb - Hidden on mobile, visible on md+ */}
+        <div className="absolute top-4 right-6 z-10 hidden md:block">
           <div className="flex items-center gap-2 text-xs text-[#D3D3D3]">
             <span className="hover:text-[#FAFAFA] text-white cursor-pointer">Select Cinema</span>
             <span>›</span>
@@ -699,20 +699,20 @@ export default function MovieBooking() {
               <div className="absolute inset-0 bg-gradient-to-r from-black/50 to-transparent" />
               
               {/* Movie Info */}
-              <div className="absolute bottom-8 left-8">
-                <h1 className="text-5xl font-bold mb-2 text-[#FAFAFA]">{movieTitle}</h1>
-                <div className="flex items-center gap-3 text-sm text-[#D3D3D3] mb-4">
+              <div className="absolute bottom-4 left-4 md:bottom-8 md:left-8 w-[calc(100%-2rem)] md:w-auto">
+                <h1 className="text-2xl md:text-5xl font-bold mb-2 text-[#FAFAFA] line-clamp-1 md:line-clamp-none">{movieTitle}</h1>
+                <div className="flex flex-wrap items-center gap-2 md:gap-3 text-xs md:text-sm text-[#D3D3D3] mb-4">
                   <span>{movieGenre}</span>
-                  {movieDuration && <span>|</span>}
+                  {movieDuration && <span className="hidden md:inline">|</span>}
                   <span>{movieDuration}</span>
-                  {movieLanguage && <span>|</span>}
+                  {movieLanguage && <span className="hidden md:inline">|</span>}
                   <span>{movieLanguage}</span>
                 </div>
                 <div className="flex gap-3">
                   <button 
                     onClick={() => setShowTrailerModal(true)}
                     disabled={!trailerVideoId}
-                    className={`px-6 py-2 bg-transparent border border-[#D3D3D3]/40 text-[#FAFAFA] text-sm rounded hover:bg-white/10 transition ${
+                    className={`px-4 md:px-6 py-1.5 md:py-2 bg-transparent border border-[#D3D3D3]/40 text-[#FAFAFA] text-xs md:text-sm rounded hover:bg-white/10 transition whitespace-nowrap ${
                       !trailerVideoId ? 'opacity-50 cursor-not-allowed' : ''
                     }`}
                   >
@@ -720,7 +720,7 @@ export default function MovieBooking() {
                   </button>
                   <button 
                     onClick={() => setShowMovieInfoModal(true)}
-                    className="px-6 py-2 bg-[#FFCA20] text-black font-semibold text-sm rounded hover:bg-[#FFCA20]/90 transition"
+                    className="px-4 md:px-6 py-1.5 md:py-2 bg-[#FFCA20] text-black font-semibold text-xs md:text-sm rounded hover:bg-[#FFCA20]/90 transition whitespace-nowrap"
                   >
                     Movie Info
                   </button>
@@ -878,7 +878,7 @@ export default function MovieBooking() {
 
             {/* Showtimes Grid */}
               {filteredShowTimes.length > 0 ? (
-                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3">
                   {filteredShowTimes.map((show, idx) => {
                     // Determine if show is available for selection
                     // Only available if: sellingStatus = 0 AND allowOnlineSales = true

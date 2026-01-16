@@ -10,7 +10,8 @@ import {
   Settings, 
   LogOut,
   Film,
-  CreditCard
+  CreditCard,
+  Clock
 } from 'lucide-react';
 
 export default function AdminSidebar() {
@@ -26,6 +27,11 @@ export default function AdminSidebar() {
       title: 'Orders',
       icon: <CreditCard className="w-5 h-5" />, // Use a relevant icon
       href: '/admin/orders'
+    },
+    {
+      title: 'Half Way Bookings',
+      icon: <Clock className="w-5 h-5" />,
+      href: '/admin/half-way-bookings'
     },
     {
       title: 'Banners',

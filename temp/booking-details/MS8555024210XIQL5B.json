@@ -1,0 +1,10 @@
+{
+  "orderid": "MS8555024210XIQL5B",
+  "cinemaId": "7001",
+  "showId": "31403",
+  "referenceNo": "CEUR3DQR",
+  "membershipId": "0",
+  "returnUrl": "https://mscinemas.billvoize.in/molpay_return?cinemaId=7001&showId=31403&referenceNo=CEUR3DQR&membershipId=0",
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJBZG1pbiIsImp0aSI6IjIxYjc2ZmYxLWY3OWYtNGI4My05NWYzLTM5MzZkYzFlM2ZjNyIsImV4cCI6MTc2ODU1ODI2OSwiaXNzIjoiaHR0cDovL2NpbmVtYS5hcGkuY29tIiwiYXVkIjoiaHR0cDovL2NpbmVtYS5hcGkuY29tIn0.HYW3i4OOp-k5VrTm6jFxYOwIrhILhnX2J9I5qtNMZrw",
+  "timestamp": "2026-01-16T09:17:04.212Z"
+}

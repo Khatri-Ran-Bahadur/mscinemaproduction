@@ -102,7 +102,44 @@ export const confirmLockedSeats = async (
     
     console.log('ConfirmLockedSeats endpoint:', endpoint);
     
+    // Log request details to server for debugging
+    try {
+      if (typeof window !== 'undefined') {
+        const logData = {
+          type: 'CONFIRM_LOCKED_SEATS_REQUEST',
+          endpoint: endpoint,
+          params: {
+            showId, referenceNo, userId, email, membershipId, paymentVia, name, passportNo, mobileNo
+          },
+          timestamp: new Date().toISOString()
+        };
+        
+       
+      }
+    } catch (e) {
+      // Ignore logging errors
+    }
+    
     const response = await post(endpoint, {});
+
+    // Log response details to server
+    try {
+      if (typeof window !== 'undefined') {
+        fetch('/api/payment/save-log', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              type: 'CONFIRM_LOCKED_SEATS_RESPONSE',
+              referenceNo,
+              response,
+              timestamp: new Date().toISOString()
+            })
+        }).catch(err => console.warn('Logging response failed', err));
+      }
+    } catch (e) {
+      // Ignore
+    }
+
     return response;
   } catch (error) {
     console.error('Confirm locked seats error:', error);
@@ -203,7 +240,9 @@ export const cancelBooking = async (
     const queryString = queryParams.toString();
     // Endpoint: /Booking/CancelBooking/{CinemaID}/{ShowID}/{referenceNo}/TransactionNo/CardType/Remarks
     // TransactionNo, CardType, Remarks are query parameters
-    const endpoint = `/Booking/CancelBooking/${cinemaId}/${showId}/${referenceNo}${queryString ? `?${queryString}` : ''}`;
+    // Endpoint: /Booking/CancelBooking/{CinemaID}/{ShowID}/{referenceNo}/TransactionNo/CardType/Remarks
+    // Matches logic in molpay_return/route.js which is confirmed working
+    const endpoint = `/Booking/CancelBooking/${cinemaId}/${showId}/${referenceNo}/TransactionNo/CardType/Remarks?${queryString}`;
     
     const response = await post(endpoint, {});
     return response;
@@ -275,16 +314,55 @@ export const getTickets = async (cinemaId, showId, referenceNo) => {
   }
 };
 
-export default {
-  lockSeats,
-  releaseLockedSeats,
-  confirmLockedSeats,
-  releaseConfirmedLockedSeats,
-  reserveBooking,
-  cancelBooking,
-  confirmBooking,
-  isValidMember,
-  getMyBookings,
-  getTickets,
+
+
+/**
+ * Get Half Way Bookings
+ * @param {number} minutes1 - Duration between LockSeats and ConfirmLockedSeats
+ * @param {number} minutes2 - After ConfirmLockedSeats until Payment completed time
+ * @returns {Promise<Array>} - List of half way bookings
+ */
+export const getHalfWayBookings = async (minutes1 = 2, minutes2 = 15) => {
+  try {
+    const response = await get(`/Booking/GetHalfWayBookings/${minutes1}/${minutes2}`);
+    return response;
+  } catch (error) {
+    console.error('Get half way bookings error:', error);
+    throw error;
+  }
 };
+
+/**
+ * Release Confirm Locked Seats (Singular Confirm/Confirmed?)
+ * Matching user request EXACTLY: ReleaseConfirmLockedSeats
+ */
+export const releaseConfirmLockedSeats = async (cinemaId, showId, referenceNo) => {
+    try {
+      // User says 404 on ReleaseConfirmLockedSeats.
+      // Trying the existing ReleaseConfirmedLockedSeats endpoint which corresponds to status 1 (Confirmed Locked)
+      const response = await post(
+        `/Booking/ReleaseConfirmedLockedSeats/${cinemaId}/${showId}/${referenceNo}`,
+        {}
+      );
+      return response;
+    } catch (error) {
+      console.error('Release confirm locked seats error:', error);
+      throw error;
+    }
+  };
+
+export default {
+    lockSeats,
+    releaseLockedSeats,
+    confirmLockedSeats,
+    releaseConfirmedLockedSeats,
+    releaseConfirmLockedSeats,
+    reserveBooking,
+    cancelBooking,
+    confirmBooking,
+    isValidMember,
+    getMyBookings,
+    getTickets,
+    getHalfWayBookings,
+  };
 

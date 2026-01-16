@@ -64,7 +64,7 @@ function PaymentFailedContent() {
         <h1 className="text-2xl font-bold mb-3">Payment Failed</h1>
         <p className="text-red-400 mb-4">{errorMsg}</p>
         
-        {orderid && (
+        {orderid && orderid !== 'unknown' && orderid !== 'undefined' && orderid !== null && (
           <div className="mt-4 p-4 bg-[#2a2a2a] rounded text-left mb-6">
             <p className="text-sm text-white/60 mb-1">Order ID:</p>
             <p className="text-white font-semibold">{orderid}</p>
