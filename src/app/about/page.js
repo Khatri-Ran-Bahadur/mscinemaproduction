@@ -5,6 +5,8 @@ import Header from '@/components/header';
 import Footer from '@/components/footer';
 import { prisma } from '@/lib/prisma';
 
+export const dynamic = 'force-dynamic';
+
 async function getAboutContent() {
   try {
     const content = await prisma.aboutContent.findMany({
@@ -32,6 +34,14 @@ const getIcon = (iconName) => {
 };
 
 export default async function AboutUsPage() {
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || '';
+    const getValidUrl = (path) => {
+        if (!path) return '';
+        if (path.startsWith('http')) return path;
+        if (path.startsWith('/')) return `${baseUrl}${path}`;
+        return path;
+    };
+
     const content = await getAboutContent();
     const contactInfos = await prisma.contactInfo.findMany({
         where: { isActive: true },
@@ -61,7 +71,7 @@ export default async function AboutUsPage() {
             <section className="relative h-[70vh] sm:h-[65vh] md:h-[75vh] overflow-hidden pt-16 sm:pt-20 md:pt-24">
                 <div className="absolute inset-0">
                     <img 
-                        src={hero.image} 
+                        src={getValidUrl(hero.image)} 
                         alt="About MS Cinemas" 
                         className="w-full h-full object-cover"
                     />
@@ -121,7 +131,7 @@ export default async function AboutUsPage() {
                              <div className="w-full lg:w-2/5">
                                 <div className="rounded-xl overflow-hidden aspect-[4/3] relative shadow-2xl border border-[#3a3a3a]">
                                     <img 
-                                        src={main.image} 
+                                        src={getValidUrl(main.image)} 
                                         alt="Cinema Interior" 
                                         className="w-full h-full object-cover"
                                     />
