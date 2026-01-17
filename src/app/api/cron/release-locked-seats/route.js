@@ -1,15 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getHalfWayBookings, releaseLockedSeats } from '@/services/api/booking'; // Wait, importing client side service in server route?
-// ERROR: @/services/api/booking uses 'client' (axios/fetch) which might work in node but usually we should call the external API directly or use the service if it's compatible.
-// However, the external API (C#) handles the logic. The Next.js API route here acts as a proxy/controller for the cron job.
-// Since @/services/api/client uses fetch, it should work in Node (Next.js 13+).
-// BUT, better to fetch directly to avoid auth/header issues if any, or just reuse the service if it only does fetch.
-
-// Re-implementing fetch logic here to be safe and independent of client-side auth tokens if needed.
-// But actually, the C# API seems open or uses headers? The client code doesn't show complex auth headers being set dynamically for EVERY request, except maybe in client.js wrapper.
-// Let's assume we can validly call the External API from here.
-
-const API_BASE_URL = 'http://cinemaapi5.ddns.net/api';
+import { API_CONFIG } from '@/config/api';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,7 +8,10 @@ export async function GET(request) {
         const { searchParams } = new URL(request.url);
         // Default to same defaults: 2 and 15
         const m1 = searchParams.get('m1') || 2;
-        const m2 = searchParams.get('m2') || 15;
+        const m2 = searchParams.get('m2') || 50;
+        
+        const API_BASE_URL = API_CONFIG.API_BASE_URL;
+        console.log(`[Cron] Using API URL: ${API_BASE_URL}`);
 
         // 1. Get Half Way Bookings
         const fetchRes = await fetch(`${API_BASE_URL}/Booking/GetHalfWayBookings/${m1}/${m2}`, {
@@ -35,28 +28,61 @@ export async function GET(request) {
             return NextResponse.json({ success: true, message: 'No bookings found or invalid format', processed: 0 });
         }
 
-        // 2. Filter for Status 0 (Locked Seats) ONLY
-        const lockedSeats = bookings.filter(b => b.status === 0);
+        // 2. Filter for Status 0 (Locked) and Status 1 (Confirm Locked)
+        const targetBookings = bookings.filter(b => b.status === 0 || b.status === 1);
         
         const results = [];
 
         // 3. Process Releasing
-        for (const b of lockedSeats) {
+        for (const b of targetBookings) {
             try {
-                 // Endpoint: /Booking/ReleaseLockedSeats/{CinemaID}/{ShowID}/{referenceNo}
-                 // Note: Check lockType param? Service uses LockType?
-                 // Service: /Booking/ReleaseLockedSeats/${cinemaId}/${showId}/${referenceNo}
-                 // Let's call the ID-based endpoint.
-                 const releaseRes = await fetch(`${API_BASE_URL}/Booking/ReleaseLockedSeats/${b.cinemaID}/${b.showID}/${b.referenceNo}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' }
-                 });
+                 // Check time condition: Release only if older than 10 minutes
+                 // bookingDateTime format: "dd-MM-yyyy HH:mm:ss"
+                 let shouldRelease = false;
+                 
+                 if (b.bookingDateTime) {
+                     const [datePart, timePart] = b.bookingDateTime.split(' ');
+                     if (datePart && timePart) {
+                         const [d, m, y] = datePart.split('-');
+                         // Create date object assuming Malaysian Time (+08:00)
+                         const bookingTime = new Date(`${y}-${m}-${d}T${timePart}+08:00`);
+                         const now = new Date();
+                         
+                         // Calculate difference in minutes
+                         const diffMinutes = (now - bookingTime) / (1000 * 60);
+                         
+                         if (diffMinutes > 10) {
+                             shouldRelease = true;
+                         } else {
+                             // console.log(`Skipping ${b.referenceNo}: Only ${diffMinutes.toFixed(1)} mins old`);
+                         }
+                     }
+                 }
 
-                 results.push({
-                    referenceNo: b.referenceNo,
-                    success: releaseRes.ok,
-                    status: releaseRes.status
-                 });
+                 if (!shouldRelease) continue;
+
+                 let endpoint = '';
+                 
+                 if (b.status === 0) {
+                    endpoint = `${API_BASE_URL}/Booking/ReleaseLockedSeats/${b.cinemaID}/${b.showID}/${b.referenceNo}`;
+                 } else if (b.status === 1) {
+                    // Correct endpoint is ReleaseConfirmedLockedSeats (with 'ed')
+                    endpoint = `${API_BASE_URL}/Booking/ReleaseConfirmedLockedSeats/${b.cinemaID}/${b.showID}/${b.referenceNo}`;
+                 }
+
+                 if (endpoint) {
+                     const releaseRes = await fetch(endpoint, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' }
+                     });
+
+                     results.push({
+                        referenceNo: b.referenceNo,
+                        type: b.status === 0 ? 'Locked' : 'ConfirmLocked',
+                        success: releaseRes.ok,
+                        status: releaseRes.status
+                     });
+                 }
 
             } catch (err) {
                 console.error(`Failed to release ${b.referenceNo}`, err);
@@ -66,8 +92,8 @@ export async function GET(request) {
 
         return NextResponse.json({
             success: true,
-            message: `Processed ${lockedSeats.length} locked bookings`,
-            processed: lockedSeats.length,
+            message: `Processed ${targetBookings.length} bookings`,
+            processed: targetBookings.length,
             results
         });
 

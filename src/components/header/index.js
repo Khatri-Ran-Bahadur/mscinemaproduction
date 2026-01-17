@@ -250,16 +250,6 @@ const Header = () => {
                                                             About us
                                                         </Link>
                                                         <Link
-                                                            href="/events"
-                                                            onClick={() => {
-                                                                setShowMoreDropdown(false);
-                                                                handleClick('more');
-                                                            }}
-                                                            className="block px-4 py-3 text-[#FAFAFA] hover:bg-[#3a3a3a] transition text-sm border-b border-[#3a3a3a] last:border-b-0"
-                                                        >
-                                                            Events
-                                                        </Link>
-                                                        <Link
                                                             href="/contact"
                                                             onClick={() => {
                                                                 setShowMoreDropdown(false);
@@ -268,16 +258,6 @@ const Header = () => {
                                                             className="block px-4 py-3 text-[#FAFAFA] hover:bg-[#3a3a3a] transition text-sm border-b border-[#3a3a3a] last:border-b-0"
                                                         >
                                                             Contact us
-                                                        </Link>
-                                                        <Link
-                                                            href="/faq"
-                                                            onClick={() => {
-                                                                setShowMoreDropdown(false);
-                                                                handleClick('more');
-                                                            }}
-                                                            className="block px-4 py-3 text-[#FAFAFA] hover:bg-[#3a3a3a] transition text-sm"
-                                                        >
-                                                            FAQs
                                                         </Link>
                                                     </div>
                                                 </div>

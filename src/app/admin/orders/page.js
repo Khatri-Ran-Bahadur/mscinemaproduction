@@ -21,6 +21,7 @@ import {
 import TicketModal from '@/components/TicketModal';
 import OrderDetailsModal from '@/components/admin/OrderDetailsModal';
 import { booking } from '@/services/api';
+import { timeAgo } from '@/utils/timeAgo';
 
 export default function AdminOrdersPage() {
     const [orders, setOrders] = useState([]);
@@ -139,6 +140,37 @@ export default function AdminOrdersPage() {
         }
     };
 
+    const parseTicketType = (ticketTypeData) => {
+        if (!ticketTypeData) return '-';
+        try {
+            const parsed = JSON.parse(ticketTypeData);
+            
+            // Case 1: Array of Strings ["Adult", "Child"]
+            if (Array.isArray(parsed) && typeof parsed[0] === 'string') {
+                return parsed.join(', ');
+            }
+
+            // Case 2: Array of Objects [{ type: "Adult", price: 10 }, ...]
+            if (Array.isArray(parsed) && typeof parsed[0] === 'object') {
+                return parsed.map(p => {
+                    const type = p.ticketType || p.type || p.name || p.Name || 'Ticket';
+                    const price = p.price || p.amount || p.Price || '';
+                    return price ? `${type} (RM${price})` : type;
+                }).join(', ');
+            }
+
+            // Case 3: Object { "Adult": 2, "Child": 1 }
+            if (typeof parsed === 'object' && !Array.isArray(parsed)) {
+                return Object.entries(parsed).map(([key, val]) => `${key}: ${val}`).join(', ');
+            }
+
+            return ticketTypeData;
+        } catch (e) {
+            // Not JSON, return as is
+            return ticketTypeData;
+        }
+    };
+
     const handleViewTicket = async (order) => {
         setSelectedOrder(order);
         // Call GetTickets API first
@@ -222,6 +254,7 @@ export default function AdminOrdersPage() {
                                     <th className="p-4 text-[#888] font-medium text-sm hidden sm:table-cell">Amount</th>
                                     <th className="p-4 text-[#888] font-medium text-sm">Status</th>
                                     <th className="p-4 text-[#888] font-medium text-sm hidden xl:table-cell">Date</th>
+                                    <th className="p-4 text-[#888] font-medium text-sm hidden lg:table-cell">Time Ago</th>
                                     <th className="p-4 text-[#888] font-medium text-sm text-right">Action</th>
                                 </tr>
                             </thead>
@@ -265,7 +298,7 @@ export default function AdminOrdersPage() {
                                             <td className="p-4 hidden lg:table-cell">
                                                  <div className="text-sm text-[#ccc]">
                                                     <span className="block">Seats: <span className="text-white">{parseSeats(order.seats)}</span></span>
-                                                    <span className="text-xs text-[#888]">{order.ticketType}</span>
+                                                    <span className="text-xs text-[#888]">{parseTicketType(order.ticketType)}</span>
                                                  </div>
                                             </td>
                                             <td className="p-4 hidden sm:table-cell">
@@ -286,6 +319,11 @@ export default function AdminOrdersPage() {
                                             </td>
                                             <td className="p-4 hidden xl:table-cell">
                                                 <span className="text-sm text-[#888]">{formatDate(order.createdAt)}</span>
+                                            </td>
+                                            <td className="p-4 hidden lg:table-cell">
+                                                <span className="text-xs font-mono text-gray-400 bg-[#333] px-2 py-1 rounded whitespace-nowrap">
+                                                    {timeAgo(order.createdAt)}
+                                                </span>
                                             </td>
                                             <td className="p-4 text-right">
                                                 <div className="flex items-center justify-end gap-2">

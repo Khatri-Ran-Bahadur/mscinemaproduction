@@ -17,7 +17,7 @@ export default function BannersPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [previewImage, setPreviewImage] = useState(null);
 
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL;
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || '';
   
   // Form State
   const [formData, setFormData] = useState({
@@ -286,7 +286,7 @@ export default function BannersPage() {
                 {/* Banner Image */}
                 <div className="w-full md:w-64 h-32 relative bg-[#1a1a1a] rounded overflow-hidden flex-shrink-0">
                   <img 
-                    src={`${baseUrl}${banner.image}`} 
+                    src={getValidImageUrl(banner.image)} 
                     alt={banner.title || 'Banner'} 
                     className="w-full h-full object-cover"
                     onError={(e) => {e.target.src = '/placeholder.png'}}

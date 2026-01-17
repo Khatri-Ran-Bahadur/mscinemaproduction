@@ -1,4 +1,5 @@
 import React from 'react';
+import Link from 'next/link';
 import { Phone, Mail, MapPin } from 'lucide-react';
 import Header from '@/components/header';
 import Footer from '@/components/footer';
@@ -99,9 +100,9 @@ export default async function AboutUsPage() {
                     <p className="text-[#D3D3D3] text-lg md:text-xl mb-8 max-w-2xl">
                         {hero.content}
                     </p>
-                    <button className="bg-[#FFCA20] text-black px-8 py-3 rounded-lg font-semibold hover:bg-[#FFCA20]/90 transition w-fit">
+                    <Link href="/contact" className="bg-[#FFCA20] text-black px-8 py-3 rounded-lg font-semibold hover:bg-[#FFCA20]/90 transition w-fit inline-block">
                         Contact now
-                    </button>
+                    </Link>
                 </div>
             </section>
 

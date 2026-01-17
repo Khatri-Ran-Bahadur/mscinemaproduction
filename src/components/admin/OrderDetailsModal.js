@@ -45,6 +45,37 @@ export default function OrderDetailsModal({ isOpen, onClose, order }) {
         }
     };
 
+    const parseTicketType = (ticketTypeData) => {
+        if (!ticketTypeData) return '-';
+        try {
+            const parsed = JSON.parse(ticketTypeData);
+            
+            // Case 1: Array of Strings ["Adult", "Child"]
+            if (Array.isArray(parsed) && typeof parsed[0] === 'string') {
+                return parsed.join(', ');
+            }
+
+            // Case 2: Array of Objects [{ type: "Adult", price: 10 }, ...]
+            if (Array.isArray(parsed) && typeof parsed[0] === 'object') {
+                return parsed.map(p => {
+                    const type = p.ticketType || p.type || p.name || p.Name || 'Ticket';
+                    const price = p.price || p.amount || p.Price || '';
+                    return price ? `${type} (RM${price})` : type;
+                }).join(', ');
+            }
+
+            // Case 3: Object { "Adult": 2, "Child": 1 }
+            if (typeof parsed === 'object' && !Array.isArray(parsed)) {
+                return Object.entries(parsed).map(([key, val]) => `${key}: ${val}`).join(', ');
+            }
+
+            return ticketTypeData;
+        } catch (e) {
+            // Not JSON, return as is
+            return ticketTypeData;
+        }
+    };
+
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
             <div className="bg-[#1a1a1a] rounded-xl border border-[#333] w-full max-w-3xl max-h-[90vh] overflow-y-auto shadow-2xl">
@@ -116,6 +147,12 @@ export default function OrderDetailsModal({ isOpen, onClose, order }) {
                                 <p className="text-xs text-[#888]">Seats</p>
                                 <p className="text-white font-mono bg-[#333] inline-block px-2 py-1 rounded mt-1">
                                     {parseSeats(order.seats)}
+                                </p>
+                            </div>
+                            <div>
+                                <p className="text-xs text-[#888]">Ticket Types</p>
+                                <p className="text-white text-sm mt-1">
+                                    {parseTicketType(order.ticketType)}
                                 </p>
                             </div>
                         </div>

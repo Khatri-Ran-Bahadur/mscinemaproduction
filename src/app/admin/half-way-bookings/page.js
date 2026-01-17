@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { booking } from '@/services/api';
 import TicketModal from '@/components/TicketModal';
+import { timeAgo } from '@/utils/timeAgo';
 
 export default function HalfWayBookingsPage() {
     const [bookings, setBookings] = useState([]);
@@ -285,6 +286,7 @@ export default function HalfWayBookingsPage() {
                                     <input type="checkbox" onChange={handleSelectAll} checked={paginatedBookings.length > 0 && selectedIds.length === paginatedBookings.length} className="rounded bg-[#333] border-[#444] text-[#FFCA20] focus:ring-0" />
                                 </th>
                                 <th className="p-4 text-[#888] font-medium text-xs uppercase tracking-wider">Ref No / Date</th>
+                                <th className="p-4 text-[#888] font-medium text-xs uppercase tracking-wider">Time Ago</th>
                                 <th className="p-4 text-[#888] font-medium text-xs uppercase tracking-wider">Customer</th>
                                
                                 <th className="p-4 text-[#888] font-medium text-xs uppercase tracking-wider">Amount</th>
@@ -312,6 +314,11 @@ export default function HalfWayBookingsPage() {
                                                         <Clock className="w-3 h-3" /> {b.bookingDateTime}
                                                     </span>
                                                 </div>
+                                            </td>
+                                            <td className="p-4">
+                                                <span className="text-xs font-mono text-gray-400 bg-[#333] px-2 py-1 rounded">
+                                                    {timeAgo(b.bookingDateTime)}
+                                                </span>
                                             </td>
                                             <td className="p-4">
                                                 <div className="flex flex-col">

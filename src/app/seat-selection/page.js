@@ -1543,6 +1543,19 @@ export default function SeatSelection() {
 
       // Store booking data for payment gateway
       const priceInfo = calculateDetailedPrice();
+      // Construct Ticket Type Summary for Order History
+      const ticketTypeSummary = {};
+      if (selectedTickets && ticketData?.priceDetails) {
+        Object.entries(selectedTickets).forEach(([id, count]) => {
+           if (count > 0) {
+             const detail = ticketData.priceDetails.find(p => p.ticketTypeID == id);
+             const name = detail?.ticketTypeName || 'Standard';
+             ticketTypeSummary[name] = count;
+           }
+        });
+      }
+      const ticketTypeString = Object.keys(ticketTypeSummary).length > 0 ? JSON.stringify(ticketTypeSummary) : 'Standard';
+
       const bookingData = {
         cinemaId,
         showId,
@@ -1550,6 +1563,7 @@ export default function SeatSelection() {
         seats: selectedSeats,
         ticketData,
         selectedTickets,
+        ticketType: ticketTypeString,
         priceInfo,
         referenceNo: lockReferenceNo,
         confirmedReferenceNo: confirmedRef,

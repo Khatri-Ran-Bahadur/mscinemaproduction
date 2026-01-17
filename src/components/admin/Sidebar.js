@@ -11,7 +11,8 @@ import {
   LogOut,
   Film,
   CreditCard,
-  Clock
+  Clock,
+  Mail
 } from 'lucide-react';
 
 export default function AdminSidebar() {
@@ -44,14 +45,21 @@ export default function AdminSidebar() {
       href: '/admin/about'
     },
     {
-      title: 'Dynamic Pages',
+      title: 'Pages',
       icon: <FileText className="w-5 h-5" />,
       href: '/admin/pages'
     },
+
+
     {
-      title: 'Profile & Settings',
+      title: 'Contact Messages',
+      icon: <Mail className="w-5 h-5" />,
+      href: '/admin/contacts'
+    },
+    {
+      title: 'Settings',
       icon: <Settings className="w-5 h-5" />,
-      href: '/admin/profile'
+      href: '/admin/settings'
     },
   ];
 
@@ -67,7 +75,7 @@ export default function AdminSidebar() {
       <div className="p-6 border-b border-[#3a3a3a] flex items-center gap-3">
         <Film className="w-8 h-8 text-[#FFCA20]" />
         <div>
-          <h1 className="text-xl font-bold text-[#FFCA20] leading-none">MS CINEMA</h1>
+          <h1 className="text-xl font-bold text-[#FFCA20] leading-none">MS CINEMAS</h1>
           <span className="text-xs text-[#888] tracking-widest">ADMIN PANEL</span>
         </div>
       </div>

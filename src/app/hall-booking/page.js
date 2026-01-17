@@ -93,16 +93,28 @@ export default function BookHallPage() {
             return;
         }
 
+
         try {
-            // TODO: Implement API call to submit hall booking
-            console.log('Form data:', formData);
-            
-            // Simulate API call
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            const res = await fetch('/api/hall-booking', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(formData)
+            });
+
+            const data = await res.json();
+
+            if (!res.ok) {
+                throw new Error(data.error || 'Failed to submit booking');
+            }
             
             // Close modal and show success message
-            alert('Booking request submitted successfully!');
+            // alert('Booking request submitted successfully!'); // Using toast logic via simple alert for now as requested or stick to existing flow
+            // Actually, let's keep the alert as it was in the original code, maybe upgrade to toast if user asked but they didn't.
+            // The user just said "send this booking information".
+            
+            alert('Booking request submitted successfully! We will contact you soon.');
             handleCloseModal();
+
         } catch (error) {
             console.error('Error submitting booking:', error);
             setErrors({ general: 'Failed to submit booking. Please try again.' });
@@ -366,6 +378,10 @@ export default function BookHallPage() {
                                     <option value="hall1">Hall 1</option>
                                     <option value="hall2">Hall 2</option>
                                     <option value="hall3">Hall 3</option>
+                                    <option value="hall4">Hall 4</option>
+                                    <option value="hall5">Hall 5</option>
+                                    <option value="hall6">Hall 6</option>
+
                                 </select>
                                 <ChevronDown className="absolute right-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-[#D3D3D3] pointer-events-none" />
                                 {errors.preferredHall && <p className="text-red-400 text-sm mt-1">{errors.preferredHall}</p>}
