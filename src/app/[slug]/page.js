@@ -35,8 +35,8 @@ export default async function DynamicPage({ params }) {
   return (
     <div className="min-h-screen bg-[#1a1a1a] text-white flex flex-col">
       <Header />
-      <main className="flex-grow pt-32 pb-12 px-4">
-        <div className="max-w-4xl mx-auto container">
+      <main className="flex-grow pt-24 pb-12">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
              <h1 className="text-3xl md:text-5xl font-bold text-[#FFCA20] mb-8 pb-4 border-b border-[#333]"> 
                {page.title} 
              </h1>

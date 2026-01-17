@@ -105,11 +105,11 @@ export default function Footer() {
                     <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 text-[#D3D3D3] text-xs md:text-sm">
                         {/* Legal Links - Left aligned on Desktop, Centered on Mobile */}
                         <div className="flex flex-wrap justify-center md:justify-start gap-4 md:gap-6">
-                            <Link href="#" className="hover:text-[#FFCA20] transition">Terms & Conditions</Link>
-                            <Link href="#" className="hover:text-[#FFCA20] transition">Privacy Policy</Link>
-                            <Link href="#" className="hover:text-[#FFCA20] transition">Disclaimer</Link>
-                            <Link href="#" className="hover:text-[#FFCA20] transition">Cookie Policy</Link>
-                            <Link href="#" className="hover:text-[#FFCA20] transition">FAQ</Link>
+                            <Link href="/terms-and-conditions" className="hover:text-[#FFCA20] transition">Terms & Conditions</Link>
+                            <Link href="/privacy-policy" className="hover:text-[#FFCA20] transition">Privacy Policy</Link>
+                            <Link href="/disclaimer" className="hover:text-[#FFCA20] transition">Disclaimer</Link>
+                            <Link href="/cookie-policy" className="hover:text-[#FFCA20] transition">Cookie Policy</Link>
+                            <Link href="/faqs" className="hover:text-[#FFCA20] transition">FAQ</Link>
                         </div>
                         
                         {/* Copyright - Right aligned on Desktop, Centered on Mobile */}

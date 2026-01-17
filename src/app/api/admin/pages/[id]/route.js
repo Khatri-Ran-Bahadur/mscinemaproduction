@@ -3,7 +3,8 @@ import { prisma } from '@/lib/prisma';
 
 export async function GET(request, { params }) {
   try {
-    const id = parseInt(params.id);
+    const { id: idParam } = await params;
+    const id = parseInt(idParam);
     const page = await prisma.page.findUnique({ where: { id } });
     if (!page) {
         return NextResponse.json({ error: 'Page not found' }, { status: 404 });
@@ -16,7 +17,8 @@ export async function GET(request, { params }) {
 
 export async function PUT(request, { params }) {
   try {
-    const id = parseInt(params.id);
+    const { id: idParam } = await params;
+    const id = parseInt(idParam);
     const body = await request.json();
     const { slug, title, content, isActive } = body;
 
@@ -39,7 +41,8 @@ export async function PUT(request, { params }) {
 
 export async function DELETE(request, { params }) {
   try {
-    const id = parseInt(params.id);
+    const { id: idParam } = await params;
+    const id = parseInt(idParam);
     await prisma.page.delete({ where: { id } });
     return NextResponse.json({ success: true });
   } catch (error) {
