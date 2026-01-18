@@ -11,6 +11,9 @@ const poppins = Poppins({
 export const metadata = {
   title: "MS Cinemas",
   description: "MS Cinemas, Malasiya",
+  icons: {
+    icon: '/img/logo.png',
+  },
 };
 
 export default function RootLayout({ children }) {
