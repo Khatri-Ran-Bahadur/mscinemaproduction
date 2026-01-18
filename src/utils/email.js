@@ -101,7 +101,13 @@ export async function sendEmail({ to, subject, html, text, from, attachments }) 
     const emailService = process.env.EMAIL_SERVICE || 'smtp';
     console.log(`Email Utils: specific transporter created for service: ${emailService}`);
 
-    const emailFrom = from || process.env.EMAIL_FROM || process.env.EMAIL_USER;
+    let emailFrom = from || process.env.EMAIL_FROM || process.env.EMAIL_USER;
+    const emailName = process.env.EMAIL_NAME;
+
+    // If we have a name and the email string doesn't already have one (e.g. doesn't contain '<')
+    if (emailName && emailFrom && !emailFrom.includes('<')) {
+      emailFrom = `"${emailName}" <${emailFrom}>`;
+    }
 
     const mailOptions = {
       from: emailFrom,

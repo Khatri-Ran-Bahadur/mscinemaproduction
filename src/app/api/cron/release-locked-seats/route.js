@@ -10,90 +10,108 @@ export async function GET(request) {
         const m1 = searchParams.get('m1') || 2;
         const m2 = searchParams.get('m2') || 50;
         
-        const API_BASE_URL = API_CONFIG.API_BASE_URL;
-        console.log(`[Cron] Using API URL: ${API_BASE_URL}`);
+        // Check BOTH environments
+        const environments = [
+            { name: 'Test', url: API_CONFIG.TEST_API_URL },
+            { name: 'Live', url: API_CONFIG.LIVE_API_URL }
+        ];
 
-        // 1. Get Half Way Bookings
-        const fetchRes = await fetch(`${API_BASE_URL}/Booking/GetHalfWayBookings/${m1}/${m2}`, {
-            cache: 'no-store'
-        });
-
-        if (!fetchRes.ok) {
-            return NextResponse.json({ success: false, error: 'Failed to fetch halfway bookings' }, { status: 500 });
-        }
-
-        const bookings = await fetchRes.json();
-        
-        if (!Array.isArray(bookings)) {
-            return NextResponse.json({ success: true, message: 'No bookings found or invalid format', processed: 0 });
-        }
-
-        // 2. Filter for Status 0 (Locked) and Status 1 (Confirm Locked)
-        const targetBookings = bookings.filter(b => b.status === 0 || b.status === 1);
+        console.log(`[Cron] Starting check for ${environments.length} environments. Params: m1=${m1}, m2=${m2}`);
         
         const results = [];
+        let totalProcessed = 0;
 
-        // 3. Process Releasing
-        for (const b of targetBookings) {
-            try {
-                 // Check time condition: Release only if older than 10 minutes
-                 // bookingDateTime format: "dd-MM-yyyy HH:mm:ss"
-                 let shouldRelease = false;
-                 
-                 if (b.bookingDateTime) {
-                     const [datePart, timePart] = b.bookingDateTime.split(' ');
-                     if (datePart && timePart) {
-                         const [d, m, y] = datePart.split('-');
-                         // Create date object assuming Malaysian Time (+08:00)
-                         const bookingTime = new Date(`${y}-${m}-${d}T${timePart}+08:00`);
-                         const now = new Date();
-                         
-                         // Calculate difference in minutes
-                         const diffMinutes = (now - bookingTime) / (1000 * 60);
-                         
-                         if (diffMinutes > 10) {
-                             shouldRelease = true;
-                         } else {
-                             // console.log(`Skipping ${b.referenceNo}: Only ${diffMinutes.toFixed(1)} mins old`);
-                         }
-                     }
-                 }
+        for (const env of environments) {
+             console.log(`[Cron] Checking ${env.name} API: ${env.url}`);
 
-                 if (!shouldRelease) continue;
+             try {
+                // 1. Get Half Way Bookings
+                const fetchRes = await fetch(`${env.url}/Booking/GetHalfWayBookings/${m1}/${m2}`, {
+                    cache: 'no-store'
+                });
 
-                 let endpoint = '';
-                 
-                 if (b.status === 0) {
-                    endpoint = `${API_BASE_URL}/Booking/ReleaseLockedSeats/${b.cinemaID}/${b.showID}/${b.referenceNo}`;
-                 } else if (b.status === 1) {
-                    // Correct endpoint is ReleaseConfirmedLockedSeats (with 'ed')
-                    endpoint = `${API_BASE_URL}/Booking/ReleaseConfirmedLockedSeats/${b.cinemaID}/${b.showID}/${b.referenceNo}`;
-                 }
+                if (!fetchRes.ok) {
+                    console.error(`[Cron] Failed to fetch halfway bookings from ${env.name}: ${fetchRes.status}`);
+                    results.push({ env: env.name, error: `Fetch failed: ${fetchRes.status}` });
+                    continue; // Try next env
+                }
 
-                 if (endpoint) {
-                     const releaseRes = await fetch(endpoint, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' }
-                     });
+                const bookings = await fetchRes.json();
+                console.log(`[Cron] ${env.name}: Fetched ${bookings?.length || 0} bookings.`);
+                
+                if (!Array.isArray(bookings)) {
+                    continue;
+                }
 
-                     results.push({
-                        referenceNo: b.referenceNo,
-                        type: b.status === 0 ? 'Locked' : 'ConfirmLocked',
-                        success: releaseRes.ok,
-                        status: releaseRes.status
-                     });
-                 }
+                // 2. Filter for Status 0 (Locked) and Status 1 (Confirm Locked)
+                const targetBookings = bookings.filter(b => b.status === 0 || b.status === 1);
+                
+                if (targetBookings.length > 0) {
+                     console.log(`[Cron] ${env.name}: processing ${targetBookings.length} target bookings.`);
+                }
 
-            } catch (err) {
-                console.error(`Failed to release ${b.referenceNo}`, err);
-                results.push({ referenceNo: b.referenceNo, success: false, error: err.message });
-            }
+                // 3. Process Releasing
+                for (const b of targetBookings) {
+                    try {
+                        // Check time condition
+                        let shouldRelease = false;
+                        
+                        if (b.bookingDateTime) {
+                            const [datePart, timePart] = b.bookingDateTime.split(' ');
+                            if (datePart && timePart) {
+                                const [d, m, y] = datePart.split('-');
+                                const bookingTime = new Date(`${y}-${m}-${d}T${timePart}+08:00`);
+                                const now = new Date();
+                                const diffMinutes = (now - bookingTime) / (1000 * 60);
+                                
+                                if (diffMinutes > 10) {
+                                    shouldRelease = true;
+                                }
+                            }
+                        }
+
+                        if (!shouldRelease) continue;
+
+                        let endpoint = '';
+                        
+                        if (b.status === 0) {
+                            endpoint = `${env.url}/Booking/ReleaseLockedSeats/${b.cinemaID}/${b.showID}/${b.referenceNo}`;
+                        } else if (b.status === 1) {
+                            endpoint = `${env.url}/Booking/ReleaseConfirmedLockedSeats/${b.cinemaID}/${b.showID}/${b.referenceNo}`;
+                        }
+
+                        if (endpoint) {
+                            const releaseRes = await fetch(endpoint, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' }
+                            });
+
+                            results.push({
+                                env: env.name,
+                                referenceNo: b.referenceNo,
+                                type: b.status === 0 ? 'Locked' : 'ConfirmLocked',
+                                success: releaseRes.ok,
+                                status: releaseRes.status
+                            });
+                            
+                            if (releaseRes.ok) totalProcessed++;
+                        }
+
+                    } catch (err) {
+                        console.error(`Failed to release ${b.referenceNo} on ${env.name}`, err);
+                        results.push({ env: env.name, referenceNo: b.referenceNo, success: false, error: err.message });
+                    }
+                }
+             } catch (envErr) {
+                 console.error(`[Cron] Error checking ${env.name}:`, envErr);
+                 results.push({ env: env.name, error: envErr.message });
+             }
         }
 
         return NextResponse.json({
             success: true,
-            message: `Processed ${targetBookings.length} bookings`,
-            processed: targetBookings.length,
+            message: `Processed ${totalProcessed} bookings total`,
+            processed: totalProcessed,
             results
         });
 

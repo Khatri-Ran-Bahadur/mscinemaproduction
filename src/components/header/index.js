@@ -132,7 +132,7 @@ const Header = () => {
     const menuItems = [
         { id: 'home', label: 'Home', href: '/' },
         { id: 'movies', label: 'Movies', href: '/movies' },
-        { id: 'foods-drinks', label: 'Food & Drinks', href: '/foods-drinks' },
+        // { id: 'foods-drinks', label: 'Food & Drinks', href: '/foods-drinks' },
         { id: 'hall-booking', label: 'Hall Booking', href: '/hall-booking' },
         { 
             id: 'more', 

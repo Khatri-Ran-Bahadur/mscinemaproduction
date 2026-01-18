@@ -1,0 +1,10 @@
+{
+  "orderid": "MS8706110395Y95I7L",
+  "cinemaId": "7001",
+  "showId": "33341",
+  "referenceNo": "CQAHPCC6",
+  "membershipId": "0",
+  "returnUrl": "https://mscinemas.billvoize.in/molpay_return?cinemaId=7001&showId=33341&referenceNo=CQAHPCC6&membershipId=0",
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJBZG1pbiIsImp0aSI6ImJjYjZiNGU4LTU4Y2ItNDU2OC04MmM0LTIzNTFkYjUwZWVlMyIsImV4cCI6MTc2ODcwOTM2NCwiaXNzIjoiaHR0cDovL2NpbmVtYS5hcGkuY29tIiwiYXVkIjoiaHR0cDovL2NpbmVtYS5hcGkuY29tIn0.dTKDlvXxz3txVQO7HZREjoFBFm-64Ad5NHUuvP62deE",
+  "timestamp": "2026-01-18T03:15:10.397Z"
+}

@@ -235,9 +235,14 @@ export default function BannersPage() {
 
   const getValidImageUrl = (imagePath) => {
     if (!imagePath) return null;
-    if (imagePath.startsWith('http')) return imagePath;
-    if (imagePath.startsWith('/')) return `${baseUrl}${imagePath}`;
-    return imagePath;
+    if (imagePath.startsWith('http') || imagePath.startsWith('https')) return imagePath;
+
+    // Remove trailing slash from baseUrl if present
+    const cleanBaseUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
+    // Ensure imagePath starts with slash
+    const cleanImagePath = imagePath.startsWith('/') ? imagePath : `/${imagePath}`;
+
+    return `${cleanBaseUrl}${cleanImagePath}`;
   };
 
   if (isLoading) {

@@ -3,7 +3,7 @@
 
 
 // Hardcoded for testing script
-const API_BASE_URL = 'http://cinemaapi5.ddns.net/api'; 
+const API_BASE_URL = 'https://apiv5.mscinemas.my/api'; 
 
 async function check() {
   console.log('Fetching Half Way Bookings...');

@@ -161,7 +161,7 @@ export async function POST(request) {
     const billEmail = billingEmail;
     const billMobile = billingMobile || '';
     const billDesc = billingAddress || 'Payment';
-    const amount = 1.01;// parseFloat(total_amount);
+    const amount = 1.01;//parseFloat(total_amount);
 
     // Validate amount
     if (isNaN(amount) || amount <= 0) {
