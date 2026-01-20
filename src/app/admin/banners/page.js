@@ -294,7 +294,7 @@ export default function BannersPage() {
                     src={getValidImageUrl(banner.image)} 
                     alt={banner.title || 'Banner'} 
                     className="w-full h-full object-cover"
-                    onError={(e) => {e.target.src = '/placeholder.png'}}
+                    
                   />
                   <div className="absolute top-2 left-2 px-2 py-1 bg-black/70 rounded text-xs text-white capitalize">
                     {banner.type === 'normal' ? 'Promotion and Concessions' : banner.type === 'movie' ? 'Movie Banner' : banner.type}

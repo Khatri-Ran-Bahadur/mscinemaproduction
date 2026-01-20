@@ -11,7 +11,7 @@ export async function GET() {
     // Fetch contact info
     const contactInfos = await prisma.contactInfo.findMany({
       where: {
-        type: { in: ['email', 'phone', 'address'] }
+        type: { in: ['email', 'phone', 'address', 'map_iframe'] }
       }
     });
 
@@ -28,7 +28,8 @@ export async function GET() {
         image: mainContent?.image || '',
         email: contactMap.email || '',
         phone: contactMap.phone || '',
-        address: contactMap.address || ''
+        address: contactMap.address || '',
+        map_iframe: contactMap.map_iframe || ''
       }
     });
 
@@ -66,10 +67,12 @@ export async function POST(request) {
     });
 
     // 2. Upsert Contact Info
+    // 2. Upsert Contact Info
     const updates = [
       { type: 'email', title: 'Email', value: email, icon: 'Mail' },
       { type: 'phone', title: 'Phone', value: phone, icon: 'Phone' },
-      { type: 'address', title: 'Address', value: address, icon: 'MapPin' }
+      { type: 'address', title: 'Address', value: address, icon: 'MapPin' },
+      { type: 'map_iframe', title: 'Google Map', value: body.map_iframe, icon: 'Map' }
     ];
 
     for (const item of updates) {

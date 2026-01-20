@@ -73,7 +73,7 @@ export default function SignInPage() {
       {/* Left Side - Image (2/3 width on desktop, hidden on mobile) */}
       <div className="hidden md:block md:w-2/3 relative overflow-hidden">
         <img
-          src="/img/sing.jpg"
+          src="/img/login.jpeg"
           alt="Popcorn"
           className="w-full h-full object-cover"
         />
@@ -121,6 +121,7 @@ export default function SignInPage() {
                 <input
                   type={showPassword ? 'text' : 'password'}
                   name="password"
+                  maxLength={8}
                   value={formData.password}
                   onChange={handleInputChange}
                   className="w-full bg-[#2a2a2a] border border-[#3a3a3a] rounded px-4 py-3 text-[#FAFAFA] text-sm focus:outline-none focus:border-[#FFCA20] transition pr-12"

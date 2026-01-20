@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma';
 import { notFound } from 'next/navigation';
 import Header from '@/components/header';
 import Footer from '@/components/footer';
+import SlugStyles from './SlugStyles';
 export async function generateMetadata({ params }) {
   const resolvedParams = await params;
   const page = await prisma.page.findUnique({
@@ -41,9 +42,10 @@ export default async function DynamicPage({ params }) {
                {page.title} 
              </h1>
              <div 
-               className="prose prose-invert max-w-none text-[#D3D3D3] prose-headings:text-[#FFCA20] prose-a:text-[#FFCA20] prose-strong:text-white"
+               className="cms-content w-full break-words text-[#D3D3D3]"
                dangerouslySetInnerHTML={{ __html: page.content }} 
              />
+             <SlugStyles />
         </div>
       </main>
       <Footer />

@@ -3,7 +3,7 @@
  * Handles user authentication, registration, and token management
  */
 
-import { get, post } from './client';
+import { get, post, APIError } from './client';
 import { setToken, removeToken, setUserData, removeUserData } from '@/utils/storage';
 
 /**
@@ -16,7 +16,7 @@ export const login = async (username, password) => {
   try {
     // Validate required fields
     if (!username || !password) {
-      throw new Error('Username and password are required');
+      throw new APIError('Username and password are required', 400);
     }
     
     // Encode values for URL path
@@ -61,13 +61,13 @@ export const login = async (username, password) => {
         user: userData,
       };
     } else if (status === 2) {
-      throw new Error('Invalid user. Please check your credentials.');
+      throw new APIError('Invalid user. Please check your credentials.', 2, response);
     } else if (status === 3) {
-      throw new Error('User account is not activated. Please check your email for activation link.');
+      throw new APIError('User account is not activated. Please check your email for activation link.', 3, response);
     } else if (status === 4) {
-      throw new Error('Password mismatch. Please check your password.');
+      throw new APIError('Password mismatch. Please check your password.', 4, response);
     } else {
-      throw new Error(remarks || 'Login failed. Please try again.');
+      throw new APIError(remarks || 'Login failed. Please try again.', status || 400, response);
     }
   } catch (error) {
     console.error('Login error:', error);
@@ -92,12 +92,12 @@ export const registerUser = async (userData) => {
     
     // Validate required fields (only Name, Email, Password are required)
     if (!Name || !Email || !Password) {
-      throw new Error('Name, Email, and Password are required');
+      throw new APIError('Name, Email, and Password are required', 400);
     }
     
     // Validate password length (API requires <= 8 characters)
     if (Password.length > 8) {
-      throw new Error('Password length less than or equal to 8 characters');
+      throw new APIError('Password length less than or equal to 8 characters', 400);
     }
 
     
@@ -133,7 +133,28 @@ export const registerUser = async (userData) => {
     // Pass null to ensure no body is sent (not even "{}")
     const response = await post(endpoint, null);
     
-    return response;
+    // Check registration status
+    // Status: 1 - Success / 2 - Already registered / 3 - Already registered but not Activated
+    const status = response?.status || response?.Status;
+    const remarks = response?.remarks || response?.Remarks || '';
+    
+    if (status === 1) {
+      return response;
+    } else if (status === 2) {
+      throw new APIError('User already registered. Please sign in instead.', 2, response);
+    } else if (status === 3) {
+      throw new APIError('User already registered but not activated. Please check your email for activation link.', 3, response);
+    } else {
+       // If no status or unknown status, but assuming success if no explicit failure
+       // Or strictly check for status 1?
+       // Based on login logic, if not 1, it's failed.
+       if (status) {
+          throw new APIError(remarks || 'Registration failed. Please try again.', status, response);
+       }
+       // If status is missing but we got a response, it might be legacy or error in response format
+       return response;
+    }
+    
   } catch (error) {
     console.error('Registration error:', error);
     throw error;

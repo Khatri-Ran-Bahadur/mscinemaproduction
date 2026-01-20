@@ -144,7 +144,7 @@ export default function SignupPage() {
       {/* Left Side - Image (2/3 width on desktop, hidden on mobile) */}
       <div className="hidden md:block md:w-2/3 relative overflow-hidden">
         <img
-          src="/img/sing.jpg"
+          src="/img/login.jpeg"
           alt="Popcorn"
           className="w-full h-full object-cover"
         />
@@ -211,7 +211,7 @@ export default function SignupPage() {
           <div className="space-y-4">
             {/* First Name */}
             <div>
-              <label className="block text-sm text-[#D3D3D3] mb-2">Full Name</label>
+              <label className="block text-sm text-[#D3D3D3] mb-2">Full Name <span className="text-red-500">*</span></label>
               <input
                 type="text"
                 name="firstName"
@@ -224,7 +224,7 @@ export default function SignupPage() {
 
             {/* Email */}
             <div>
-              <label className="block text-sm text-[#D3D3D3] mb-2">Email</label>
+              <label className="block text-sm text-[#D3D3D3] mb-2">Email <span className="text-red-500">*</span></label>
               <input
                 type="email"
                 name="email"
@@ -237,13 +237,14 @@ export default function SignupPage() {
 
             {/* Password */}
             <div>
-              <label className="block text-sm text-[#D3D3D3] mb-2">Password</label>
+              <label className="block text-sm text-[#D3D3D3] mb-2">Password <span className="text-red-500">*</span></label>
               <div className="relative">
                 <input
                   type={showPassword ? "text" : "password"}
                   name="password"
                   placeholder="Password"
                   value={formData.password}
+                  maxLength={8}
                   onChange={handleChange}
                   className="w-full bg-[#2a2a2a] border border-[#3a3a3a] rounded px-4 py-3 text-[#FAFAFA] text-sm focus:outline-none focus:border-[#FFCA20] transition pr-12 placeholder-[#D3D3D3]/50"
                 />
@@ -312,9 +313,9 @@ export default function SignupPage() {
               />
               <label htmlFor="terms" className="text-sm text-[#D3D3D3] leading-relaxed">
                 I have read and agreed to MS cinemas{' '}
-                <Link href="#" className="text-[#FFCA20] hover:underline font-medium">Terms of Use</Link>
+                <Link href="/terms-and-conditions" className="text-[#FFCA20] hover:underline font-medium">Terms of Use</Link>
                 {' '}and{' '}
-                <Link href="#" className="text-[#FFCA20] hover:underline font-medium">Privacy Policy</Link>
+                <Link href="/privacy-policy" className="text-[#FFCA20] hover:underline font-medium">Privacy Policy</Link>
                 , and information provided is accurate.
               </label>
             </div>

@@ -121,31 +121,14 @@ export default function MovieStreamingSite() {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
-      // Now Showing: Movies released today or before
-      const nowShowing = transformedMovies.filter(movie => {
-        if (!movie.releaseDate) return false;
-        const releaseDate = new Date(movie.releaseDate.split('-').reverse().join('-'));
-        releaseDate.setHours(0, 0, 0, 0);
-        return releaseDate <= today && (movie.showType === '1' || !movie.showType);
-      });
+      // Now Showing: showType == '1'
+      const nowShowing = transformedMovies.filter(movie => movie.showType === '1');
 
-      // Advance Booking
-      const advanceBooking = transformedMovies.filter(movie => {
-        if (!movie.releaseDate) return false;
-        const releaseDate = new Date(movie.releaseDate.split('-').reverse().join('-'));
-        releaseDate.setHours(0, 0, 0, 0);
-        const daysDiff = Math.ceil((releaseDate - today) / (1000 * 60 * 60 * 24));
-        return releaseDate > today && daysDiff <= 30;
-      });
+      // Advance Booking: showType == '0'
+      const advanceBooking = transformedMovies.filter(movie => movie.showType === '0');
 
-      // Coming Soon
-      const comingSoon = transformedMovies.filter(movie => {
-        if (!movie.releaseDate) return false;
-        const releaseDate = new Date(movie.releaseDate.split('-').reverse().join('-'));
-        releaseDate.setHours(0, 0, 0, 0);
-        const daysDiff = Math.ceil((releaseDate - today) / (1000 * 60 * 60 * 24));
-        return releaseDate > today && daysDiff > 30;
-      });
+      // Coming Soon: showType == '0'
+      const comingSoon = transformedMovies.filter(movie => movie.showType === '0');
 
       // Top Rated
       const topRated = [...transformedMovies].sort((a, b) => {
@@ -554,10 +537,10 @@ export default function MovieStreamingSite() {
       </div>
 
       {/* Promotions Section */}
-      {!isLoading && <Promotions/>}
+      {/* {!isLoading && <Promotions/>} */}
 
       {/* Experience Our Hall Section */}
-      {!isLoading && <ExperienceOurHall />}
+      {/* {!isLoading && <ExperienceOurHall />} */}
 
       {/* Trailer Modal */}
       {showTrailerModal && (

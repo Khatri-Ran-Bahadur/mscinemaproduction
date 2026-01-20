@@ -371,13 +371,13 @@ export default function MyTicketsPage() {
                 <div className="container mx-auto px-6">
                     {/* Back Button and Title */}
                     <div className="mb-8">
-                        <button
+                        {/* <button
                             onClick={() => router.back()}
                             className="mb-6 text-[#FAFAFA] hover:text-[#FFCA20] flex items-center gap-2 transition"
                         >
                             <ChevronLeft className="w-5 h-5" />
                             <span>Back</span>
-                        </button>
+                        </button> */}
                         <h1 className="text-3xl md:text-4xl font-bold text-[#FAFAFA] mb-6 text-center md:text-left">
                             My tickets
                         </h1>

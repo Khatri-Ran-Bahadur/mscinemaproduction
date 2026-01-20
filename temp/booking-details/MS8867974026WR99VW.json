@@ -1,0 +1,10 @@
+{
+  "orderid": "MS8867974026WR99VW",
+  "cinemaId": "7001",
+  "showId": "33300",
+  "referenceNo": "NQLBQDY3",
+  "membershipId": "0",
+  "returnUrl": "https://mscinemas.my/molpay_return?cinemaId=7001&showId=33300&referenceNo=NQLBQDY3&membershipId=0&orderid=MS8867974026WR99VW",
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJPbmxpbmVNUyIsImp0aSI6IjBmMWQ2ODlkLTljNDYtNGRiNC1hYmRhLTg0ODUyMDU1MjRkYyIsImV4cCI6MTc2ODg3MTE2MSwiaXNzIjoiaHR0cDovL2NpbmVtYS5hcGkuY29tIiwiYXVkIjoiaHR0cDovL2NpbmVtYS5hcGkuY29tIn0._A7MZDYJnsUJ82sAQDJmyfEsyrEqKnE4nk7-Z4m-zYo",
+  "timestamp": "2026-01-20T00:12:54.028Z"
+}

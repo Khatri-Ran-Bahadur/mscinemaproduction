@@ -1433,17 +1433,17 @@ export default function SeatSelection() {
   const validateForm = () => {
     const errors = {};
     
-    if (!formData.name.trim()) {
+    if (!formData.name || !formData.name.trim()) {
       errors.name = 'Name is required';
     }
     
-    if (!formData.email.trim()) {
+    if (!formData.email || !formData.email.trim()) {
       errors.email = 'Email is required';
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       errors.email = 'Please enter a valid email address';
     }
     
-    if (!formData.mobile.trim()) {
+    if (!formData.mobile || !formData.mobile.trim()) {
       errors.mobile = 'Mobile number is required';
     }
     
@@ -1452,6 +1452,9 @@ export default function SeatSelection() {
   };
 
   const handleProceedToPayment = async () => {
+    // Clear any previous errors
+    setError('');
+    
     // Validate form
     if (!validateForm()) {
       setError('Please fill in all required fields correctly.');
@@ -1505,12 +1508,12 @@ export default function SeatSelection() {
         showId,
         lockReferenceNo,
         userId,
-        formData.email.trim(),
+        (formData.email || '').trim(),
         membershipId,
         paymentVia,
-        formData.name.trim(),
-        formData.passportNo.trim(),
-        formData.mobile.trim()
+        (formData.name || '').trim(),
+        (formData.passportNo || '').trim(),
+        (formData.mobile || '').trim()
       );
       
       // Check response - API returns {id: 0, remarks: "Failed"} or {id: 1, remarks: "Success"}
@@ -1776,7 +1779,7 @@ export default function SeatSelection() {
     );
   }
 
-  if (error || !seatGrid || Object.keys(seatGrid).length === 0) {
+  if ((!seatGrid || Object.keys(seatGrid).length === 0) && !isLoading) {
     return (
       <div className="min-h-screen bg-[#1c1c1c] text-white flex items-center justify-center">
         <div className="text-center">
@@ -1802,11 +1805,11 @@ export default function SeatSelection() {
   return (
     <div className="min-h-screen bg-[#1c1c1c] text-white pb-10">
       {/* Countdown Timer */}
-      {timerActive && lockReferenceNo && (
+      {/* {timerActive && lockReferenceNo && (
         <div className="bg-[#FFCA20] text-black px-4 py-2 text-center font-bold text-sm">
           Time remaining: {formatTimer(timeLeft)}
         </div>
-      )}
+      )} */}
       
       {/* Header */}
       <div className="relative">
@@ -2270,90 +2273,92 @@ export default function SeatSelection() {
               {/* Two Column Layout */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 p-6">
                 {/* Left Column - Form */}
-                <div className="space-y-6">
-                  <div>
-                    <h3 className="text-lg font-semibold text-white mb-4">Customer Information</h3>
-                    <div className="space-y-4">
-                      {/* Name */}
-                      <div>
-                        <label className="block text-sm font-medium text-white/80 mb-2">
-                          Name <span className="text-red-400">*</span>
-                        </label>
-                        <input
-                          type="text"
-                          value={formData.name}
-                          onChange={(e) => handleInputChange('name', e.target.value)}
-                          className={`w-full px-4 py-2.5 bg-[#2a2a2a] border rounded-lg text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-[#FFCA20] ${
-                            formErrors.name ? 'border-red-500' : 'border-[#3a3a3a]'
-                          }`}
-                          placeholder="Enter your name"
-                        />
-                        {formErrors.name && (
-                          <p className="text-xs text-red-400 mt-1">{formErrors.name}</p>
-                        )}
-                      </div>
+                  <div className="space-y-6">
+                    <div>
+                      <h3 className="text-lg font-semibold text-white mb-4">Customer Information</h3>
+                      <div className="space-y-4">
+                        {/* Name */}
+                        <div>
+                          <label className="block text-sm font-medium text-white/80 mb-2">
+                            Name <span className="text-red-400">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            name="name"
+                            value={formData.name}
+                            onChange={(e) => handleInputChange('name', e.target.value)}
+                            className={`w-full px-4 py-2.5 bg-[#2a2a2a] border rounded-lg text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-[#FFCA20] ${
+                              formErrors.name ? 'border-red-500' : 'border-[#3a3a3a]'
+                            }`}
+                            placeholder="Enter your name"
+                          />
+                          {formErrors.name && (
+                            <p className="text-xs text-red-400 mt-1">{formErrors.name}</p>
+                          )}
+                        </div>
 
-                      {/* Email */}
-                      <div>
-                        <label className="block text-sm font-medium text-white/80 mb-2">
-                          Email <span className="text-red-400">*</span>
-                        </label>
-                        <input
-                          type="email"
-                          value={formData.email}
-                          onChange={(e) => handleInputChange('email', e.target.value)}
-                          className={`w-full px-4 py-2.5 bg-[#2a2a2a] border rounded-lg text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-[#FFCA20] ${
-                            formErrors.email ? 'border-red-500' : 'border-[#3a3a3a]'
-                          }`}
-                          placeholder="Enter your email"
-                        />
-                        {formErrors.email && (
-                          <p className="text-xs text-red-400 mt-1">{formErrors.email}</p>
-                        )}
-                      </div>
+                        {/* Email */}
+                        <div>
+                          <label className="block text-sm font-medium text-white/80 mb-2">
+                            Email <span className="text-red-400">*</span>
+                          </label>
+                          <input
+                            type="email"
+                            name="email"
+                            value={formData.email}
+                            onChange={(e) => handleInputChange('email', e.target.value)}
+                            className={`w-full px-4 py-2.5 bg-[#2a2a2a] border rounded-lg text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-[#FFCA20] ${
+                              formErrors.email ? 'border-red-500' : 'border-[#3a3a3a]'
+                            }`}
+                            placeholder="Enter your email"
+                          />
+                          {formErrors.email && (
+                            <p className="text-xs text-red-400 mt-1">{formErrors.email}</p>
+                          )}
+                        </div>
 
-                    
+                        {/* Mobile */}
+                        <div>
+                          <label className="block text-sm font-medium text-white/80 mb-2">
+                            Mobile <span className="text-red-400">*</span>
+                          </label>
+                          <input
+                            type="tel"
+                            name="mobile"
+                            value={formData.mobile}
+                            onChange={(e) => handleInputChange('mobile', e.target.value)}
+                            className={`w-full px-4 py-2.5 bg-[#2a2a2a] border rounded-lg text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-[#FFCA20] ${
+                              formErrors.mobile ? 'border-red-500' : 'border-[#3a3a3a]'
+                            }`}
+                            placeholder="Enter mobile number"
+                          />
+                          {formErrors.mobile && (
+                            <p className="text-xs text-red-400 mt-1">{formErrors.mobile}</p>
+                          )}
+                        </div>
 
-                      {/* Mobile */}
-                      <div>
-                        <label className="block text-sm font-medium text-white/80 mb-2">
-                          Mobile <span className="text-red-400">*</span>
-                        </label>
-                        <input
-                          type="tel"
-                          value={formData.mobile}
-                          onChange={(e) => handleInputChange('mobile', e.target.value)}
-                          className={`w-full px-4 py-2.5 bg-[#2a2a2a] border rounded-lg text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-[#FFCA20] ${
-                            formErrors.mobile ? 'border-red-500' : 'border-[#3a3a3a]'
-                          }`}
-                          placeholder="Enter mobile number"
-                        />
-                        {formErrors.mobile && (
-                          <p className="text-xs text-red-400 mt-1">{formErrors.mobile}</p>
-                        )}
-                      </div>
-
-                      {/* Membership No */}
-                      <div>
-                        <label className="block text-sm font-medium text-white/80 mb-2">
-                          Membership No
-                        </label>
-                        <input
-                          type="text"
-                          value={formData.membershipNo}
-                          onChange={(e) => handleInputChange('membershipNo', e.target.value)}
-                          className={`w-full px-4 py-2.5 bg-[#2a2a2a] border rounded-lg text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-[#FFCA20] ${
-                            formErrors.membershipNo ? 'border-red-500' : 'border-[#3a3a3a]'
-                          }`}
-                          placeholder="Enter membership number (optional)"
-                        />
-                        {formErrors.membershipNo && (
-                          <p className="text-xs text-red-400 mt-1">{formErrors.membershipNo}</p>
-                        )}
+                        {/* Membership No */}
+                        <div>
+                          <label className="block text-sm font-medium text-white/80 mb-2">
+                            Membership No
+                          </label>
+                          <input
+                            type="text"
+                            name="membershipNo"
+                            value={formData.membershipNo}
+                            onChange={(e) => handleInputChange('membershipNo', e.target.value)}
+                            className={`w-full px-4 py-2.5 bg-[#2a2a2a] border rounded-lg text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-[#FFCA20] ${
+                              formErrors.membershipNo ? 'border-red-500' : 'border-[#3a3a3a]'
+                            }`}
+                            placeholder="Enter membership number (optional)"
+                          />
+                          {formErrors.membershipNo && (
+                            <p className="text-xs text-red-400 mt-1">{formErrors.membershipNo}</p>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
 
                 {/* Right Column - Summary */}
                 <div className="space-y-6">
@@ -2456,13 +2461,7 @@ export default function SeatSelection() {
                 </div>
               </div>
 
-                {/* Grand Total */}
-                    <div className="bg-[#FFCA20] rounded-lg p-4 mb-6">
-                <div className="flex justify-between items-center">
-                        <span className="text-base font-bold text-black">Grand Total</span>
-                        <span className="text-xl font-bold text-black">RM {priceInfo.grandTotal.toFixed(2)}</span>
-                </div>
-              </div>
+                
 
                 {/* Proceed to Payment Button */}
               <button 
@@ -2474,7 +2473,7 @@ export default function SeatSelection() {
                       : 'hover:bg-[#FFCA20]/90'
                   }`}
               >
-                      {isConfirming ? 'Processing...' : 'Proceed to Payment'}
+                      {isConfirming ? 'Processing...' : 'Proceed to Payment RM ' + priceInfo.grandTotal.toFixed(2)}
               </button>
               
               {error && (

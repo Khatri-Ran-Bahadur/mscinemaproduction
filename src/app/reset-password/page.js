@@ -217,7 +217,8 @@ export default function ResetPasswordPage() {
               <div className="relative">
                 <input
                   type={showNewPassword ? 'text' : 'password'}
-                  name="newPassword"
+                    name="newPassword"
+                    maxLength={8}
                   value={formData.newPassword}
                   onChange={handleInputChange}
                   className="w-full bg-[#2a2a2a] border border-[#3a3a3a] rounded px-4 py-3 text-[#FAFAFA] text-sm focus:outline-none focus:border-[#FFCA20] transition pr-12"
@@ -240,7 +241,8 @@ export default function ResetPasswordPage() {
               <div className="relative">
                 <input
                   type={showConfirmPassword ? 'text' : 'password'}
-                  name="confirmPassword"
+                    name="confirmPassword"
+                    maxLength={8}
                   value={formData.confirmPassword}
                   onChange={handleInputChange}
                   className="w-full bg-[#2a2a2a] border border-[#3a3a3a] rounded px-4 py-3 text-[#FAFAFA] text-sm focus:outline-none focus:border-[#FFCA20] transition pr-12"

@@ -190,14 +190,14 @@ const Header = () => {
                     background: 'linear-gradient(0deg, rgba(17, 17, 17, 0) 0%, rgba(17, 17, 17, 0.5) 29.48%, #111111 81.77%)'
                 }}
             />
-            <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between relative z-10">
+            <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-2 flex items-center justify-between relative z-10">
                 <div className="flex items-center gap-8">
                     <div className="relative">
                         <Link href="/">
                             <img 
                                 src="/img/logo.png" 
                                 alt="MS Cinemas Logo" 
-                                className="h-12 w-auto"
+                                className="h-20 w-auto sm:h-14"
                                 onError={(e) => {
                                     // Fallback to SVG if image fails to load
                                     e.target.style.display = 'none';

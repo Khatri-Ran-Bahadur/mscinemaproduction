@@ -28,12 +28,12 @@ export async function POST(request) {
       buffer
     );
 
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || '';
+    // const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || '';
     const fileUrl = `/uploads/${filename}`;
     
     return NextResponse.json({
       success: true,
-      url: baseUrl ? `${baseUrl}${fileUrl}` : fileUrl
+      url: fileUrl
     });
 
   } catch (error) {

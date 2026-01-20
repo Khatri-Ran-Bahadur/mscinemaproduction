@@ -22,6 +22,7 @@ export default function AboutContentPage() {
     address: '',
     description: '',
     image: '',
+    map_iframe: '',
   });
 
   useEffect(() => {
@@ -48,6 +49,7 @@ export default function AboutContentPage() {
           address: data.data.address || '',
           description: data.data.description || '',
           image: data.data.image || '',
+          map_iframe: data.data.map_iframe || '',
         });
       }
     } catch (error) {
@@ -256,6 +258,20 @@ export default function AboutContentPage() {
                                 placeholder="Enter full address..."
                             />
                         </div>
+                    </div>
+
+                    <div className="md:col-span-2">
+                        <label className="block text-[#D3D3D3] text-sm mb-1">Google Map Iframe</label>
+                         <div className="relative">
+                            <MapPin className="absolute left-3 top-3 w-5 h-5 text-gray-500" />
+                            <textarea
+                                value={formData.map_iframe}
+                                onChange={e => setFormData({...formData, map_iframe: e.target.value})}
+                                className="w-full bg-[#1a1a1a] border border-[#3a3a3a] text-white rounded-lg p-2.5 pl-10 focus:border-[#FFCA20] outline-none min-h-[100px] font-mono text-sm"
+                                placeholder='<iframe src="https://www.google.com/maps/embed?..." ...></iframe>'
+                            />
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">Paste the Embed HTML code from Google Maps here.</p>
                     </div>
                 </div>
             </div>

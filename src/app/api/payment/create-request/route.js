@@ -104,6 +104,10 @@ export async function POST(request) {
         if (showId) returnUrlObj.searchParams.set('showId', showId);
         if (referenceNo) returnUrlObj.searchParams.set('referenceNo', referenceNo);
         if (membershipId) returnUrlObj.searchParams.set('membershipId', membershipId);
+        
+        // Use 'orderid' (lowercase) to match MolPay standard convention
+        if (orderId) returnUrlObj.searchParams.set('orderid', orderId);
+
         finalReturnUrl = returnUrlObj.toString();
         
         // Store booking details for retrieval during callbacks
@@ -161,7 +165,7 @@ export async function POST(request) {
     const billEmail = billingEmail;
     const billMobile = billingMobile || '';
     const billDesc = billingAddress || 'Payment';
-    const amount = 1.01;//parseFloat(total_amount);
+    const amount =   parseFloat(total_amount);
 
     // Validate amount
     if (isNaN(amount) || amount <= 0) {

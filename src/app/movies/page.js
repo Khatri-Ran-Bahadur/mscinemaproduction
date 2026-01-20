@@ -90,13 +90,15 @@ export default function MoviesPage() {
     const filteredMovies = () => {
         switch (activeTab) {
             case 'now-showing':
-                return movies.filter(m => m.showType === "1" || !m.isComingSoon);
+                return movies.filter(m => m.showType === "1");
             case 'advance-booking':
-                return movies.filter(m => m.showType === "2");
+                // Show all showType 0 movies for Advance Booking
+                return movies.filter(m => m.showType === "0");
             case 'coming-soon':
-                return movies.filter(m => m.isComingSoon || m.showType === "3");
+                // Show all showType 0 movies for Coming Soon
+                return movies.filter(m => m.showType === "0");
             case 'top-rated':
-                return movies; // Could filter by rating if available
+                return movies; 
             default:
                 return movies;
         }
@@ -116,7 +118,7 @@ export default function MoviesPage() {
     };
 
     const isNewRelease = (movie) => {
-        return movie.showType === "1" || !movie.isComingSoon;
+        return movie.showType === "1";
     };
 
     if (isLoading) {
@@ -273,13 +275,13 @@ export default function MoviesPage() {
                     )}
 
                     {/* Experiences Grid */}
-                    {viewMode === 'experiences' && (
+                    {/* {viewMode === 'experiences' && (
                         <ExperiencesGrid 
                             showTitle={false}
                             columns={3}
                             showFullDescription={true}
                         />
-                    )}
+                    )} */}
                 </div>
             </div>
 

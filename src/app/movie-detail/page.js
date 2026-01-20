@@ -8,6 +8,9 @@ import Loader from '@/components/Loader';
 import SeatStatusIcon from '@/components/SeatStatusIcon';
 import { encryptId, decryptId, encryptIds, decryptIds } from '@/utils/encryption';
 
+import Header from '@/components/header';
+import Footer from '@/components/footer';
+
 // Movie Icon Component
 const MovieIcon = ({ className = '' }) => (
   <svg 
@@ -21,7 +24,7 @@ const MovieIcon = ({ className = '' }) => (
     <path 
       fillRule="evenodd" 
       clipRule="evenodd" 
-      d="M17.4992 11.875V16.875C17.4992 17.0408 17.4333 17.1997 17.3161 17.3169C17.1989 17.4342 17.04 17.5 16.8742 17.5H2.49919C2.33343 17.5 2.17446 17.4342 2.05725 17.3169C1.94004 17.1997 1.87419 17.0408 1.87419 16.875V11.875H17.4992Z" 
+      d="M17.4992 11.875V16.875C17.4992 17.0408 17.4333 17.1997 17.3161 17.3169C17.1989 17.4342 17.04 17.5 16.8742 17.5H2.49919C2.33343 17.5 2.17446 17.4342 2.05725 17.3169C1.94004 17.1997 1.87419 17.04 1.87419 16.875V11.875H17.4992Z" 
       fill="#D3D3D3"
     />
     <path 
@@ -32,7 +35,6 @@ const MovieIcon = ({ className = '' }) => (
     />
   </svg>
 );
-
 export default function MovieBooking() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -661,13 +663,15 @@ export default function MovieBooking() {
   
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-[#D3D3D3]">
+      <Header />
+      <div className="pt-20">
       {/* Header */}
       <div className="relative">
         <div className="absolute top-4 left-6 z-10">
-          <button className="flex items-center gap-1 text-[#D3D3D3] hover:text-[#FAFAFA] text-sm" onClick={handleGoBack}>
+          {/* <button className="flex items-center gap-1 text-[#D3D3D3] hover:text-[#FAFAFA] text-sm" onClick={handleGoBack}>
             <ChevronLeft className="w-4 h-4" />
             <span>Back</span>
-          </button>
+          </button> */}
         </div>
 
         {/* Breadcrumb - Hidden on mobile, visible on md+ */}
@@ -818,10 +822,10 @@ export default function MovieBooking() {
 
         {/* Select Cinema & Time */}
         <div className="mb-8 px-6 md:px-8">
-          <h2 className="text-sm font-semibold mb-4 text-[#FAFAFA]">Select cinema & Time</h2>
+          <h2 className="text-sm font-semibold mb-4 text-[#FAFAFA]">Select Time</h2>
           
           {/* Seat Availability Legend */}
-          <div className="flex items-center gap-4 md:gap-6 mb-4 flex-wrap text-xs">
+          {/* <div className="flex items-center gap-4 md:gap-6 mb-4 flex-wrap text-xs">
             <div className="flex items-center gap-2">
               <SeatStatusIcon status="available" />
               <span className="text-green-500">Available</span>
@@ -834,7 +838,7 @@ export default function MovieBooking() {
               <SeatStatusIcon status="sold-out" />
               <span className="text-red-500">Sold out</span>
             </div>
-          </div>
+          </div> */}
 
           {/* Error Message */}
           {error && (
@@ -852,33 +856,9 @@ export default function MovieBooking() {
           {/* Cinema Location Card */}
           {
           <div className="bg-[#1a1a1a] rounded-lg p-6 border border-[#2a2a2a]">
-              {cinemasList.length > 0 ? (
-                cinemasList.map((cinema, index) => (
-                  <div key={cinema.id || cinema.cinemaId || `cinema-${index}`}>
-                    <div className="flex items-center gap-2 mb-5">
-                      <div className="flex-shrink-0">
-                        <MovieIcon />
-                      </div>
-                      <span className="text-sm text-[#FAFAFA]">
-                        {cinema.displayName} - <span dangerouslySetInnerHTML={{ __html: cinema.address }} />
-                      </span>
-                    </div>
-                  </div>
-                ))
-              ) : (
-            <div className="flex items-center gap-2 mb-5">
-              <div className="flex-shrink-0">
-                <MovieIcon />
-              </div>
-                  <span className="text-sm text-[#FAFAFA]">
-                    No cinemas available
-                  </span>
-            </div>
-              )}
-
             {/* Showtimes Grid */}
               {filteredShowTimes.length > 0 ? (
-                <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3 mb-6">
                   {filteredShowTimes.map((show, idx) => {
                     // Determine if show is available for selection
                     // Only available if: sellingStatus = 0 AND allowOnlineSales = true
@@ -918,7 +898,7 @@ export default function MovieBooking() {
                   })}
                 </div>
               ) : (
-                <div className="text-center text-gray-400 py-8">
+                <div className="text-center text-gray-400 py-8 mb-6">
                   {selectedDateObj 
                     ? `No show times available for ${selectedDateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
                     : 'No show times available for this cinema.'
@@ -926,6 +906,33 @@ export default function MovieBooking() {
                   
                 </div>
               )}
+
+              {/* Cinema Location Details */}
+              <div className="border-t border-[#2a2a2a] pt-4">
+                {cinemasList.length > 0 ? (
+                  cinemasList.map((cinema, index) => (
+                    <div key={cinema.id || cinema.cinemaId || `cinema-${index}`}>
+                      <div className="flex items-center gap-2">
+                        <div className="flex-shrink-0">
+                          <MovieIcon />
+                        </div>
+                        <span className="text-sm text-[#FAFAFA]">
+                          {cinema.displayName} - <span dangerouslySetInnerHTML={{ __html: cinema.address }} />
+                        </span>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <div className="flex-shrink-0">
+                      <MovieIcon />
+                    </div>
+                    <span className="text-sm text-[#FAFAFA]">
+                      No cinemas available
+                    </span>
+                  </div>
+                )}
+              </div>
             </div>
           }
         </div>
@@ -1076,6 +1083,8 @@ export default function MovieBooking() {
       {showTimeRestrictionModal && (
         <TimeRestrictionModal />
       )}
+      </div>
+      <Footer />
     </div>
   );
 }
@@ -1103,7 +1112,9 @@ function AgeConfirmationModal({ onConfirm, onClose }) {
         <div className="p-6">
           {/* Icon Circle */}
           <div className="flex justify-center mb-6">
-            <div className="w-32 h-32 bg-[#3a3a3a] rounded-full"></div>
+            <div >
+             <img src="/img/ageimages.png" alt="Age Confirmation" />
+            </div>
           </div>
 
           {/* Age Confirmation Text */}

@@ -7,6 +7,8 @@ import { shows, movies, cinemas } from '@/services/api';
 import { APIError } from '@/services/api';
 import Loader from '@/components/Loader';
 import { encryptId, decryptId, encryptIds, decryptIds } from '@/utils/encryption';
+import Header from '@/components/header';
+import Footer from '@/components/footer';
 
 export default function TicketSelection() {
   const router = useRouter();
@@ -409,13 +411,15 @@ export default function TicketSelection() {
 
   return (
     <div className="min-h-screen bg-[#1c1c1c] text-white pb-10">
+      <Header />
+      <div className="pt-20">
       {/* Header */}
       <div className="relative">
         <div className="absolute top-5 left-5 z-10">
-          <button className="flex items-center gap-2 text-white/70 hover:text-white text-sm" onClick={handleGoBack}>
+          {/* <button className="flex items-center gap-2 text-white/70 hover:text-white text-sm" onClick={handleGoBack}>
             <ChevronLeft className="w-4 h-4" />
             <span>Back</span>
-          </button>
+          </button> */}
         </div>
 
         {/* Breadcrumb */}
@@ -635,6 +639,8 @@ export default function TicketSelection() {
           </div>
         </div>
       )}
+      </div>
+      <Footer />
     </div>
   );
 }

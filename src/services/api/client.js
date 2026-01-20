@@ -133,6 +133,8 @@ const getUserFriendlyErrorMessage = (status, responseData = null) => {
     const errorMessage = 
       responseData.message || 
       responseData.Message ||
+      responseData.remarks ||
+      responseData.Remarks ||
       responseData.error || 
       responseData.Error ||
       responseData.errorMessage ||

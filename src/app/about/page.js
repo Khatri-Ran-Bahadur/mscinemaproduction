@@ -38,8 +38,9 @@ export default async function AboutUsPage() {
     const getValidUrl = (path) => {
         if (!path) return '';
         if (path.startsWith('http')) return path;
-        if (path.startsWith('/')) return `${baseUrl}${path}`;
-        return path;
+        // For local relative paths, ensure they start with /
+        if (path.startsWith('/')) return path;
+        return `/${path}`;
     };
 
     const content = await getAboutContent();
@@ -144,7 +145,7 @@ export default async function AboutUsPage() {
                                     {main.title}
                                 </h2>
                                 <div 
-                                    className="prose prose-invert max-w-none text-[#D3D3D3] leading-relaxed text-lg prose-p:mb-4 prose-headings:text-[#FFCA20]"
+                                    className="prose prose-invert max-w-none text-[#D3D3D3] leading-relaxed text-lg prose-p:mb-4 prose-headings:text-[#FFCA20] w-full overflow-hidden break-words [&>img]:max-w-full [&>img]:h-auto"
                                     dangerouslySetInnerHTML={{ __html: main.content }}
                                 />
                             </div>

@@ -59,39 +59,56 @@ function verifyReturnSignature(data) {
       return false;
     }
 
-    // Step 1: Calculate key0 = md5(tranID + orderid + status + domain + amount + currency)
-    // IMPORTANT: Use exact values as received, no trimming or modification
-    const key0String = `${tranID}${orderid}${status}${domain}${amount}${currency}`;
-    const key0 = crypto.createHash('md5').update(key0String, 'utf8').digest('hex');
+    // Helper to check skey against a candidate key
+    const checkSignature = (keyName, keySecret, useCurrency = true) => {
+      // Step 1: Calculate key0
+      // Standard: md5(tranID + orderid + status + domain + amount + currency)
+      // Legacy/Single: md5(tranID + orderid + status + domain + amount)
+      let key0String = `${tranID}${orderid}${status}${domain}${amount}`;
+      if (useCurrency) {
+        key0String += currency;
+      }
+      const key0 = crypto.createHash('md5').update(key0String, 'utf8').digest('hex');
 
-    // Step 2: Calculate key1 = md5(paydate + domain + key0 + appcode + vkey)
-    // IMPORTANT: WordPress plugin uses secret_key for verification, not verify_key
-    // Using secret_key to match WordPress plugin behavior
-    const vkey = RMS_CONFIG.secretKey; // Use secret_key like WordPress plugin
-    const key1String = `${paydate}${domain}${key0}${appcode}${vkey}`;
-    const key1 = crypto.createHash('md5').update(key1String, 'utf8').digest('hex');
+      // Step 2: Calculate key1 = md5(paydate + domain + key0 + appcode + vkey)
+      const key1String = `${paydate}${domain}${key0}${appcode}${keySecret}`;
+      const key1 = crypto.createHash('md5').update(key1String, 'utf8').digest('hex');
 
-    // Step 3: Compare (PHP uses case-sensitive comparison: $skey != $key1)
-    // However, some MOLPay implementations use case-insensitive, so we check both
-    const isValid = skey === key1;
-    const isValidCaseInsensitive = skey.toLowerCase() === key1.toLowerCase();
-    
-    // Use case-insensitive if it matches (some MOLPay configurations require this)
-    const finalIsValid = isValid || isValidCaseInsensitive;
-    
-    if (!isValid) {
-      console.error('[MOLPay Return] Signature mismatch', {
-        received: skey,
-        expected: key1,
-        caseInsensitiveMatch: isValidCaseInsensitive
-      });
+      if (skey === key1) return { match: true, method: 'exact' };
+      if (skey.toLowerCase() === key1.toLowerCase()) return { match: true, method: 'case-insensitive' };
+      return { match: false, expected: key1 };
+    };
+
+    // Attempt 1: Standard Config (Key = SecretKey, Currency = Yes)
+    let result = checkSignature('SecretKey', RMS_CONFIG.secretKey, true);
+    if (result.match) {
+      console.log(`[MOLPay Return] Signature verified using SecretKey (${result.method})`);
+      return true;
     }
-    
-    if (!isValid && isValidCaseInsensitive) {
-      console.warn('[MOLPay Return] Case-sensitive verification failed, but case-insensitive matches');
+
+    // Attempt 2: Swapped Keys (Key = VerifyKey, Currency = Yes)
+    // Common mistake: user swaps verify and secret keys
+    const result2 = checkSignature('VerifyKey', RMS_CONFIG.verifyKey, true);
+    if (result2.match) {
+      console.log(`[MOLPay Return] Signature verified using VerifyKey (${result2.method}) - Keys may be swapped in .env`);
+      return true;
     }
-    
-    return finalIsValid;
+
+    // Attempt 3: Legacy/Single Currency (Key = SecretKey, Currency = No)
+    const result3 = checkSignature('SecretKey_NoCur', RMS_CONFIG.secretKey, false);
+    if (result3.match) {
+      console.log(`[MOLPay Return] Signature verified using SecretKey without Currency (${result3.method})`);
+      return true;
+    }
+
+    console.error('[MOLPay Return] Signature verification failed on all attempts.', {
+      received: skey,
+      expectedStandard: result.expected,
+      expectedSwap: result2.expected,
+      expectedNoCur: result3.expected
+    });
+
+    return false;
   } catch (error) {
     console.error('[MOLPay Return] Error verifying return signature:', error);
     return false;
@@ -475,6 +492,33 @@ export async function POST(request) {
   return handleReturn(request);
 }
 
+// Helper to write debug logs to file
+async function writeDebugLog(filename, data) {
+  try {
+    const fs = await import('fs');
+    const path = await import('path');
+    const logsDir = path.join(process.cwd(), 'public', 'payment-logs');
+    
+    if (!fs.existsSync(logsDir)) {
+      fs.mkdirSync(logsDir, { recursive: true });
+    }
+    
+    const logFile = path.join(logsDir, filename);
+    const logEntry = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+    
+    // Append if file exists, otherwise create
+    if (fs.existsSync(logFile)) {
+        fs.appendFileSync(logFile, '\n\n' + '--- ' + new Date().toISOString() + ' ---\n' + logEntry);
+    } else {
+        fs.writeFileSync(logFile, '--- ' + new Date().toISOString() + ' ---\n' + logEntry);
+    }
+    
+    console.log(`[MOLPay Debug] Log written to ${filename}`);
+  } catch (error) {
+    console.error('[MOLPay Debug] Failed to write log:', error);
+  }
+}
+
 async function handleReturn(request) {
   let orderid = 'unknown';
   
@@ -503,31 +547,43 @@ async function handleReturn(request) {
       // Not form data, continue
     }
 
-    // Get actual URL from headers (fix localhost issue)
+    // Capture Request details
     const host = request.headers.get('x-forwarded-host') || request.headers.get('host') || 'unknown';
     // Always use HTTPS for production - Cloudflare handles SSL termination
-    // Check cf-visitor header first (most reliable for Cloudflare)
     let protocol = 'https';
     const cfVisitor = request.headers.get('cf-visitor');
     if (cfVisitor) {
       try {
         const visitor = JSON.parse(cfVisitor);
         if (visitor.scheme) {
-          protocol = visitor.scheme; // Should be 'https' from Cloudflare
+          protocol = visitor.scheme;
         }
-      } catch (e) {
-        // Ignore parse error, use https as default
-      }
+      } catch (e) {}
     } else {
-      // Fallback: Check x-forwarded-proto, but prefer https for production
       const forwardedProto = request.headers.get('x-forwarded-proto');
-      protocol = forwardedProto === 'https' ? 'https' : 'https'; // Force HTTPS for production
+      protocol = forwardedProto === 'https' ? 'https' : 'https';
     }
     const actualUrl = `${protocol}://${host}`;
-    orderid = returnData.orderid || 'unknown';
     
-    // Logging raw data disabled for production performance
-    // console.log(`[MOLPay Return] Order ID: ${orderid}`);
+    orderid = returnData.orderid || `unknown_${Date.now()}`;
+
+    // Debug Log: Incoming Request (Comprehensive)
+    // const logFilename = `debug-${orderid}.log`;
+    // await writeDebugLog(logFilename, {
+    //     stage: 'INCOMING_REQUEST_FULL',
+    //     method: request.method,
+    //     url: request.url,
+    //     headers: {
+    //         'content-type': request.headers.get('content-type'),
+    //         'host': host,
+    //         'user-agent': request.headers.get('user-agent'),
+    //         'x-forwarded-for': request.headers.get('x-forwarded-for'),
+    //         'x-forwarded-proto': request.headers.get('x-forwarded-proto'),
+    //         'cf-visitor': request.headers.get('cf-visitor'),
+    //     },
+    //     returnData,
+    //     rawPostData
+    // });
 
     // ============================================
     // STEP 2: Extract all fields (like PHP)
@@ -562,12 +618,50 @@ async function handleReturn(request) {
     // ============================================
     const isValidSignature = verifyReturnSignature(returnData);
     
-    // If signature is invalid, set status to -1 (like PHP: if( $skey != $key1 ) $status= -1)
+    // If signature is invalid, attempt DB fallback (Backend Callback might have already succeeded)
     let finalStatus = status;
     if (!isValidSignature) {
-      finalStatus = '-1'; // Invalid transaction
-      console.error('[MOLPay Return] Invalid signature - Status set to -1');
+       console.warn('[MOLPay Return] Signature validation failed. Checking DB for successful payment...');
+       
+       let dbVerified = false;
+       // Fallback: Check DB if we have a valid order ID
+       if (orderid && orderid !== 'unknown' && !orderid.startsWith('unknown_')) {
+           try {
+              const successfulOrder = await prisma.order.findUnique({
+                  where: { orderId: orderid }
+              });
+              
+              // Check if order is already paid/confirmed
+              if (successfulOrder && (successfulOrder.paymentStatus === 'PAID' || successfulOrder.status === 'CONFIRMED')) {
+                  console.log(`[MOLPay Return] Signature failed but Order ${orderid} is PAID in DB. Accepting as SUCCESS.`);
+                  finalStatus = '00'; // Override to Success
+                  dbVerified = true;
+                  
+                  // If we need missing params (like tranID) for logging/next steps, we can pull them from DB if saved
+                  if (!returnData.tranID && successfulOrder.transactionNo) {
+                      returnData.tranID = successfulOrder.transactionNo;
+                  }
+              }
+           } catch (dbErr) {
+              console.error('[MOLPay Return] DB Fallback Check Error:', dbErr);
+           }
+       }
+
+       if (!dbVerified) {
+          finalStatus = '-1'; // Invalid transaction
+          console.error('[MOLPay Return] Invalid signature and DB check failed/skipped - Status set to -1');
+       }
     }
+
+    // LOG: Verification Result
+    // await writeDebugLog(logFilename, {
+    //     stage: 'SIGNATURE_VERIFICATION',
+    //     isValidSignature,
+    //     status: finalStatus,
+    //     verificationParams: {
+    //          tranID, orderid: orderidParam, status, domain, amount, currency, appcode, paydate, skey
+    //     }
+    // });
 
     // ============================================
     // STEP 4: Process based on status (like PHP)
@@ -576,9 +670,19 @@ async function handleReturn(request) {
       // Payment successful (like PHP: if ( $status == "00" ))
       // REQUIRED: Call ReserveBooking API - MUST succeed before redirecting
       console.log('[MOLPay Return] ===== PAYMENT SUCCESS - Calling ReserveBooking =====');
+      
+      // await writeDebugLog(logFilename, {
+      //   stage: 'PAYMENT_SUCCESS',
+      //   action: 'Calling ReserveBooking',
+      //   params: { orderid, tranID, channel, appcode }
+      // });
+
       const reserveResult = await callReserveBooking(orderid, tranID, channel, appcode, returnData);
       
-      // Debug logging disabled for performance
+      // await writeDebugLog(logFilename, {
+      //   stage: 'RESERVE_BOOKING_RESULT',
+      //   result: reserveResult
+      // });
       
       if (!reserveResult.success) {
         // ReserveBooking failed
@@ -637,30 +741,11 @@ async function handleReturn(request) {
     } else if (finalStatus === '11') {
       // Payment pending
       console.log('[MOLPay Return] ===== PAYMENT PENDING - Calling CancelBooking =====');
+      // await writeDebugLog(logFilename, {
+      //   stage: 'PAYMENT_PENDING',
+      //   status: finalStatus
+      // });
       const cancelResult = await callCancelBooking(orderid, tranID, channel, 'Payment is pending', returnData);
-      
-      // Save debug log
-      try {
-        const fs = await import('fs');
-        const path = await import('path');
-        const logsDir = path.join(process.cwd(), 'public', 'payment-logs');
-        if (!fs.existsSync(logsDir)) {
-          fs.mkdirSync(logsDir, { recursive: true });
-        }
-        const logFile = path.join(logsDir, `molpay-return-${Date.now()}-${orderid}-pending.json`);
-        fs.writeFileSync(logFile, JSON.stringify({
-          timestamp: new Date().toISOString(),
-          orderid,
-          status: finalStatus,
-          paymentPending: true,
-          cancelBookingResult: cancelResult,
-          returnData: returnData,
-          rawPostData: rawPostData
-        }, null, 2), 'utf8');
-        console.log(`[MOLPay Return] Debug log saved: ${logFile}`);
-      } catch (logError) {
-        console.warn('[MOLPay Return] Failed to save debug log:', logError.message);
-      }
       
       // Return response based on callback status
       if (isCallback) {
@@ -673,31 +758,12 @@ async function handleReturn(request) {
       // Payment failed or invalid signature
       const errorMessage = error_desc || `Payment failed with status: ${finalStatus}`;
       console.log('[MOLPay Return] ===== PAYMENT FAILED - Calling CancelBooking =====');
+      //  await writeDebugLog(logFilename, {
+      //   stage: 'PAYMENT_FAILED',
+      //   status: finalStatus,
+      //   errorMessage
+      // });
       const cancelResult = await callCancelBooking(orderid, tranID, channel, errorMessage, returnData);
-      
-      // Save debug log
-      try {
-        const fs = await import('fs');
-        const path = await import('path');
-        const logsDir = path.join(process.cwd(), 'public', 'payment-logs');
-        if (!fs.existsSync(logsDir)) {
-          fs.mkdirSync(logsDir, { recursive: true });
-        }
-        const logFile = path.join(logsDir, `molpay-return-${Date.now()}-${orderid}-failed.json`);
-        fs.writeFileSync(logFile, JSON.stringify({
-          timestamp: new Date().toISOString(),
-          orderid,
-          status: finalStatus,
-          paymentFailed: true,
-          errorMessage: errorMessage,
-          cancelBookingResult: cancelResult,
-          returnData: returnData,
-          rawPostData: rawPostData
-        }, null, 2), 'utf8');
-        console.log(`[MOLPay Return] Debug log saved: ${logFile}`);
-      } catch (logError) {
-        console.warn('[MOLPay Return] Failed to save debug log:', logError.message);
-      }
       
       // Return response based on callback status
       if (isCallback) {

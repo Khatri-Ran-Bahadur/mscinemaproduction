@@ -296,9 +296,9 @@ async function handleRequest(request, method) {
       );
     }
 
-    // If response is not OK and data doesn't have error/message fields, add user-friendly error
+    // If response is not OK and data doesn't have error/message/remarks fields, add user-friendly error
     if (!response.ok && data) {
-      if (!data.error && !data.message) {
+      if (!data.error && !data.message && !data.remarks && !data.Remarks) {
         const errorMessage = getUserFriendlyErrorFromStatus(response.status);
         data.error = errorMessage;
         data.message = errorMessage;

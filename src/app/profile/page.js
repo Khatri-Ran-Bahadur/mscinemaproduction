@@ -6,6 +6,8 @@ import Link from 'next/link';
 import { User, Mail, Phone, CreditCard, Calendar, LogOut, ArrowLeft, Edit, Lock, X } from 'lucide-react';
 import { getUserData, removeToken, removeUserData, setUserData as updateUserDataStorage } from '@/utils/storage';
 import { auth } from '@/services/api';
+import Header from '@/components/header';
+import Footer from '@/components/footer';
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -242,16 +244,17 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#1c1c1c] text-white pt-20 pb-10">
-      <div className="container mx-auto px-4 max-w-4xl">
+    <div className="min-h-screen bg-[#1c1c1c] text-white">
+      <Header />
+      <div className="container mx-auto px-4 max-w-4xl pt-24 pb-16">
         {/* Back Button */}
-        <Link
+        {/* <Link
           href="/"
           className="inline-flex items-center gap-2 text-[#D3D3D3] hover:text-[#FFCA20] transition mb-6"
         >
           <ArrowLeft className="w-5 h-5" />
           <span>Back to Home</span>
-        </Link>
+        </Link> */}
 
         {/* Profile Header */}
         <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg p-6 mb-6">
@@ -343,20 +346,7 @@ export default function ProfilePage() {
                   {errors.name && <p className="text-red-400 text-sm mt-1">{errors.name}</p>}
                 </div>
               </div>
-              {/* Email */}
-              <div className="flex items-start gap-4 pb-4 border-b border-[#2a2a2a]">
-                <Mail className="w-5 h-5 text-[#FFCA20] mt-1 flex-shrink-0" />
-                <div className="flex-1">
-                  <label className="text-sm text-[#D3D3D3] mb-1 block">Email *</label>
-                  <input
-                    type="email"
-                    value={editFormData.email}
-                    onChange={(e) => handleEditInputChange('email', e.target.value)}
-                    className="w-full px-4 py-2 bg-[#2a2a2a] border border-[#3a3a3a] rounded-lg text-[#FAFAFA] focus:outline-none focus:border-[#FFCA20]"
-                  />
-                  {errors.email && <p className="text-red-400 text-sm mt-1">{errors.email}</p>}
-                </div>
-              </div>
+              
 
               {/* Mobile */}
               <div className="flex items-start gap-4 pb-4 border-b border-[#2a2a2a]">
@@ -475,7 +465,33 @@ export default function ProfilePage() {
                   <Calendar className="w-5 h-5 text-[#FFCA20] mt-1 flex-shrink-0" />
                   <div className="flex-1">
                     <label className="text-sm text-[#D3D3D3] mb-1 block">Last Login</label>
-                    <p className="text-[#FAFAFA]">{new Date(userData.lastLogin).toLocaleString()}</p>
+                    <p className="text-[#FAFAFA]">
+                      {(() => {
+                        try {
+                          if (!userData.lastLogin) return 'N/A';
+                          // Replace space with T for partial ISO 8601 (works in most modern browsers)
+                          let date = new Date(userData.lastLogin.replace(' ', 'T'));
+                          
+                          // Fallback for Safari/others: try replacing dashes with slashes if invalid
+                          if (isNaN(date.getTime())) {
+                            date = new Date(userData.lastLogin.replace(/-/g, '/'));
+                          }
+                          
+                          if (isNaN(date.getTime())) return userData.lastLogin;
+                          
+                          return date.toLocaleString('en-US', {
+                            day: 'numeric',
+                            month: 'short',
+                            year: 'numeric',
+                            hour: 'numeric',
+                            minute: '2-digit',
+                            hour12: true
+                          });
+                        } catch (e) {
+                          return userData.lastLogin;
+                        }
+                      })()}
+                    </p>
                   </div>
                 </div>
               )}
@@ -510,6 +526,7 @@ export default function ProfilePage() {
                 <input
                   type="password"
                   value={passwordFormData.oldPassword}
+                  maxLength={8}
                   onChange={(e) => handlePasswordInputChange('oldPassword', e.target.value)}
                   className="w-full px-4 py-2 bg-[#2a2a2a] border border-[#3a3a3a] rounded-lg text-[#FAFAFA] focus:outline-none focus:border-[#FFCA20]"
                   placeholder="Enter current password"
@@ -522,6 +539,7 @@ export default function ProfilePage() {
                 <input
                   type="password"
                   value={passwordFormData.newPassword}
+                  maxLength={8}
                   onChange={(e) => handlePasswordInputChange('newPassword', e.target.value)}
                   className="w-full px-4 py-2 bg-[#2a2a2a] border border-[#3a3a3a] rounded-lg text-[#FAFAFA] focus:outline-none focus:border-[#FFCA20]"
                   placeholder="Enter new password (max 8 characters)"
@@ -536,6 +554,7 @@ export default function ProfilePage() {
                 <input
                   type="password"
                   value={passwordFormData.confirmPassword}
+                  maxLength={8}
                   onChange={(e) => handlePasswordInputChange('confirmPassword', e.target.value)}
                   className="w-full px-4 py-2 bg-[#2a2a2a] border border-[#3a3a3a] rounded-lg text-[#FAFAFA] focus:outline-none focus:border-[#FFCA20]"
                   placeholder="Confirm new password"
@@ -604,6 +623,7 @@ export default function ProfilePage() {
           </div>
         </div>
       </div>
+      <Footer />
     </div>
   );
 }

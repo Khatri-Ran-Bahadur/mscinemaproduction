@@ -25,6 +25,7 @@ export default function PaymentPage() {
   // Using images from public/images folder
   const paymentMethods = [
     // E-wallets
+    { channel: 'creditAN', name: 'Visa', image: '/images/payment-credit.jpg', tcctype: 'SALS' },
     { channel: 'WeChatPayMY', name: 'WeChat Pay', image: '/images/wechatpay.png' },
     { channel: 'alipay', name: 'Alipay', image: '/images/alipay.png' },
     
@@ -40,7 +41,7 @@ export default function PaymentPage() {
     { channel: 'fpx_mb2u', name: 'MayBank', image: '/images/payment-m2u.jpg' },
     
     // Credit/Debit Cards
-    { channel: 'creditAN', name: 'Visa', image: '/images/payment-credit.jpg', tcctype: 'SALS' },
+    
     
     // E-wallets (continued)
     { channel: 'BOOST', name: 'Boost', image: '/images/boost.png' }, // Using credit card as placeholder until Boost image is added

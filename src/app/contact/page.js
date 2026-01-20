@@ -11,8 +11,13 @@ export default function ContactPage() {
     name: '',
     email: '',
     phone: '',
+    email: '',
+    phone: '',
     subject: '',
+    message: ''
   });
+  
+  const [isHumanVerified, setIsHumanVerified] = useState(false);
 
   const [status, setStatus] = useState('idle'); // idle, submitting, success, error
 
@@ -74,6 +79,12 @@ export default function ContactPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    if (!isHumanVerified) {
+        alert('Please confirm you are not a robot.');
+        return;
+    }
+    
     setStatus('submitting');
     
     try {
@@ -88,6 +99,7 @@ export default function ContactPage() {
       if (res.ok) {
         setStatus('success');
         setFormData({ name: '', email: '', phone: '', subject: '', message: '' });
+        setIsHumanVerified(false);
       } else {
         throw new Error(data.error || 'Something went wrong');
       }
@@ -219,6 +231,19 @@ export default function ContactPage() {
                        placeholder="Tell us more about your inquiry..."
                      />
                   </div>
+
+                  <div className="flex items-center gap-3 bg-[#1a1a1a] p-4 rounded-lg border border-white/10">
+                      <input 
+                          type="checkbox" 
+                          id="robotCheck"
+                          checked={isHumanVerified}
+                          onChange={(e) => setIsHumanVerified(e.target.checked)}
+                          className="w-5 h-5 accent-[#FFCA20] cursor-pointer"
+                      />
+                      <label htmlFor="robotCheck" className="text-gray-300 cursor-pointer select-none">
+                          I am not a robot
+                      </label>
+                  </div>
                   
                   {status === 'error' && (
                     <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-lg flex items-center gap-3 text-red-400">
@@ -249,6 +274,19 @@ export default function ContactPage() {
             </div>
 
           </div>
+
+          {/* Map Section */}
+          {contactInfos.find(info => info.type === 'map_iframe') && (
+              <div className="mt-16 bg-[#222] p-2 rounded-xl border border-white/5 overflow-hidden">
+                  <div 
+                      className="w-full h-[400px] rounded-lg overflow-hidden [&>iframe]:w-full [&>iframe]:h-full"
+                      dangerouslySetInnerHTML={{ 
+                          __html: contactInfos.find(info => info.type === 'map_iframe').value 
+                      }}
+                  />
+              </div>
+          )}
+
         </div>
       </div>
 
