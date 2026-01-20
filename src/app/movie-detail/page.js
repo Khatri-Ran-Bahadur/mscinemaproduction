@@ -891,8 +891,8 @@ export default function MovieBooking() {
                               : 'Sold out')
                           : 'Available'}
                       >
-                        <div className="text-sm font-semibold">{show.time}</div>
-                        <div className="text-xs mt-1 opacity-70">{show.hallName || 'HALL - 1'}</div>
+                        <div className="text-md font-semibold">{show.time}</div>
+                        <div className="text-sm mt-1 opacity-70">{show.hallName || 'HALL - 1'}</div>
                       </button>
                     );
                   })}

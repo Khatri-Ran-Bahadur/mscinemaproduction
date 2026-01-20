@@ -129,7 +129,8 @@ export default function ContactPage() {
             <div className="space-y-8">
                <h2 className="text-2xl font-semibold mb-6">Get in Touch</h2>
                
-               {contactInfos.map((info, index) => (
+               {contactInfos.slice(0, 2).map((info, index) => index>3 ?? (
+                
                  <div key={index} className="flex items-start gap-4 p-6 bg-[#222] rounded-xl border border-white/5 hover:border-[#FFCA20]/50 transition-colors">
                    <div className="bg-[#FFCA20]/10 p-3 rounded-lg text-[#FFCA20]">
                       {getIcon(info.icon)}
