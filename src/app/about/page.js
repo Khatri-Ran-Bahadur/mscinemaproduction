@@ -157,7 +157,7 @@ export default async function AboutUsPage() {
                 <div className="py-16">
                     <div className="container mx-auto px-6">
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            {contactInfos.map((info) => {
+                            {contactInfos.slice(0,3).map((info) => {
                                 const IconComponent = getIcon(info.icon || info.type);
                                 return (
                                     <div key={info.id} className="bg-[#2a2a2a] rounded-xl p-6 border border-[#3a3a3a] hover:border-[#FFCA20] transition group">
