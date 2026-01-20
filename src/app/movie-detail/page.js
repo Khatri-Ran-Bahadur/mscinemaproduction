@@ -735,7 +735,7 @@ export default function MovieBooking() {
         </div>
       </div>
 
-      {movieDetails ? (
+      {movieDetails && availableDates.length > 0 ? (
         <div className="mt-8">
         {/* Select Date */}
         <div className="mb-8 px-6 md:px-8">

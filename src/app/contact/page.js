@@ -5,6 +5,7 @@ import React, { useState, useEffect } from 'react';
 import Header from '@/components/header';
 import Footer from '@/components/footer';
 import { Mail, Phone, MapPin, Send, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
+import ReCAPTCHA from "react-google-recaptcha";
 
 export default function ContactPage() {
   const [formData, setFormData] = useState({
@@ -17,7 +18,7 @@ export default function ContactPage() {
     message: ''
   });
   
-  const [isHumanVerified, setIsHumanVerified] = useState(false);
+  const [recaptchaValue, setRecaptchaValue] = useState(null);
 
   const [status, setStatus] = useState('idle'); // idle, submitting, success, error
 
@@ -80,7 +81,7 @@ export default function ContactPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (!isHumanVerified) {
+    if (!recaptchaValue) {
         alert('Please confirm you are not a robot.');
         return;
     }
@@ -99,7 +100,7 @@ export default function ContactPage() {
       if (res.ok) {
         setStatus('success');
         setFormData({ name: '', email: '', phone: '', subject: '', message: '' });
-        setIsHumanVerified(false);
+        setRecaptchaValue(null);
       } else {
         throw new Error(data.error || 'Something went wrong');
       }
@@ -233,17 +234,12 @@ export default function ContactPage() {
                      />
                   </div>
 
-                  <div className="flex items-center gap-3 bg-[#1a1a1a] p-4 rounded-lg border border-white/10">
-                      <input 
-                          type="checkbox" 
-                          id="robotCheck"
-                          checked={isHumanVerified}
-                          onChange={(e) => setIsHumanVerified(e.target.checked)}
-                          className="w-5 h-5 accent-[#FFCA20] cursor-pointer"
+                  <div className="flex justify-center md:justify-start">
+                      <ReCAPTCHA
+                          sitekey={process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY}
+                          onChange={(val) => setRecaptchaValue(val)}
+                          theme="dark"
                       />
-                      <label htmlFor="robotCheck" className="text-gray-300 cursor-pointer select-none">
-                          I am not a robot
-                      </label>
                   </div>
                   
                   {status === 'error' && (

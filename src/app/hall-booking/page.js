@@ -5,6 +5,7 @@ import Header from '@/components/header';
 import Footer from '@/components/footer';
 import { X, Calendar, ChevronDown } from 'lucide-react';
 import { getUserData } from '@/utils/storage';
+import ReCAPTCHA from "react-google-recaptcha";
 
 export default function BookHallPage() {
     const [activeTab, setActiveTab] = useState('All');
@@ -21,6 +22,7 @@ export default function BookHallPage() {
     });
     const [errors, setErrors] = useState({});
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [recaptchaValue, setRecaptchaValue] = useState(null);
 
     // Pre-fill form with user data if logged in
     const handleOpenModal = () => {
@@ -89,6 +91,13 @@ export default function BookHallPage() {
 
         if (Object.keys(newErrors).length > 0) {
             setErrors(newErrors);
+            setIsSubmitting(false);
+            return;
+        }
+
+
+        if (!recaptchaValue) {
+            setErrors(prev => ({ ...prev, recaptcha: 'Please confirm you are not a robot' }));
             setIsSubmitting(false);
             return;
         }
@@ -429,6 +438,19 @@ export default function BookHallPage() {
                                 />
                                 {errors.numberOfPeople && <p className="text-red-400 text-sm mt-1">{errors.numberOfPeople}</p>}
                             </div>
+
+                            {/* ReCAPTCHA */}
+                            <div className="flex justify-center sm:justify-start mb-4">
+                                <ReCAPTCHA
+                                    sitekey={process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY}
+                                    onChange={(val) => {
+                                        setRecaptchaValue(val);
+                                        if (val) setErrors(prev => ({ ...prev, recaptcha: null }));
+                                    }}
+                                    theme="dark"
+                                />
+                            </div>
+                            {errors.recaptcha && <p className="text-red-400 text-sm mt-1 mb-4">{errors.recaptcha}</p>}
 
                             {/* Submit Button */}
                             <button
