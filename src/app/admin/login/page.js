@@ -68,8 +68,12 @@ export default function AdminLoginPage() {
     <div className="min-h-screen bg-[#1a1a1a] flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         {/* Logo/Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-[#FFCA20] mb-2">MS Cinemas</h1>
+        <div className="text-center mb-8 flex flex-col items-center">
+          <img 
+            src="/img/logo.png" 
+            alt="MS Cinemas" 
+            className="h-24 w-auto mb-4"
+          />
           <h2 className="text-xl text-[#FAFAFA]">Admin Panel</h2>
         </div>
 
