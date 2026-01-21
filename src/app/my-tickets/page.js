@@ -51,13 +51,37 @@ export default function MyTicketsPage() {
     const formatDateTime = (dateTimeString) => {
         if (!dateTimeString) return 'N/A';
         try {
+            // Check if ISO string, replace T with space for easier parsing if needed, but Date constructor handles T
             const date = new Date(dateTimeString);
+            
+            // Check for Invalid Date
+            if (isNaN(date.getTime())) {
+                // Try parsing custom formats if needed, or return original
+                // For now, assume common formats
+                const parts = dateTimeString.split(/[- :T]/);
+                if (parts.length >= 6) {
+                   const d = new Date(parts[0], parts[1]-1, parts[2], parts[3], parts[4], parts[5]);
+                   if (!isNaN(d.getTime())) {
+                       return d.toLocaleString('en-GB', { 
+                           day: 'numeric', 
+                           month: 'short', 
+                           year: 'numeric',
+                           hour: '2-digit',
+                           minute: '2-digit',
+                           hour12: true
+                       });
+                   }
+                }
+                return dateTimeString;
+            }
+
             return date.toLocaleString('en-GB', { 
                 day: 'numeric', 
                 month: 'short', 
                 year: 'numeric',
                 hour: '2-digit',
-                minute: '2-digit'
+                minute: '2-digit',
+                hour12: true
             });
         } catch (e) {
             return dateTimeString;

@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server';
-import { writeFile } from 'fs/promises';
+import { writeFile, unlink } from 'fs/promises';
 import path from 'path';
 
 export async function POST(request) {
   try {
     const formData = await request.formData();
     const file = formData.get('file');
+    const oldImage = formData.get('oldImage');
 
     if (!file) {
       return NextResponse.json(
@@ -16,20 +17,42 @@ export async function POST(request) {
 
     const buffer = Buffer.from(await file.arrayBuffer());
     const filename = Date.now() + '_' + file.name.replaceAll(" ", "_");
-    
-    // Ensure public/uploads exists (mkdir should have handled it, but good to be safe)
-    // We are trusting it exists from the previous mkdir command
-    
     const uploadDir = path.join(process.cwd(), 'public/uploads'); 
     
-    // Save to public/uploads
+    // Save new file
     await writeFile(
       path.join(uploadDir, filename),
       buffer
     );
 
-    // const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || '';
-    const fileUrl = `/uploads/${filename}`;
+    // Delete old file if provided
+    if (oldImage) {
+      try {
+        const url = new URL(oldImage);
+        const oldFilename = path.basename(url.pathname);
+        const oldFilePath = path.join(uploadDir, oldFilename);
+        
+        // Only delete if it's in the uploads directory
+        if (oldImage.includes('/uploads/')) {
+            await unlink(oldFilePath).catch((err) => {
+                console.warn(`Failed to delete old image ${oldFilePath}:`, err.message);
+            });
+        }
+      } catch (e) {
+        // If oldImage is not a valid URL (e.g. relative path), handle simpler case
+         if (oldImage.includes('/uploads/')) {
+            const oldFilename = path.basename(oldImage);
+            const oldFilePath = path.join(uploadDir, oldFilename);
+            await unlink(oldFilePath).catch((err) => {
+                console.warn(`Failed to delete old image ${oldFilePath}:`, err.message);
+            });
+        }
+      }
+    }
+
+    // specific base URL logic
+    const origin = request.headers.get('origin') || process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+    const fileUrl = `${origin}/uploads/${filename}`;
     
     return NextResponse.json({
       success: true,

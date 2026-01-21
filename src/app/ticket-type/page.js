@@ -321,7 +321,12 @@ export default function TicketSelection() {
     if (showTimeDetails?.showTime) {
       try {
         const date = new Date(showTimeDetails.showTime);
-        const dateStr = date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+        const dateStr = date.toLocaleDateString('en-GB', { 
+          weekday: 'short',
+          day: 'numeric', 
+          month: 'short', 
+          year: 'numeric' 
+        });
         const timeStr = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
         return `${dateStr}, ${timeStr}`;
       } catch (e) {

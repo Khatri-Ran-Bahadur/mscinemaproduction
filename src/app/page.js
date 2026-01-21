@@ -443,7 +443,7 @@ export default function MovieStreamingSite() {
                 }
 
                 return moviesToShow.length > 0 ? (
-                  moviesToShow.slice(0, 4).map((movie, index) => {
+                  moviesToShow.map((movie, index) => {
                     const isNewRelease = activeMovieTab === 'now-showing';
                     
                     return (

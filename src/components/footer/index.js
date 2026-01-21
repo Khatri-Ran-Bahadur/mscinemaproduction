@@ -166,7 +166,7 @@ export default function Footer() {
                         
                         {/* Copyright - Right aligned on Desktop, Centered on Mobile */}
                         <div className="text-center md:text-right">
-                            <p>Copyright © {new Date().getFullYear()} MS Cinemas. All rights reserved.</p>
+                            <p>Copyright ©️ {new Date().getFullYear()} MS Cinemas Sdn Bhd. All rights reserved.</p>
                         </div>
                     </div>
                 </div>

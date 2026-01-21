@@ -1752,7 +1752,12 @@ export default function SeatSelection() {
     if (showTimeDetails?.showTime) {
       try {
         const date = new Date(showTimeDetails.showTime);
-        const dateStr = date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+        const dateStr = date.toLocaleDateString('en-GB', { 
+          weekday: 'short',
+          day: 'numeric', 
+          month: 'short', 
+          year: 'numeric' 
+        });
         const timeStr = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
         return `${dateStr}, ${timeStr}`;
       } catch (e) {
@@ -1927,7 +1932,10 @@ export default function SeatSelection() {
         {/* Seat Map Area */}
         
         {/* Screen - Full Width Fixed Top */}
-        <div className="mb-8 relative w-full px-4 sm:px-8 md:px-12 lg:px-16 mx-auto">
+        <div className="mb-8 relative w-full px-4 sm:px-8 md:px-12 lg:px-16 mx-auto flex justify-center items-center">
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white/10 font-bold tracking-[1em] text-xs sm:text-sm md:text-base lg:text-lg select-none pointer-events-none whitespace-nowrap mt-2">
+            S C R E E N
+          </div>
           <svg width="100%" height="65" viewBox="0 0 898 65" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-auto" preserveAspectRatio="xMidYMid meet">
             <g filter="url(#filter0_d_2065_2204)">
               <path d="M19 39.5C19 39.5 280.919 15 449 15C617.081 15 879 39.5 879 39.5" stroke="#F0F0F0" strokeWidth="4" strokeLinecap="round"/>

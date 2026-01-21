@@ -363,6 +363,24 @@ export default function AdminOrdersPage() {
                             Showing <span className="text-white">{(page - 1) * limit + 1}</span> to <span className="text-white">{Math.min(page * limit, totalOrders)}</span> of <span className="text-white">{totalOrders}</span> orders
                         </div>
                         <div className="flex items-center gap-2">
+                            {/* Rows per page selector */}
+                            <div className="flex items-center gap-2 mr-4">
+                                <span className="text-xs text-[#888]">Rows per page:</span>
+                                <select
+                                    value={limit}
+                                    onChange={(e) => {
+                                        setLimit(Number(e.target.value));
+                                        setPage(1);
+                                    }}
+                                    className="bg-[#333] border border-[#444] text-white text-xs rounded px-2 py-1 focus:border-[#FFCA20] outline-none cursor-pointer"
+                                >
+                                    <option value={10}>10</option>
+                                    <option value={20}>20</option>
+                                    <option value={50}>50</option>
+                                    <option value={100}>100</option>
+                                </select>
+                            </div>
+
                             <button
                                 onClick={() => setPage(p => Math.max(1, p - 1))}
                                 disabled={page === 1 || loading}

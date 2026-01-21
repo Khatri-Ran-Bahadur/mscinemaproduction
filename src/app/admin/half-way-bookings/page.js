@@ -33,7 +33,7 @@ export default function HalfWayBookingsPage() {
     
     // Pagination
     const [page, setPage] = useState(1);
-    const limit = 10;
+    const [limit, setLimit] = useState(10);
     
     // Selection
     const [selectedIds, setSelectedIds] = useState([]);
@@ -368,7 +368,24 @@ export default function HalfWayBookingsPage() {
                     <span className="text-xs text-[#888]">
                         Showing {Math.min((page - 1) * limit + 1, filteredBookings.length)} to {Math.min(page * limit, filteredBookings.length)} of {filteredBookings.length} records
                     </span>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 items-center">
+                        <div className="flex items-center gap-2 mr-4">
+                            <span className="text-xs text-[#888]">Rows per page:</span>
+                            <select
+                                value={limit}
+                                onChange={(e) => {
+                                    setLimit(Number(e.target.value));
+                                    setPage(1);
+                                }}
+                                className="bg-[#333] border border-[#444] text-white text-xs rounded px-2 py-1 focus:border-[#FFCA20] outline-none cursor-pointer"
+                            >
+                                <option value={10}>10</option>
+                                <option value={20}>20</option>
+                                <option value={50}>50</option>
+                                <option value={100}>100</option>
+                            </select>
+                        </div>
+                        <div className="flex gap-2">
                          <button 
                             disabled={page === 1}
                             onClick={() => setPage(p => p - 1)}
@@ -386,6 +403,7 @@ export default function HalfWayBookingsPage() {
                          </button>
                     </div>
                 </div>
+            </div>
             </div>
 
             {/* Ticket Modal */}

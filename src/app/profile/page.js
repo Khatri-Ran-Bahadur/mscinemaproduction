@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { User, Mail, Phone, CreditCard, Calendar, LogOut, ArrowLeft, Edit, Lock, X } from 'lucide-react';
+import { User, Mail, Phone, CreditCard, Calendar, LogOut, ArrowLeft, Edit, Lock, X, Camera } from 'lucide-react';
 import { getUserData, removeToken, removeUserData, setUserData as updateUserDataStorage } from '@/utils/storage';
 import { auth } from '@/services/api';
 import Header from '@/components/header';
@@ -11,8 +11,10 @@ import Footer from '@/components/footer';
 
 export default function ProfilePage() {
   const router = useRouter();
+  const fileInputRef = useRef(null); // Ref for file input
   const [userData, setUserData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  // ... (rest of states)
   const [isEditing, setIsEditing] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [editFormData, setEditFormData] = useState({
@@ -31,6 +33,7 @@ export default function ProfilePage() {
   const [errors, setErrors] = useState({});
   const [successMessage, setSuccessMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUploading, setIsUploading] = useState(false); // New state for upload loading
 
   useEffect(() => {
     // Check if user is logged in
@@ -90,6 +93,49 @@ export default function ProfilePage() {
         delete newErrors[field];
         return newErrors;
       });
+    }
+  };
+
+  // Handle Image Upload
+  const handleImageUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    setErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors.imageURL; // Clear previous image errors
+        return newErrors;
+    });
+
+    const formData = new FormData();
+    formData.append('file', file);
+    // Send current image URL as oldImage to delete it
+    if (editFormData.imageURL) {
+        formData.append('oldImage', editFormData.imageURL);
+    }
+
+    try {
+        const response = await fetch('/api/upload', {
+            method: 'POST',
+            body: formData
+        });
+        const data = await response.json();
+
+        if (data.success) {
+            handleEditInputChange('imageURL', data.url);
+        } else {
+            setErrors(prev => ({ ...prev, imageURL: data.error || 'Upload failed' }));
+        }
+    } catch (error) {
+        console.error('Upload error:', error);
+        setErrors(prev => ({ ...prev, imageURL: 'Upload failed. Please try again.' }));
+    } finally {
+        setIsUploading(false);
+        // Reset file input
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
     }
   };
 
@@ -228,11 +274,13 @@ export default function ProfilePage() {
   };
 
   const hasValidImage = () => {
-    return userData?.imageURL && 
-           userData.imageURL.trim() && 
-           userData.imageURL !== ' ' &&
-           userData.imageURL !== 'null' &&
-           userData.imageURL !== 'undefined';
+    // If editing, use editFormData.imageURL, else use userData.imageURL
+    const imgUrl = isEditing ? editFormData.imageURL : userData?.imageURL;
+    return imgUrl && 
+           imgUrl.trim() && 
+           imgUrl !== ' ' &&
+           imgUrl !== 'null' &&
+           imgUrl !== 'undefined';
   };
 
   if (isLoading) {
@@ -242,6 +290,11 @@ export default function ProfilePage() {
       </div>
     );
   }
+
+  // Helper to get current display image
+  const getDisplayImage = () => {
+    return isEditing ? editFormData.imageURL : userData?.imageURL;
+  };
 
   return (
     <div className="min-h-screen bg-[#1c1c1c] text-white">
@@ -255,32 +308,64 @@ export default function ProfilePage() {
           <ArrowLeft className="w-5 h-5" />
           <span>Back to Home</span>
         </Link> */}
+        
+        {/* Hidden File Input */}
+        <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleImageUpload}
+            className="hidden"
+            accept="image/*"
+        />
 
         {/* Profile Header */}
         <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg p-6 mb-6">
           <div className="flex items-center gap-6">
             {/* User Avatar */}
-            <div className="w-24 h-24 rounded-full bg-gradient-to-br from-[#FFCA20] to-[#FFD700] flex items-center justify-center text-black font-bold text-3xl flex-shrink-0 shadow-lg border-4 border-[#FFCA20]/30 overflow-hidden relative">
-              {hasValidImage() ? (
-                <img
-                  src={userData.imageURL}
-                  alt={userData.name || 'User'}
-                  className="w-full h-full rounded-full object-cover"
-                  onError={(e) => {
-                    // If image fails to load, show initials instead
-                    e.target.style.display = 'none';
-                    const initialsEl = e.target.nextElementSibling;
-                    if (initialsEl) {
-                      initialsEl.style.display = 'flex';
-                    }
-                  }}
-                />
-              ) : null}
-              <div 
-                className={`w-full h-full rounded-full flex items-center justify-center ${hasValidImage() ? 'hidden' : 'flex'}`}
-              >
-                {getUserInitials()}
-              </div>
+            <div className="relative group">
+                <div className="w-24 h-24 rounded-full bg-gradient-to-br from-[#FFCA20] to-[#FFD700] flex items-center justify-center text-black font-bold text-3xl flex-shrink-0 shadow-lg border-4 border-[#FFCA20]/30 overflow-hidden relative">
+                {hasValidImage() ? (
+                    <img
+                    src={getDisplayImage()}
+                    alt={userData.name || 'User'}
+                    className={`w-full h-full rounded-full object-cover ${isUploading ? 'opacity-50' : ''}`}
+                    onError={(e) => {
+                        // If image fails to load, show initials instead
+                        e.target.style.display = 'none';
+                        const initialsEl = e.target.nextElementSibling;
+                        if (initialsEl) {
+                        initialsEl.style.display = 'flex';
+                        }
+                    }}
+                    />
+                ) : null}
+                <div 
+                    className={`w-full h-full rounded-full flex items-center justify-center ${hasValidImage() ? 'hidden' : 'flex'}`}
+                >
+                    {getUserInitials()}
+                </div>
+                
+                {/* Upload Overlay */}
+                {isEditing && (
+                    <button 
+                        onClick={() => fileInputRef.current?.click()}
+                        className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition duration-200 cursor-pointer"
+                        title="Upload Profile Picture"
+                    >
+                        {isUploading ? (
+                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
+                        ) : (
+                            <Camera className="w-8 h-8 text-white" />
+                        )}
+                    </button>
+                )}
+                </div>
+                 {/* Edit Indicator if not hovering but editing */}
+                 {isEditing && (
+                    <div className="absolute bottom-0 right-0 bg-[#FFCA20] rounded-full p-1 border-2 border-[#1a1a1a]">
+                        <Camera className="w-3 h-3 text-black" />
+                    </div>
+                )}
             </div>
 
             {/* User Info */}
@@ -309,6 +394,13 @@ export default function ProfilePage() {
           <div className="bg-red-500/10 border border-red-500/50 rounded-lg p-4 mb-6 text-red-400">
             {errors.general}
           </div>
+        )}
+        
+        {/* Upload specific error */}
+        {errors.imageURL && (
+            <div className="bg-red-500/10 border border-red-500/50 rounded-lg p-4 mb-6 text-red-400">
+                {errors.imageURL}
+            </div>
         )}
 
         {/* Profile Details */}
@@ -347,7 +439,6 @@ export default function ProfilePage() {
                 </div>
               </div>
               
-
               {/* Mobile */}
               <div className="flex items-start gap-4 pb-4 border-b border-[#2a2a2a]">
                 <Phone className="w-5 h-5 text-[#FFCA20] mt-1 flex-shrink-0" />
@@ -393,18 +484,27 @@ export default function ProfilePage() {
                 </div>
               </div>
 
-              {/* Image URL */}
+              {/* Image URL (Editable Text) - Kept as backup or display */}
               <div className="flex items-start gap-4 pb-4 border-b border-[#2a2a2a]">
                 <User className="w-5 h-5 text-[#FFCA20] mt-1 flex-shrink-0" />
                 <div className="flex-1">
                   <label className="text-sm text-[#D3D3D3] mb-1 block">Profile Image URL</label>
-                  <input
-                    type="url"
-                    value={editFormData.imageURL}
-                    onChange={(e) => handleEditInputChange('imageURL', e.target.value)}
-                    className="w-full px-4 py-2 bg-[#2a2a2a] border border-[#3a3a3a] rounded-lg text-[#FAFAFA] focus:outline-none focus:border-[#FFCA20]"
-                    placeholder="Optional - Enter image URL"
-                  />
+                  <div className="flex gap-2">
+                    <input
+                        type="url"
+                        value={editFormData.imageURL}
+                        onChange={(e) => handleEditInputChange('imageURL', e.target.value)}
+                        className="w-full px-4 py-2 bg-[#2a2a2a] border border-[#3a3a3a] rounded-lg text-[#FAFAFA] focus:outline-none focus:border-[#FFCA20]"
+                        placeholder="Optional - Enter image URL or upload above"
+                    />
+                    <button 
+                        onClick={() => fileInputRef.current?.click()}
+                        className="px-4 py-2 bg-[#2a2a2a] border border-[#3a3a3a] rounded-lg hover:bg-[#3a3a3a] text-white"
+                        title="Upload Image"
+                    >
+                        <Camera className="w-5 h-5" />
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -412,14 +512,14 @@ export default function ProfilePage() {
               <div className="flex gap-3 pt-4">
                 <button
                   onClick={handleUpdateProfile}
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || isUploading}
                   className="flex-1 px-4 py-2 bg-[#FFCA20] text-black rounded-lg hover:bg-[#FFCA20]/90 transition font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isSubmitting ? 'Saving...' : 'Save Changes'}
                 </button>
                 <button
                   onClick={handleCancelEdit}
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || isUploading}
                   className="flex-1 px-4 py-2 bg-[#2a2a2a] border border-[#3a3a3a] text-[#FAFAFA] rounded-lg hover:bg-[#3a3a3a] transition font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Cancel
@@ -436,13 +536,15 @@ export default function ProfilePage() {
                   <p className="text-[#FAFAFA]">{userData?.email || 'Not provided'}</p>
                 </div>
               </div>
-
+              
+              {/* ... (Rest of view fields) */}
+              
               {/* Mobile */}
               {(userData?.mobile || isEditing) && (
                 <div className="flex items-start gap-4 pb-4 border-b border-[#2a2a2a]">
                   <Phone className="w-5 h-5 text-[#FFCA20] mt-1 flex-shrink-0" />
                   <div className="flex-1">
-                    <label className="text-sm text-[#D3D3D3] mb-1 block">Mobile Number</label>
+                     <label className="text-sm text-[#D3D3D3] mb-1 block">Mobile Number</label>
                     <p className="text-[#FAFAFA]">{userData?.mobile || 'Not provided'}</p>
                   </div>
                 </div>
@@ -455,6 +557,17 @@ export default function ProfilePage() {
                   <div className="flex-1">
                     <label className="text-sm text-[#D3D3D3] mb-1 block">Passport Number</label>
                     <p className="text-[#FAFAFA]">{userData?.passportNo || 'Not provided'}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Membership No  */}
+              {(userData?.membershipNo || isEditing) && (
+                <div className="flex items-start gap-4 pb-4 border-b border-[#2a2a2a]">
+                  <CreditCard className="w-5 h-5 text-[#FFCA20] mt-1 flex-shrink-0" />
+                  <div className="flex-1">
+                    <label className="text-sm text-[#D3D3D3] mb-1 block">Membership Number</label>
+                    <p className="text-[#FAFAFA]">{userData?.membershipNo || 'Not provided'}</p>
                   </div>
                 </div>
               )}
@@ -498,7 +611,7 @@ export default function ProfilePage() {
             </div>
           )}
         </div>
-
+        
         {/* Change Password Section */}
         {showChangePassword && (
           <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg p-6 mb-6">
