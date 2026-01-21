@@ -282,16 +282,16 @@ export default function HalfWayBookingsPage() {
                     <table className="w-full text-left">
                         <thead className="bg-[#222] border-b border-[#3a3a3a]">
                             <tr>
-                                <th className="p-4 w-10">
+                                <th className="px-3 py-3 w-10">
                                     <input type="checkbox" onChange={handleSelectAll} checked={paginatedBookings.length > 0 && selectedIds.length === paginatedBookings.length} className="rounded bg-[#333] border-[#444] text-[#FFCA20] focus:ring-0" />
                                 </th>
-                                <th className="p-4 text-[#888] font-medium text-xs uppercase tracking-wider">Ref No / Date</th>
-                                <th className="p-4 text-[#888] font-medium text-xs uppercase tracking-wider">Time Ago</th>
-                                <th className="p-4 text-[#888] font-medium text-xs uppercase tracking-wider">Customer</th>
+                                <th className="px-3 py-3 text-[#888] font-medium text-xs uppercase tracking-wider">Ref No / Date</th>
+                                <th className="px-3 py-3 text-[#888] font-medium text-xs uppercase tracking-wider">Time Ago</th>
+                                <th className="px-3 py-3 text-[#888] font-medium text-xs uppercase tracking-wider">Customer</th>
                                
-                                <th className="p-4 text-[#888] font-medium text-xs uppercase tracking-wider">Amount</th>
-                                <th className="p-4 text-[#888] font-medium text-xs uppercase tracking-wider">Status</th>
-                                <th className="p-4 text-[#888] font-medium text-xs uppercase tracking-wider text-right">Action</th>
+                                <th className="px-3 py-3 text-[#888] font-medium text-xs uppercase tracking-wider">Amount</th>
+                                <th className="px-3 py-3 text-[#888] font-medium text-xs uppercase tracking-wider">Status</th>
+                                <th className="px-3 py-3 text-[#888] font-medium text-xs uppercase tracking-wider text-right">Action</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-[#3a3a3a]">
@@ -304,27 +304,27 @@ export default function HalfWayBookingsPage() {
                                     const details = enrichedDetails[b.referenceNo] || {};
                                     return (
                                         <tr key={b.bookingID} className={`hover:bg-[#333] transition ${selectedIds.includes(b.referenceNo) ? 'bg-[#333]/80' : ''}`}>
-                                            <td className="p-4">
+                                            <td className="px-3 py-2">
                                                 <input type="checkbox" checked={selectedIds.includes(b.referenceNo)} onChange={() => handleSelectOne(b.referenceNo)} className="rounded bg-[#333] border-[#444] text-[#FFCA20] focus:ring-0" />
                                             </td>
-                                            <td className="p-4">
+                                            <td className="px-3 py-2">
                                                 <div className="flex flex-col">
-                                                    <span className="font-mono text-[#FFCA20] font-bold text-sm">{b.referenceNo}</span>
-                                                    <span className="text-[10px] text-[#888] flex items-center gap-1 mt-1">
+                                                    <span className="font-mono text-[#FFCA20] font-bold text-xs">{b.referenceNo}</span>
+                                                    <span className="text-[10px] text-[#888] flex items-center gap-1 mt-0.5">
                                                         <Clock className="w-3 h-3" /> {b.bookingDateTime}
                                                     </span>
                                                 </div>
                                             </td>
-                                            <td className="p-4">
-                                                <span className="text-xs font-mono text-gray-400 bg-[#333] px-2 py-1 rounded">
+                                            <td className="px-3 py-2">
+                                                <span className="text-[10px] font-mono text-gray-400 bg-[#333] px-1.5 py-0.5 rounded">
                                                     {timeAgo(b.bookingDateTime)}
                                                 </span>
                                             </td>
-                                            <td className="p-4">
+                                            <td className="px-3 py-2">
                                                 <div className="flex flex-col">
                                                     {b.name ? (
                                                         <>
-                                                            <span className="text-white text-sm font-medium">{b.name}</span>
+                                                            <span className="text-white text-xs font-medium">{b.name}</span>
                                                             <span className="text-[10px] text-[#888]">{b.email}</span>
                                                         </>
                                                     ) : <span className="text-[#666] italic text-xs">Guest</span>}
@@ -332,13 +332,13 @@ export default function HalfWayBookingsPage() {
                                             </td>
                                             
                                             
-                                            <td className="p-4">
-                                                <span className="text-white font-bold text-sm">RM {b.amount}</span>
+                                            <td className="px-3 py-2">
+                                                <span className="text-white font-bold text-xs">RM {b.amount}</span>
                                             </td>
-                                            <td className="p-4">
+                                            <td className="px-3 py-2">
                                                 {getStatusBadge(b.status)}
                                             </td>
-                                            <td className="p-4 text-right">
+                                            <td className="px-3 py-2 text-right">
                                                 <div className="flex justify-end gap-1 items-center">
                                                     <button onClick={() => { 
                                                         const isLocked = b.status === 0;
@@ -350,8 +350,8 @@ export default function HalfWayBookingsPage() {
                                                             
                                                             promise.then(() => { fetchBookings(); alert('Released'); });
                                                         }
-                                                    }} className="p-1.5 bg-red-500/10 text-red-500 rounded hover:bg-red-500 hover:text-white transition" title="Release Seat">
-                                                        <Unlock className="w-4 h-4" />
+                                                    }} className="p-1 bg-red-500/10 text-red-500 rounded hover:bg-red-500 hover:text-white transition" title="Release Seat">
+                                                        <Unlock className="w-3.5 h-3.5" />
                                                     </button>
                                                 </div>
                                             </td>

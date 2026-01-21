@@ -247,97 +247,97 @@ export default function AdminOrdersPage() {
                         <table className="w-full text-left">
                             <thead className="bg-[#222] border-b border-[#3a3a3a]">
                                 <tr>
-                                    <th className="p-4 text-[#888] font-medium text-sm w-[200px]">Ticket / Payment Ref</th>
-                                    <th className="p-4 text-[#888] font-medium text-sm hidden md:table-cell">Customer</th>
-                                    <th className="p-4 text-[#888] font-medium text-sm hidden sm:table-cell">Movie Details</th>
-                                    <th className="p-4 text-[#888] font-medium text-sm hidden lg:table-cell">Details</th>
-                                    <th className="p-4 text-[#888] font-medium text-sm hidden sm:table-cell">Amount</th>
-                                    <th className="p-4 text-[#888] font-medium text-sm">Status</th>
-                                    <th className="p-4 text-[#888] font-medium text-sm hidden xl:table-cell">Date</th>
-                                    <th className="p-4 text-[#888] font-medium text-sm hidden lg:table-cell">Time Ago</th>
-                                    <th className="p-4 text-[#888] font-medium text-sm text-right">Action</th>
+                                    <th className="px-3 py-3 text-[#888] font-medium text-xs w-[180px]">Ticket / Payment Ref</th>
+                                    <th className="px-3 py-3 text-[#888] font-medium text-xs hidden md:table-cell">Customer</th>
+                                    <th className="px-3 py-3 text-[#888] font-medium text-xs hidden sm:table-cell">Movie Details</th>
+                                    <th className="px-3 py-3 text-[#888] font-medium text-xs hidden lg:table-cell">Details</th>
+                                    <th className="px-3 py-3 text-[#888] font-medium text-xs hidden sm:table-cell">Amount</th>
+                                    <th className="px-3 py-3 text-[#888] font-medium text-xs">Status</th>
+                                    <th className="px-3 py-3 text-[#888] font-medium text-xs hidden xl:table-cell">Date</th>
+                                    <th className="px-3 py-3 text-[#888] font-medium text-xs hidden lg:table-cell">Time Ago</th>
+                                    <th className="px-3 py-3 text-[#888] font-medium text-xs text-right">Action</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-[#3a3a3a]">
                                 {orders.length > 0 ? (
                                     orders.map((order) => (
                                         <tr key={order.id} className="hover:bg-[#333] transition">
-                                            <td className="p-4">
+                                            <td className="px-3 py-2">
                                                 <div className="flex flex-col">
-                                                    <span className="font-mono text-[#FFCA20] font-bold">{order.referenceNo}</span>
-                                                    <span className="text-xs text-[#888] font-mono mt-1" title="Payment Order ID">
+                                                    <span className="font-mono text-[#FFCA20] font-bold text-xs">{order.referenceNo}</span>
+                                                    <span className="text-[10px] text-[#888] font-mono mt-0.5" title="Payment Order ID">
                                                         {order.orderId || '-'}
                                                     </span>
                                                     {order.transactionNo && (
-                                                        <span className="text-xs text-[#666] font-mono" title="Transaction ID">
+                                                        <span className="text-[10px] text-[#666] font-mono" title="Transaction ID">
                                                             Tx: {order.transactionNo}
                                                         </span>
                                                     )}
                                                 </div>
                                             </td>
-                                            <td className="p-4 hidden md:table-cell">
+                                            <td className="px-3 py-2 hidden md:table-cell">
                                                 <div className="flex flex-col">
-                                                    <span className="text-white font-medium">{order.customerName || 'Guest'}</span>
-                                                    <span className="text-xs text-[#888]">{order.customerEmail}</span>
-                                                    <span className="text-xs text-[#888]">{order.customerPhone}</span>
+                                                    <span className="text-white font-medium text-xs">{order.customerName || 'Guest'}</span>
+                                                    <span className="text-[10px] text-[#888]">{order.customerEmail}</span>
+                                                    <span className="text-[10px] text-[#888]">{order.customerPhone}</span>
                                                 </div>
                                             </td>
-                                            <td className="p-4 hidden sm:table-cell">
+                                            <td className="px-3 py-2 hidden sm:table-cell">
                                                 <div className="flex flex-col">
-                                                    <span className="text-white flex items-center gap-1">
+                                                    <span className="text-white flex items-center gap-1 text-xs">
                                                         <Film className="w-3 h-3 text-[#FFCA20]" />
                                                         {order.movieTitle}
                                                     </span>
-                                                    <span className="text-xs text-[#888]">{order.cinemaName} - {order.hallName}</span>
-                                                    <span className="text-xs text-[#888] flex items-center gap-1 mt-1">
+                                                    <span className="text-[10px] text-[#888]">{order.cinemaName} - {order.hallName}</span>
+                                                    <span className="text-[10px] text-[#888] flex items-center gap-1 mt-0.5">
                                                         <Clock className="w-3 h-3" />
                                                         {formatDate(order.showTime)}
                                                     </span>
                                                 </div>
                                             </td>
-                                            <td className="p-4 hidden lg:table-cell">
-                                                 <div className="text-sm text-[#ccc]">
+                                            <td className="px-3 py-2 hidden lg:table-cell">
+                                                 <div className="text-xs text-[#ccc]">
                                                     <span className="block">Seats: <span className="text-white">{parseSeats(order.seats)}</span></span>
-                                                    <span className="text-xs text-[#888]">{parseTicketType(order.ticketType)}</span>
+                                                    <span className="text-[10px] text-[#888]">{parseTicketType(order.ticketType)}</span>
                                                  </div>
                                             </td>
-                                            <td className="p-4 hidden sm:table-cell">
+                                            <td className="px-3 py-2 hidden sm:table-cell">
                                                 <div className="flex flex-col">
-                                                    <span className="text-white font-bold">
+                                                    <span className="text-white font-bold text-xs">
                                                         RM {parseFloat(order.totalAmount).toFixed(2)}
                                                     </span>
-                                                    <span className={`text-xs font-medium flex items-center gap-1 ${getPaymentStatusColor(order.paymentStatus)}`}>
+                                                    <span className={`text-[10px] font-medium flex items-center gap-1 ${getPaymentStatusColor(order.paymentStatus)}`}>
                                                         {order.paymentStatus}
                                                         <span className="text-[#666] font-normal">• {order.paymentMethod}</span>
                                                     </span>
                                                 </div>
                                             </td>
-                                            <td className="p-4">
-                                                <span className={`px-2 py-1 rounded text-xs border ${getStatusColor(order.status)}`}>
+                                            <td className="px-3 py-2">
+                                                <span className={`px-1.5 py-0.5 rounded text-[10px] border ${getStatusColor(order.status)}`}>
                                                     {order.status}
                                                 </span>
                                             </td>
-                                            <td className="p-4 hidden xl:table-cell">
-                                                <span className="text-sm text-[#888]">{formatDate(order.createdAt)}</span>
+                                            <td className="px-3 py-2 hidden xl:table-cell">
+                                                <span className="text-xs text-[#888]">{formatDate(order.createdAt)}</span>
                                             </td>
-                                            <td className="p-4 hidden lg:table-cell">
-                                                <span className="text-xs font-mono text-gray-400 bg-[#333] px-2 py-1 rounded whitespace-nowrap">
+                                            <td className="px-3 py-2 hidden lg:table-cell">
+                                                <span className="text-[10px] font-mono text-gray-400 bg-[#333] px-1.5 py-0.5 rounded whitespace-nowrap">
                                                     {timeAgo(order.createdAt)}
                                                 </span>
                                             </td>
-                                            <td className="p-4 text-right">
+                                            <td className="px-3 py-2 text-right">
                                                 <div className="flex items-center justify-end gap-2">
                                                     <button 
                                                         onClick={() => handleOpenViewModal(order)}
-                                                        className="p-1.5 text-[#888] hover:text-white hover:bg-[#444] rounded transition"
+                                                        className="p-1 text-[#888] hover:text-white hover:bg-[#444] rounded transition"
                                                         title="View Details"
                                                     >
-                                                        <Eye className="w-4 h-4" />
+                                                        <Eye className="w-3.5 h-3.5" />
                                                     </button>
                                                     {order.paymentStatus === 'PAID' && (
                                                         <button 
                                                             onClick={() => handleViewTicket(order)}
-                                                            className="px-3 py-1.5 bg-[#FFCA20] text-black text-xs font-bold rounded hover:bg-[#FFCA20]/90 transition inline-flex items-center gap-1 whitespace-nowrap"
+                                                            className="px-2 py-1 bg-[#FFCA20] text-black text-[10px] font-bold rounded hover:bg-[#FFCA20]/90 transition inline-flex items-center gap-1 whitespace-nowrap"
                                                         >
                                                             Ticket
                                                         </button>
