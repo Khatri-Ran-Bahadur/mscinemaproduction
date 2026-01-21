@@ -44,4 +44,6 @@ next-env.d.ts
 # payment logs (testing only - will be removed later)
 /public/payment-logs/
 /public/uploads/
+/temp
+/logs
 
