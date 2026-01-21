@@ -393,7 +393,36 @@ export default function HalfWayBookingsPage() {
                          >
                             <ChevronLeft className="w-4 h-4" />
                          </button>
-                         <span className="px-4 py-2 text-sm text-[#ccc]">Page {page} of {totalPages || 1}</span>
+                            <div className="flex items-center gap-1">
+                                {(() => {
+                                    // Logic to show max 5 page numbers centered around current page
+                                    let startPage = Math.max(1, page - 2);
+                                    let endPage = Math.min(totalPages, startPage + 4);
+                                    
+                                    // Adjust start if close to end
+                                    if (endPage - startPage < 4) {
+                                        startPage = Math.max(1, endPage - 4);
+                                    }
+
+                                    const pages = [];
+                                    for (let i = startPage; i <= endPage; i++) {
+                                        pages.push(i);
+                                    }
+                                    return pages.map(p => (
+                                        <button
+                                            key={p}
+                                            onClick={() => setPage(p)}
+                                            className={`w-8 h-8 rounded text-xs font-medium transition ${
+                                                p === page 
+                                                    ? 'bg-[#FFCA20] text-black font-bold' 
+                                                    : 'bg-[#333] text-white hover:bg-[#444]'
+                                            }`}
+                                        >
+                                            {p}
+                                        </button>
+                                    ));
+                                })()}
+                            </div>
                          <button 
                             disabled={page === totalPages || totalPages === 0}
                             onClick={() => setPage(p => p + 1)}

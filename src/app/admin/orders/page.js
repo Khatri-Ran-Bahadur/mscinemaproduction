@@ -390,10 +390,34 @@ export default function AdminOrdersPage() {
                             </button>
                             
                             <div className="flex items-center gap-1">
-                                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                                    return null;
-                                })}
-                                <span className="text-sm text-[#ccc] px-2">Page {page} of {totalPages}</span>
+                                {(() => {
+                                    // Logic to show max 5 page numbers centered around current page
+                                    let startPage = Math.max(1, page - 2);
+                                    let endPage = Math.min(totalPages, startPage + 4);
+                                    
+                                    // Adjust start if close to end
+                                    if (endPage - startPage < 4) {
+                                        startPage = Math.max(1, endPage - 4);
+                                    }
+
+                                    const pages = [];
+                                    for (let i = startPage; i <= endPage; i++) {
+                                        pages.push(i);
+                                    }
+                                    return pages.map(p => (
+                                        <button
+                                            key={p}
+                                            onClick={() => setPage(p)}
+                                            className={`w-8 h-8 rounded text-xs font-medium transition ${
+                                                p === page 
+                                                    ? 'bg-[#FFCA20] text-black font-bold' 
+                                                    : 'bg-[#333] text-white hover:bg-[#444]'
+                                            }`}
+                                        >
+                                            {p}
+                                        </button>
+                                    ));
+                                })()}
                             </div>
 
                             <button
