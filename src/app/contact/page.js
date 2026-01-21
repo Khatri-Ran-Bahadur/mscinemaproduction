@@ -179,7 +179,7 @@ export default function ContactPage() {
                          onChange={handleChange}
                          required
                          className="w-full bg-[#1a1a1a] border border-white/10 rounded-lg px-4 py-3 text-white focus:border-[#FFCA20] focus:ring-1 focus:ring-[#FFCA20] outline-none transition-all"
-                         placeholder="John Doe"
+                         placeholder="Full Name"
                        />
                     </div>
                     <div className="space-y-2">
@@ -204,7 +204,7 @@ export default function ContactPage() {
                        onChange={handleChange}
                        required
                        className="w-full bg-[#1a1a1a] border border-white/10 rounded-lg px-4 py-3 text-white focus:border-[#FFCA20] focus:ring-1 focus:ring-[#FFCA20] outline-none transition-all"
-                       placeholder="john@example.com"
+                       placeholder="mscinemas@gmail.com"
                      />
                   </div>
                   
