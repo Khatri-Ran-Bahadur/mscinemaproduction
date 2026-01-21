@@ -5,10 +5,9 @@ import React, { useState, useEffect } from 'react';
 import Header from '@/components/header';
 import Footer from '@/components/footer';
 import { Mail, Phone, MapPin, Send, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
-import { useGoogleReCaptcha } from "react-google-recaptcha-v3";
+import ReCAPTCHA from "react-google-recaptcha";
 
 export default function ContactPage() {
-  const { executeRecaptcha } = useGoogleReCaptcha();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -17,6 +16,7 @@ export default function ContactPage() {
     message: ''
   });
   
+  const [recaptchaValue, setRecaptchaValue] = useState(null);
   const [status, setStatus] = useState('idle'); // idle, submitting, success, error
 
   /* State for contact info */
@@ -78,20 +78,23 @@ export default function ContactPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (!executeRecaptcha) {
-        console.log('Execute recaptcha not yet available');
+    if (!recaptchaValue) {
+        setStatus('error');
+        // We'll show an alert or set a visible error message if possible, but status 'error' triggers the error UI
+        // Actually, let's create a specific UI error if needed or rely on the generic failure message,
+        // but typically we want to warn the user specifically about captcha.
+        // For now, let's just return.
+        alert("Please verify you are not a robot."); // Simple alert as a fallback or just dont submit
         return;
     }
     
     setStatus('submitting');
     
     try {
-      const token = await executeRecaptcha('contact_form');
-      
       const res = await fetch('/api/contact', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...formData, recaptchaToken: token })
+        body: JSON.stringify({ ...formData, recaptchaToken: recaptchaValue })
       });
       
       const data = await res.json();
@@ -99,6 +102,7 @@ export default function ContactPage() {
       if (res.ok) {
         setStatus('success');
         setFormData({ name: '', email: '', phone: '', subject: '', message: '' });
+        setRecaptchaValue(null); // Reset captcha
       } else {
         throw new Error(data.error || 'Something went wrong');
       }
@@ -232,7 +236,14 @@ export default function ContactPage() {
                      />
                   </div>
 
-                  {/* V3 Badge is automatic */}
+                  {/* ReCAPTCHA */}
+                  <div className="mb-6">
+                    <ReCAPTCHA
+                        sitekey={process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY}
+                        onChange={(val) => setRecaptchaValue(val)}
+                        theme="dark"
+                    />
+                  </div>
                   
                   {status === 'error' && (
                     <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-lg flex items-center gap-3 text-red-400">
