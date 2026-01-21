@@ -5,9 +5,10 @@ import Header from '@/components/header';
 import Footer from '@/components/footer';
 import { X, Calendar, ChevronDown } from 'lucide-react';
 import { getUserData } from '@/utils/storage';
-import ReCAPTCHA from "react-google-recaptcha";
+import { useGoogleReCaptcha } from "react-google-recaptcha-v3";
 
 export default function BookHallPage() {
+    const { executeRecaptcha } = useGoogleReCaptcha();
     const [activeTab, setActiveTab] = useState('All');
     const [showModal, setShowModal] = useState(false);
     const [formData, setFormData] = useState({
@@ -22,7 +23,6 @@ export default function BookHallPage() {
     });
     const [errors, setErrors] = useState({});
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [recaptchaValue, setRecaptchaValue] = useState(null);
 
     // Pre-fill form with user data if logged in
     const handleOpenModal = () => {
@@ -96,18 +96,19 @@ export default function BookHallPage() {
         }
 
 
-        if (!recaptchaValue) {
-            setErrors(prev => ({ ...prev, recaptcha: 'Please confirm you are not a robot' }));
-            setIsSubmitting(false);
-            return;
+
+        if (!executeRecaptcha) {
+             console.log('Execute recaptcha not yet available');
+             return;
         }
 
-
         try {
+            const token = await executeRecaptcha('hall_booking');
+
             const res = await fetch('/api/hall-booking', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ...formData, recaptchaToken: recaptchaValue })
+                body: JSON.stringify({ ...formData, recaptchaToken: token })
             });
 
             const data = await res.json();
@@ -440,17 +441,7 @@ export default function BookHallPage() {
                             </div>
 
                             {/* ReCAPTCHA */}
-                            <div className="flex justify-center sm:justify-start mb-4">
-                                <ReCAPTCHA
-                                    sitekey={process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY}
-                                    onChange={(val) => {
-                                        setRecaptchaValue(val);
-                                        if (val) setErrors(prev => ({ ...prev, recaptcha: null }));
-                                    }}
-                                    theme="dark"
-                                />
-                            </div>
-                            {errors.recaptcha && <p className="text-red-400 text-sm mt-1 mb-4">{errors.recaptcha}</p>}
+                            {/* V3 Badge is automatic */}
 
                             {/* Submit Button */}
                             <button

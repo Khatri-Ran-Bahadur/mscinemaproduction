@@ -1,6 +1,7 @@
 import { Poppins } from "next/font/google";
 import "./globals.css";
 import MaintenanceCheck from "@/components/MaintenanceCheck";
+import RecaptchaProvider from "@/components/RecaptchaProvider";
 
 const poppins = Poppins({
   weight: ['300', '400', '500', '600', '700'],
@@ -23,7 +24,9 @@ export default function RootLayout({ children }) {
         className={`${poppins.variable} antialiased`}
       >
         <MaintenanceCheck>
-        {children}
+        <RecaptchaProvider>
+          {children}
+        </RecaptchaProvider>
         </MaintenanceCheck>
         <script
           dangerouslySetInnerHTML={{

@@ -5,21 +5,18 @@ import React, { useState, useEffect } from 'react';
 import Header from '@/components/header';
 import Footer from '@/components/footer';
 import { Mail, Phone, MapPin, Send, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
-import ReCAPTCHA from "react-google-recaptcha";
+import { useGoogleReCaptcha } from "react-google-recaptcha-v3";
 
 export default function ContactPage() {
+  const { executeRecaptcha } = useGoogleReCaptcha();
   const [formData, setFormData] = useState({
     name: '',
-    email: '',
-    phone: '',
     email: '',
     phone: '',
     subject: '',
     message: ''
   });
   
-  const [recaptchaValue, setRecaptchaValue] = useState(null);
-
   const [status, setStatus] = useState('idle'); // idle, submitting, success, error
 
   /* State for contact info */
@@ -81,18 +78,20 @@ export default function ContactPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (!recaptchaValue) {
-        alert('Please confirm you are not a robot.');
+    if (!executeRecaptcha) {
+        console.log('Execute recaptcha not yet available');
         return;
     }
     
     setStatus('submitting');
     
     try {
+      const token = await executeRecaptcha('contact_form');
+      
       const res = await fetch('/api/contact', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...formData, recaptchaToken: recaptchaValue })
+        body: JSON.stringify({ ...formData, recaptchaToken: token })
       });
       
       const data = await res.json();
@@ -100,7 +99,6 @@ export default function ContactPage() {
       if (res.ok) {
         setStatus('success');
         setFormData({ name: '', email: '', phone: '', subject: '', message: '' });
-        setRecaptchaValue(null);
       } else {
         throw new Error(data.error || 'Something went wrong');
       }
@@ -234,13 +232,7 @@ export default function ContactPage() {
                      />
                   </div>
 
-                  <div className="flex justify-center md:justify-start">
-                      <ReCAPTCHA
-                          sitekey={process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY}
-                          onChange={(val) => setRecaptchaValue(val)}
-                          theme="dark"
-                      />
-                  </div>
+                  {/* V3 Badge is automatic */}
                   
                   {status === 'error' && (
                     <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-lg flex items-center gap-3 text-red-400">
