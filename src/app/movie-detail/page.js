@@ -495,8 +495,8 @@ export default function MovieBooking() {
                 const timeDifference = showDateTime.getTime() - now.getTime();
                 const hoursDifference = timeDifference / (1000 * 60 * 60); // Convert to hours
                 
-                // If less than 1 hour and in the future, show restriction modal
-                if (hoursDifference < 1 && hoursDifference > 0) {
+                // If less than 1 hour, show restriction modal
+                if (hoursDifference < 1) {
                   setShowTimeRestrictionModal(true);
                   return;
                 }
@@ -641,10 +641,13 @@ export default function MovieBooking() {
           
           <div className="mb-6">
             <p className="text-white/80 text-sm leading-relaxed">
-              You cannot book this ticket online. The show time is less than 1 hour away.
+              Currently online booking for this show is closed now. 
             </p>
             <p className="text-white/80 text-sm leading-relaxed mt-2">
-              Please go to the hall and book directly at the counter.
+              Please book a ticket at box office.
+            </p>
+            <p className="text-white/80 text-sm leading-relaxed mt-2">
+              Thank you
             </p>
           </div>
           

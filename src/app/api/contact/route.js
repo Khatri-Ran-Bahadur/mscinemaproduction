@@ -2,13 +2,20 @@
 import { NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 import { sendEmail } from '@/utils/email';
+import { verifyRecaptcha } from '@/utils/recaptcha';
 
 const prisma = new PrismaClient();
 
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { name, email, phone, subject, message } = body;
+    const { name, email, phone, subject, message, recaptchaToken } = body;
+
+    // Verify Recaptcha
+    const isCaptchaValid = await verifyRecaptcha(recaptchaToken);
+    if (!isCaptchaValid) {
+      return NextResponse.json({ error: 'Recaptcha verification failed' }, { status: 400 });
+    }
 
     // Validate
     if (!name || !email || !subject || !message) {
