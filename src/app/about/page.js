@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { Phone, Mail, MapPin } from 'lucide-react';
 import Header from '@/components/header';
 import Footer from '@/components/footer';
+import ReadMoreContent from '@/components/ReadMoreContent';
 import { prisma } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
@@ -144,10 +145,7 @@ export default async function AboutUsPage() {
                                 <h2 className="text-3xl md:text-4xl font-bold text-[#FFCA20] border-b border-[#3a3a3a] pb-4 inline-block">
                                     {main.title}
                                 </h2>
-                                <div 
-                                    className="prose prose-invert max-w-none text-[#D3D3D3] leading-relaxed text-lg prose-p:mb-4 prose-headings:text-[#FFCA20] w-full overflow-hidden break-words [&>img]:max-w-full [&>img]:h-auto"
-                                    dangerouslySetInnerHTML={{ __html: main.content }}
-                                />
+                                <ReadMoreContent content={main.content} maxHeightPercentage={53} />
                             </div>
                         </div>
                     </div>

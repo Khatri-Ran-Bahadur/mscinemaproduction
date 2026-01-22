@@ -311,12 +311,12 @@ const Header = () => {
                                                 }}
                                             />
                                             <div className="w-full h-full hidden items-center justify-center bg-[#1a1a1a]">
-                                                <UserCircle className="w-8 h-8 text-[#FFCA20]" />
+                                                <UserCircle className="w-10 h-10 text-[#FFCA20]" />
                                             </div>
                                         </div>
                                     ) : (
-                                        <div className="w-10 h-10 rounded-full border-2 border-[#FFCA20] bg-[#1a1a1a] flex items-center justify-center shadow-lg">
-                                            <UserCircle className="w-8 h-8 text-[#FFCA20]" />
+                                        <div className="w-10 h-10 rounded-full  bg-[#1a1a1a] flex items-center justify-center shadow-lg">
+                                            <UserCircle className="w-10 h-10 text-[#FFCA20]" />
                                         </div>
                                     )}
                                 </button>

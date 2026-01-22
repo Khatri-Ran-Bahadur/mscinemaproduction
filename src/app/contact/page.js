@@ -126,19 +126,18 @@ export default function ContactPage() {
             </p>
           </div>
           
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-24">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16">
             
             {/* Contact Info */}
-            <div className="space-y-8">
+            <div className="space-y-6">
                <h2 className="text-2xl font-semibold mb-6">Get in Touch</h2>
                
-               {contactInfos.slice(0, 3).map((info, index) => (
-                
+               {contactInfos.slice(0, 2).filter(info => info.type !== 'map_iframe').map((info, index) => (
                  <div key={index} className="flex items-start gap-4 p-6 bg-[#222] rounded-xl border border-white/5 hover:border-[#FFCA20]/50 transition-colors">
-                   <div className="bg-[#FFCA20]/10 p-3 rounded-lg text-[#FFCA20]">
+                   <div className="bg-[#FFCA20]/10 p-3 rounded-lg text-[#FFCA20] flex-shrink-0">
                       {getIcon(info.icon)}
                    </div>
-                   <div>
+                   <div className="flex-1">
                       <h3 className="font-semibold text-white mb-2">{info.title}</h3>
                       <div 
                         className="text-gray-400 leading-relaxed"
@@ -147,10 +146,24 @@ export default function ContactPage() {
                    </div>
                  </div>
                ))}
+              
+               {/* Map Section */}
+          {contactInfos.find(info => info.type === 'map_iframe') && (
+              <div className="mt-16 bg-[#222] p-2 rounded-xl border border-white/5 overflow-hidden">
+                  <div 
+                      className="w-full h-[400px] rounded-lg overflow-hidden [&>iframe]:w-full [&>iframe]:h-full"
+                      dangerouslySetInnerHTML={{ 
+                          __html: contactInfos.find(info => info.type === 'map_iframe').value 
+                      }}
+                  />
+              </div>
+          )}
+               
+              
             </div>
 
             {/* Contact Form */}
-            <div className="bg-[#222] p-8 rounded-2xl border border-white/10 shadow-2xl">
+            <div className="bg-[#222] p-8 rounded-2xl border border-white/10 shadow-2xl h-fit lg:sticky lg:top-24">
               <h2 className="text-2xl font-semibold mb-6">Send a Message</h2>
               
               {status === 'success' ? (
@@ -275,17 +288,7 @@ export default function ContactPage() {
 
           </div>
 
-          {/* Map Section */}
-          {contactInfos.find(info => info.type === 'map_iframe') && (
-              <div className="mt-16 bg-[#222] p-2 rounded-xl border border-white/5 overflow-hidden">
-                  <div 
-                      className="w-full h-[400px] rounded-lg overflow-hidden [&>iframe]:w-full [&>iframe]:h-full"
-                      dangerouslySetInnerHTML={{ 
-                          __html: contactInfos.find(info => info.type === 'map_iframe').value 
-                      }}
-                  />
-              </div>
-          )}
+         
 
         </div>
       </div>
