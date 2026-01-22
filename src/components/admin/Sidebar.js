@@ -81,15 +81,12 @@ export default function AdminSidebar() {
   return (
     <aside className="fixed left-0 top-0 h-screen w-64 bg-[#2a2a2a] border-r border-[#3a3a3a] flex flex-col z-40">
       {/* Brand */}
-      <div className="p-6 border-b border-[#3a3a3a] flex flex-col items-center gap-3">
+      <div className="p-2 border-b border-[#3a3a3a] flex flex-col items-center gap-3">
         <img 
           src="/img/logo.png" 
           alt="MS Cinemas" 
-          className="h-12 w-auto"
+          className="h-16 w-auto"
         />
-        <div className="text-center">
-          <span className="text-xs text-[#888] tracking-widest">ADMIN PANEL</span>
-        </div>
       </div>
 
       {/* Navigation */}

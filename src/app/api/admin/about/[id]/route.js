@@ -11,7 +11,8 @@ import { prisma } from '@/lib/prisma';
 // Get single section
 export async function GET(request, { params }) {
   try {
-    const id = parseInt(params.id);
+    const { id: idParam } = await params;
+    const id = parseInt(idParam);
 
     if (isNaN(id)) {
       return NextResponse.json(
@@ -47,7 +48,8 @@ export async function GET(request, { params }) {
 // Update section
 export async function PUT(request, { params }) {
   try {
-    const id = parseInt(params.id);
+    const { id: idParam } = await params;
+    const id = parseInt(idParam);
     const body = await request.json();
 
     if (isNaN(id)) {
@@ -94,7 +96,8 @@ export async function PUT(request, { params }) {
 // Delete section
 export async function DELETE(request, { params }) {
   try {
-    const id = parseInt(params.id);
+    const { id: idParam } = await params;
+    const id = parseInt(idParam);
 
     if (isNaN(id)) {
       return NextResponse.json(
