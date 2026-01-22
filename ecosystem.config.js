@@ -8,17 +8,21 @@ module.exports = {
     exec_mode: 'fork', // Use fork mode instead of cluster for better resource control
     autorestart: true,
     watch: false,
-    max_memory_restart: '800M', // Lower memory limit to prevent spikes
+    max_memory_restart: '1G', // Increased memory limit for better performance
     min_uptime: '10s', // Minimum uptime before considering stable
     max_restarts: 10, // Limit restarts to prevent restart loops
     restart_delay: 4000, // Delay between restarts
     kill_timeout: 5000, // Timeout for graceful shutdown
     listen_timeout: 10000, // Timeout for app to listen
+    // CPU and performance optimization
+    node_args: '--max-old-space-size=1024', // Optimize Node.js memory
     env: {
       NODE_ENV: 'production',
       PORT: 3000,
-      NODE_OPTIONS: '--max-old-space-size=768', // Limit Node.js memory
-      TZ: 'Asia/Kuala_Lumpur'
+      NODE_OPTIONS: '--max-old-space-size=1024',
+      TZ: 'Asia/Kuala_Lumpur',
+      // Next.js optimization
+      NEXT_TELEMETRY_DISABLED: '1' // Disable telemetry to reduce CPU usage
     },
     error_file: '/var/log/pm2/mscinemas-error.log',
     out_file: '/var/log/pm2/mscinemas-out.log',
