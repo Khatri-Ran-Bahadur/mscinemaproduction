@@ -56,6 +56,16 @@ export default function AdminSidebar() {
       href: '/admin/contacts'
     },
     {
+      title: 'Promotions',
+      icon: <ImageIcon className="w-5 h-5" />,
+      href: '/admin/promotions'
+    },
+    {
+      title: 'Experiences',
+      icon: <FileText className="w-5 h-5" />, 
+      href: '/admin/experiences'
+    },
+    {
       title: 'Settings',
       icon: <Settings className="w-5 h-5" />,
       href: '/admin/settings'

@@ -537,10 +537,10 @@ export default function MovieStreamingSite() {
       </div>
 
       {/* Promotions Section */}
-      {/* {!isLoading && <Promotions/>} */}
+      {!isLoading && <Promotions/>}
 
       {/* Experience Our Hall Section */}
-      {/* {!isLoading && <ExperienceOurHall />} */}
+      {!isLoading && <ExperienceOurHall />}
 
       {/* Trailer Modal */}
       {showTrailerModal && (
