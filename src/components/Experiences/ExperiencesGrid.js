@@ -91,7 +91,8 @@ export const ExperiencesGrid = ({
     title = "Experience our hall",
     columns = 3, // Default 3 columns for desktop
     showFullDescription = false, // For home page, show truncated; for movies page, show full
-    className = ""
+    className = "",
+    experiences = []
 }) => {
     const gridCols = {
         2: 'grid-cols-2',
@@ -99,13 +100,37 @@ export const ExperiencesGrid = ({
         4: 'grid-cols-2 lg:grid-cols-4'
     };
 
+    // Use passed experiences or fallback to static data if empty and not explicitly suppressing
+    // However, ExperienceOurHall passes the filtered list.
+    // If experiences prop is passed (even if empty array), we use it.
+    // If undefined, we might use default? 
+    // Let's assume if it's passed, it overrides EXPERIENCES_DATA.
+    // But EXPERIENCES_DATA was static. 
+    // Let's use experiences if it has length, otherwise fallback? 
+    // The user wants dynamic. So if we fetch dynamic and it's 0, we show 0.
+    
+    // Actually, to support existing usage elsewhere without breaking, let's default to EXPERIENCES_DATA if experiences is empty AND not passed. 
+    // But simpler: just use generic list.
+    
+    const displayData = (experiences && experiences.length > 0) ? experiences : EXPERIENCES_DATA;
+    // Note: ExperienceOurHall returns null if empty, so here displayData will likely be static if not called from ExperienceOurHall or if called with empty but we want fallback.
+    // But wait, ExperienceOurHall passes `experiences` state. If that state is populated, we use it. 
+    // If ExperienceOurHall handles the "loading/empty" check, then when we get here we have data.
+    
+    // But wait! If I change ExperienceOurHall to fetch, and I want to "make dynamic", do I still want the hardcoded `EXPERIENCES_DATA`? 
+    // Probably not. But I should keep it for safety in case API fails or during migration.
+    // However, the `ExperienceOurHall.js` component now only renders `ExperiencesGrid` if `experiences.length > 0`.
+    
+    // So if I modify ExperiencesGrid to prefer `experiences` prop:
+    const finalData = experiences && experiences.length > 0 ? experiences : EXPERIENCES_DATA;
+
     return (
         <div className={className}>
             {showTitle && (
                 <h3 className="text-xl md:text-2xl font-bold mb-6 md:mb-8 text-[#FAFAFA]">{title}</h3>
             )}
             <div className={`grid ${gridCols[columns] || gridCols[3]} gap-4 md:gap-6`}>
-                {EXPERIENCES_DATA.map((experience) => (
+                {finalData.map((experience) => (
                     <ExperienceCard 
                         key={experience.id}
                         experience={experience}

@@ -868,36 +868,37 @@ export default function MovieBooking() {
                     const isAvailable = show.sellingStatus === 0 && show.allowOnlineSales === true;
                     const isSoldOut = !isAvailable; // Sold out if not available
                     
-                    return (
-                      <button
-                        key={show.showID || show.id || idx}
-                        onClick={() => {
-                          if (isAvailable) {
-                            handleClick(idx);
-                          }
-                        }}
-                        disabled={isSoldOut}
-                        className={`p-3 rounded-lg border transition ${
-                          isSoldOut
-                            ? 'bg-gray-800  text-gray-500 cursor-not-allowed opacity-60'
-                            : selectedTime === idx
-                            ? 'bg-[#FFCA20] border-[#FFCA20] text-black'
-                            : show.sellingFast
-                            ? 'bg-[#0a0a0a] border-[#FFCA20] text-[#FAFAFA] hover:border-[#FFCA20] hover:bg-[#151515]'
-                            : 'bg-[#FFCA20] border-[#FFCA20] text-black'
-                        }`}
-                        title={isSoldOut 
-                          ? (show.allowOnlineSales === false 
-                              ? 'Not available for online sales' 
-                              : show.sellingStatus === 1 
-                              ? 'Selling fast / Limited availability' 
-                              : 'Sold out')
-                          : 'Available'}
-                      >
-                        <div className="text-md font-semibold">{show.time}</div>
-                        <div className="text-sm mt-1 opacity-70">{show.hallName || 'HALL - 1'}</div>
-                      </button>
-                    );
+                      return (
+                        <button
+                          key={show.showID || show.id || idx}
+                          onClick={() => {
+                            if (isAvailable) {
+                              handleClick(idx);
+                            } else {
+                              setShowTimeRestrictionModal(true);
+                            }
+                          }}
+                          className={`p-3 rounded-lg border transition ${
+                            isSoldOut
+                              ? 'bg-gray-800 text-gray-500 cursor-not-allowed opacity-60'
+                              : selectedTime === idx
+                              ? 'bg-[#FFCA20] border-[#FFCA20] text-black'
+                              : show.sellingFast
+                              ? 'bg-[#0a0a0a] border-[#FFCA20] text-[#FAFAFA] hover:border-[#FFCA20] hover:bg-[#151515]'
+                              : 'bg-[#FFCA20] border-[#FFCA20] text-black'
+                          }`}
+                          title={isSoldOut 
+                            ? (show.allowOnlineSales === false 
+                                ? 'Not available for online sales' 
+                                : show.sellingStatus === 1 
+                                ? 'Selling fast / Limited availability' 
+                                : 'Sold out')
+                            : 'Available'}
+                        >
+                          <div className="text-md font-semibold">{show.time}</div>
+                          <div className="text-sm mt-1 opacity-70">{show.hallName || 'HALL - 1'}</div>
+                        </button>
+                      );
                   })}
                 </div>
               ) : (

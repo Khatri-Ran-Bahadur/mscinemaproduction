@@ -40,6 +40,36 @@ model Banner {
   @@map("banners")
 }
 
+// Experience Model
+model Experience {
+  id            Int      @id @default(autoincrement())
+  image         String   // Image URL
+  fallbackImage String?  // Fallback image URL
+  title         String
+  description   String   @db.Text
+  order         Int      @default(0)
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("experiences")
+}
+
+// Promotion Model
+model Promotion {
+  id          Int      @id @default(autoincrement())
+  image       String   // Image URL
+  title       String?
+  description String?  @db.Text
+  link        String?  // Optional link
+  order       Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("promotions")
+}
+
 // About Page Content Model
 model AboutContent {
   id          Int      @id @default(autoincrement())

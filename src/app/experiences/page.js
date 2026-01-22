@@ -5,7 +5,29 @@ import Header from '@/components/header';
 import Footer from '@/components/footer';
 
 export default function ExperiencesPage() {
-    const experiences = [
+    const [experiences, setExperiences] = React.useState([]);
+    const [loading, setLoading] = React.useState(true);
+
+    React.useEffect(() => {
+        const fetchExperiences = async () => {
+            try {
+                const response = await fetch('/api/admin/experiences');
+                const data = await response.json();
+                if (data.success) {
+                    setExperiences(data.experiences);
+                }
+            } catch (error) {
+                console.error('Failed to fetch experiences:', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchExperiences();
+    }, []);
+
+    const displayExperiences = experiences.length > 0 ? experiences : [
+        // Fallback static data in case API has no data yet
         {
             id: 1,
             image: "img/experiences1.jpg",
@@ -44,6 +66,24 @@ export default function ExperiencesPage() {
         }
     ];
 
+    if (loading) {
+        return (
+            <div className="min-h-screen bg-black text-[#FAFAFA]">
+                <Header />
+                <div className="pt-24 pb-16 min-h-[60vh] flex items-center justify-center">
+                    <div className="w-12 h-12 border-4 border-[#FFCA20] border-t-transparent rounded-full animate-spin"></div>
+                </div>
+                <Footer />
+            </div>
+        );
+    }
+
+    // Filter active items only? The API returns all. 
+    // Usually admin API might return inactive too, maybe public API should filter.
+    // However, the API we made /api/admin/experiences returns all ordered.
+    // We should ideally filter by isActive for public view.
+    const activeExperiences = displayExperiences.filter(exp => exp.isActive !== false); // Handle explicit false, or if undefined assume true for static
+
     return (
         <div className="min-h-screen bg-black text-[#FAFAFA]">
             <Header />
@@ -66,14 +106,14 @@ export default function ExperiencesPage() {
 
             {/* Experiences Grid */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {experiences.map((exp) => (
+                    {activeExperiences.map((exp) => (
                         <div key={exp.id} className="group cursor-pointer">
                                 <div className="relative h-80 rounded-xl overflow-hidden mb-4">
                                 <img 
                                     src={exp.image} 
                                     alt={exp.title}
                                     className="w-full h-full object-cover group-hover:scale-110 transition duration-500"
-                                        onError={(e) => { e.target.src = 'img/movies1.png'; }}
+                                    onError={(e) => { e.target.src = exp.fallbackImage || 'img/movies1.png'; }}
                                 />
                                 <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-transparent"></div>
                                 
