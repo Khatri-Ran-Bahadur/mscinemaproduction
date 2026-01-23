@@ -9,6 +9,7 @@ export async function GET(request) {
     const limit = parseInt(searchParams.get('limit')) || 10;
     const search = searchParams.get('search') || '';
     const status = searchParams.get('status') || 'All';
+    const paymentStatus = searchParams.get('paymentStatus') || 'All';
     const date = searchParams.get('date') || '';
     const skip = (page - 1) * limit;
 
@@ -16,6 +17,10 @@ export async function GET(request) {
     
     if (status !== 'All') {
         where.status = status;
+    }
+
+    if (paymentStatus !== 'All') {
+        where.paymentStatus = paymentStatus;
     }
 
     if (date) {
@@ -71,5 +76,35 @@ export async function GET(request) {
   } catch (error) {
     console.error('Get admin orders error:', error);
     return NextResponse.json({ error: 'Failed to fetch orders' }, { status: 500 });
+  }
+}
+
+// DELETE endpoint for single or bulk delete
+export async function DELETE(request) {
+  try {
+    const body = await request.json();
+    const { ids } = body; // Array of order IDs
+
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+      return NextResponse.json({ error: 'Invalid order IDs' }, { status: 400 });
+    }
+
+    // Delete orders
+    const result = await prisma.order.deleteMany({
+      where: {
+        id: {
+          in: ids
+        }
+      }
+    });
+
+    return NextResponse.json({ 
+      success: true, 
+      message: `${result.count} order(s) deleted successfully`,
+      count: result.count
+    });
+  } catch (error) {
+    console.error('Delete orders error:', error);
+    return NextResponse.json({ error: 'Failed to delete orders' }, { status: 500 });
   }
 }

@@ -1,11 +1,43 @@
 
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Header from '@/components/header';
 import Footer from '@/components/footer';
 import { Mail, Phone, MapPin, Send, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import ReCAPTCHA from "react-google-recaptcha";
+
+
+const MapDisplay = React.memo(({ htmlContent }) => {
+  if (!htmlContent) return null;
+  return (
+    <div className="mt-16 bg-[#222] p-2 rounded-xl border border-white/5 overflow-hidden">
+        <div 
+            className="w-full h-[400px] rounded-lg overflow-hidden [&>iframe]:w-full [&>iframe]:h-full"
+            dangerouslySetInnerHTML={{ __html: htmlContent }}
+        />
+    </div>
+  );
+});
+
+MapDisplay.displayName = 'MapDisplay';
+
+const ContactInfoItem = React.memo(({ icon, title, value, getIcon }) => (
+  <div className="flex items-start gap-4 p-6 bg-[#222] rounded-xl border border-white/5 hover:border-[#FFCA20]/50 transition-colors">
+    <div className="bg-[#FFCA20]/10 p-3 rounded-lg text-[#FFCA20] flex-shrink-0">
+        {getIcon(icon)}
+    </div>
+    <div className="flex-1">
+        <h3 className="font-semibold text-white mb-2">{title}</h3>
+        <div 
+          className="text-gray-400 leading-relaxed"
+          dangerouslySetInnerHTML={{ __html: value }}
+        />
+    </div>
+  </div>
+));
+
+ContactInfoItem.displayName = 'ContactInfoItem';
 
 export default function ContactPage() {
   const [formData, setFormData] = useState({
@@ -59,32 +91,32 @@ export default function ContactPage() {
     }
   };
 
-  const getIcon = (iconName) => {
+  const getIcon = useCallback((iconName) => {
     switch (iconName) {
       case 'MapPin': return <MapPin className="w-6 h-6" />;
       case 'Phone': return <Phone className="w-6 h-6" />;
       case 'Mail': return <Mail className="w-6 h-6" />;
       default: return <MapPin className="w-6 h-6" />;
     }
-  };
+  }, []);
 
-  const handleChange = (e) => {
+  const handleChange = useCallback((e) => {
     setFormData(prev => ({
       ...prev,
       [e.target.name]: e.target.value
     }));
-  };
+  }, []);
+
+  const handleRecaptchaChange = useCallback((val) => {
+    setRecaptchaValue(val);
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     
     if (!recaptchaValue) {
         setStatus('error');
-        // We'll show an alert or set a visible error message if possible, but status 'error' triggers the error UI
-        // Actually, let's create a specific UI error if needed or rely on the generic failure message,
-        // but typically we want to warn the user specifically about captcha.
-        // For now, let's just return.
-        alert("Please verify you are not a robot."); // Simple alert as a fallback or just dont submit
+        alert("Please verify you are not a robot.");
         return;
     }
     
@@ -102,7 +134,8 @@ export default function ContactPage() {
       if (res.ok) {
         setStatus('success');
         setFormData({ name: '', email: '', phone: '', subject: '', message: '' });
-        setRecaptchaValue(null); // Reset captcha
+        setRecaptchaValue(null);
+        // Reset captcha explicitly if the component supports it, but simple null state reset helps logic
       } else {
         throw new Error(data.error || 'Something went wrong');
       }
@@ -111,6 +144,8 @@ export default function ContactPage() {
        setStatus('error');
     }
   };
+
+  const mapInfo = useMemo(() => contactInfos.find(info => info.type === 'map_iframe'), [contactInfos]);
 
   return (
     <div className="min-h-screen bg-[#111] text-white flex flex-col">
@@ -133,33 +168,18 @@ export default function ContactPage() {
                <h2 className="text-2xl font-semibold mb-6">Get in Touch</h2>
                
                {contactInfos.slice(0, 2).filter(info => info.type !== 'map_iframe').map((info, index) => (
-                 <div key={index} className="flex items-start gap-4 p-6 bg-[#222] rounded-xl border border-white/5 hover:border-[#FFCA20]/50 transition-colors">
-                   <div className="bg-[#FFCA20]/10 p-3 rounded-lg text-[#FFCA20] flex-shrink-0">
-                      {getIcon(info.icon)}
-                   </div>
-                   <div className="flex-1">
-                      <h3 className="font-semibold text-white mb-2">{info.title}</h3>
-                      <div 
-                        className="text-gray-400 leading-relaxed"
-                        dangerouslySetInnerHTML={{ __html: info.value }}
-                      />
-                   </div>
-                 </div>
+                 <ContactInfoItem 
+                    key={index} 
+                    icon={info.icon} 
+                    title={info.title} 
+                    value={info.value} 
+                    getIcon={getIcon}
+                 />
                ))}
               
                {/* Map Section */}
-          {contactInfos.find(info => info.type === 'map_iframe') && (
-              <div className="mt-16 bg-[#222] p-2 rounded-xl border border-white/5 overflow-hidden">
-                  <div 
-                      className="w-full h-[400px] rounded-lg overflow-hidden [&>iframe]:w-full [&>iframe]:h-full"
-                      dangerouslySetInnerHTML={{ 
-                          __html: contactInfos.find(info => info.type === 'map_iframe').value 
-                      }}
-                  />
-              </div>
-          )}
+               <MapDisplay htmlContent={mapInfo?.value} />
                
-              
             </div>
 
             {/* Contact Form */}
@@ -253,7 +273,7 @@ export default function ContactPage() {
                   <div className="mb-6">
                     <ReCAPTCHA
                         sitekey={process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY}
-                        onChange={(val) => setRecaptchaValue(val)}
+                        onChange={handleRecaptchaChange}
                         theme="dark"
                     />
                   </div>

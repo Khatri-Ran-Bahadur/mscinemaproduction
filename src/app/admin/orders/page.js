@@ -16,7 +16,8 @@ import {
     CheckCircle,
     XCircle,
     Clock,
-    Eye
+    Eye,
+    Trash2
 } from 'lucide-react';
 import TicketModal from '@/components/TicketModal';
 import OrderDetailsModal from '@/components/admin/OrderDetailsModal';
@@ -28,12 +29,15 @@ export default function AdminOrdersPage() {
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [filterStatus, setFilterStatus] = useState('All');
+    const [filterPaymentStatus, setFilterPaymentStatus] = useState('All');
     const [dateFilter, setDateFilter] = useState('');
     const [selectedOrder, setSelectedOrder] = useState(null);
     const [ticketData, setTicketData] = useState(null);
     const [showTicketModal, setShowTicketModal] = useState(false);
     const [viewOrder, setViewOrder] = useState(null);
     const [showViewOrderModal, setShowViewOrderModal] = useState(false);
+    const [selectedOrders, setSelectedOrders] = useState([]);
+    const [isDeleting, setIsDeleting] = useState(false);
     
     // Pagination State
     const [page, setPage] = useState(1);
@@ -46,7 +50,7 @@ export default function AdminOrdersPage() {
             fetchOrders();
         }, 300); // Debounce search
         return () => clearTimeout(timeoutId);
-    }, [page, limit, searchQuery, filterStatus, dateFilter]);
+    }, [page, limit, searchQuery, filterStatus, filterPaymentStatus, dateFilter]);
 
     const fetchOrders = async () => {
         setLoading(true);
@@ -56,6 +60,7 @@ export default function AdminOrdersPage() {
                 limit: limit.toString(),
                 search: searchQuery,
                 status: filterStatus,
+                paymentStatus: filterPaymentStatus,
                 date: dateFilter
             });
             
@@ -88,9 +93,91 @@ export default function AdminOrdersPage() {
         setPage(1); // Reset to page 1 on filter change
     };
 
+    const handlePaymentStatusChange = (e) => {
+        setFilterPaymentStatus(e.target.value);
+        setPage(1);
+    };
+
     const handleDateChange = (e) => {
         setDateFilter(e.target.value);
         setPage(1);
+    };
+
+    const handleSelectOrder = (orderId) => {
+        setSelectedOrders(prev => {
+            if (prev.includes(orderId)) {
+                return prev.filter(id => id !== orderId);
+            } else {
+                return [...prev, orderId];
+            }
+        });
+    };
+
+    const handleSelectAll = (e) => {
+        if (e.target.checked) {
+            setSelectedOrders(orders.map(order => order.id));
+        } else {
+            setSelectedOrders([]);
+        }
+    };
+
+    const handleDeleteSingle = async (orderId) => {
+        if (!confirm('Are you sure you want to delete this order?')) return;
+        
+        setIsDeleting(true);
+        try {
+            const res = await fetch('/api/admin/orders', {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ids: [orderId] })
+            });
+            
+            const data = await res.json();
+            if (data.success) {
+                alert('Order deleted successfully');
+                fetchOrders();
+                setSelectedOrders([]);
+            } else {
+                alert('Failed to delete order');
+            }
+        } catch (error) {
+            console.error('Delete error:', error);
+            alert('Failed to delete order');
+        } finally {
+            setIsDeleting(false);
+        }
+    };
+
+    const handleBulkDelete = async () => {
+        if (selectedOrders.length === 0) {
+            alert('Please select orders to delete');
+            return;
+        }
+
+        if (!confirm(`Are you sure you want to delete ${selectedOrders.length} order(s)?`)) return;
+        
+        setIsDeleting(true);
+        try {
+            const res = await fetch('/api/admin/orders', {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ids: selectedOrders })
+            });
+            
+            const data = await res.json();
+            if (data.success) {
+                alert(`${data.count} order(s) deleted successfully`);
+                fetchOrders();
+                setSelectedOrders([]);
+            } else {
+                alert('Failed to delete orders');
+            }
+        } catch (error) {
+            console.error('Delete error:', error);
+            alert('Failed to delete orders');
+        } finally {
+            setIsDeleting(false);
+        }
     };
 
     const handleOpenViewModal = (order) => {
@@ -204,7 +291,7 @@ export default function AdminOrdersPage() {
                     <p className="text-[#888]">Manage and view all customer ticket bookings</p>
                 </div>
                 
-                <div className="flex gap-3">
+                <div className="flex gap-3 flex-wrap">
                     <div className="relative">
                         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[#666]" />
                         <input 
@@ -236,6 +323,30 @@ export default function AdminOrdersPage() {
                         </select>
                         <Filter className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[#666] pointer-events-none" />
                     </div>
+                    <div className="relative">
+                        <select 
+                            value={filterPaymentStatus}
+                            onChange={handlePaymentStatusChange}
+                            className="bg-[#2a2a2a] border border-[#3a3a3a] text-white pl-4 pr-10 py-2 rounded-lg focus:border-[#FFCA20] outline-none appearance-none cursor-pointer"
+                        >
+                            <option value="All">All Payments</option>
+                            <option value="PAID">Paid</option>
+                            <option value="PENDING">Pending</option>
+                            <option value="FAILED">Failed</option>
+                            <option value="REFUNDED">Refunded</option>
+                        </select>
+                        <CreditCard className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[#666] pointer-events-none" />
+                    </div>
+                    {selectedOrders.length > 0 && (
+                        <button
+                            onClick={handleBulkDelete}
+                            disabled={isDeleting}
+                            className="flex items-center gap-2 px-4 py-2 bg-red-500/10 border border-red-500/30 text-red-400 rounded-lg hover:bg-red-500/20 transition disabled:opacity-50"
+                        >
+                            <Trash2 className="w-4 h-4" />
+                            Delete ({selectedOrders.length})
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -247,6 +358,14 @@ export default function AdminOrdersPage() {
                         <table className="w-full text-left">
                             <thead className="bg-[#222] border-b border-[#3a3a3a]">
                                 <tr>
+                                    <th className="px-3 py-3 text-[#888] font-medium text-xs w-[40px]">
+                                        <input
+                                            type="checkbox"
+                                            checked={selectedOrders.length === orders.length && orders.length > 0}
+                                            onChange={handleSelectAll}
+                                            className="w-4 h-4 rounded border-[#666] bg-[#333] text-[#FFCA20] focus:ring-[#FFCA20] focus:ring-offset-0 cursor-pointer"
+                                        />
+                                    </th>
                                     <th className="px-3 py-3 text-[#888] font-medium text-xs w-[180px]">Ticket / Payment Ref</th>
                                     <th className="px-3 py-3 text-[#888] font-medium text-xs hidden md:table-cell">Customer</th>
                                     <th className="px-3 py-3 text-[#888] font-medium text-xs hidden sm:table-cell">Movie Details</th>
@@ -262,6 +381,14 @@ export default function AdminOrdersPage() {
                                 {orders.length > 0 ? (
                                     orders.map((order) => (
                                         <tr key={order.id} className="hover:bg-[#333] transition">
+                                            <td className="px-3 py-2">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selectedOrders.includes(order.id)}
+                                                    onChange={() => handleSelectOrder(order.id)}
+                                                    className="w-4 h-4 rounded border-[#666] bg-[#333] text-[#FFCA20] focus:ring-[#FFCA20] focus:ring-offset-0 cursor-pointer"
+                                                />
+                                            </td>
                                             <td className="px-3 py-2">
                                                 <div className="flex flex-col">
                                                     <span className="font-mono text-[#FFCA20] font-bold text-xs">{order.referenceNo}</span>
@@ -342,13 +469,21 @@ export default function AdminOrdersPage() {
                                                             Ticket
                                                         </button>
                                                     )}
+                                                    <button 
+                                                        onClick={() => handleDeleteSingle(order.id)}
+                                                        disabled={isDeleting}
+                                                        className="p-1 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded transition disabled:opacity-50"
+                                                        title="Delete Order"
+                                                    >
+                                                        <Trash2 className="w-3.5 h-3.5" />
+                                                    </button>
                                                 </div>
                                             </td>
                                         </tr>
                                     ))
                                 ) : (
                                     <tr>
-                                        <td colSpan="8" className="p-8 text-center text-[#666]">
+                                        <td colSpan="10" className="p-8 text-center text-[#666]">
                                             {loading ? 'Searching...' : 'No orders found matching your criteria.'}
                                         </td>
                                     </tr>

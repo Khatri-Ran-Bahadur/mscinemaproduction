@@ -484,29 +484,6 @@ export default function ProfilePage() {
                 </div>
               </div>
 
-              {/* Image URL (Editable Text) - Kept as backup or display */}
-              <div className="flex items-start gap-4 pb-4 border-b border-[#2a2a2a]">
-                <User className="w-5 h-5 text-[#FFCA20] mt-1 flex-shrink-0" />
-                <div className="flex-1">
-                  <label className="text-sm text-[#D3D3D3] mb-1 block">Profile Image URL</label>
-                  <div className="flex gap-2">
-                    <input
-                        type="url"
-                        value={editFormData.imageURL}
-                        onChange={(e) => handleEditInputChange('imageURL', e.target.value)}
-                        className="w-full px-4 py-2 bg-[#2a2a2a] border border-[#3a3a3a] rounded-lg text-[#FAFAFA] focus:outline-none focus:border-[#FFCA20]"
-                        placeholder="Optional - Enter image URL or upload above"
-                    />
-                    <button 
-                        onClick={() => fileInputRef.current?.click()}
-                        className="px-4 py-2 bg-[#2a2a2a] border border-[#3a3a3a] rounded-lg hover:bg-[#3a3a3a] text-white"
-                        title="Upload Image"
-                    >
-                        <Camera className="w-5 h-5" />
-                    </button>
-                  </div>
-                </div>
-              </div>
 
               {/* Action Buttons */}
               <div className="flex gap-3 pt-4">
