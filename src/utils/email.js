@@ -291,7 +291,19 @@ export const sendTicketEmail = async (to, ticketData, corporateInfoPassed = null
   const formatTime = (timeStr) => {
     if (!timeStr) return '';
     try {
-      const [hours, minutes] = timeStr.split(':');
+      // Handle both full datetime strings (e.g., "2026-01-23 21:20:00") and time-only strings (e.g., "21:20:00")
+      let timePart = timeStr;
+      
+      // If it's a datetime string, extract the time portion
+      if (timeStr.includes(' ')) {
+        timePart = timeStr.split(' ')[1]; // Get "21:20:00" from "2026-01-23 21:20:00"
+      } else if (timeStr.includes('T')) {
+        // Handle ISO format "2026-01-23T21:20:00"
+        timePart = timeStr.split('T')[1].split('.')[0]; // Get "21:20:00"
+      }
+      
+      // Now split the time part
+      const [hours, minutes] = timePart.split(':');
       const hour = parseInt(hours);
       const ampm = hour >= 12 ? 'PM' : 'AM';
       const displayHour = hour % 12 || 12;
