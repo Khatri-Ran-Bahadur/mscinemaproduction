@@ -12,7 +12,9 @@ import {
   Ticket, 
   TrendingUp, 
   BarChart3,
-  Calendar
+  Calendar,
+  CreditCard,
+  Target
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -64,185 +66,178 @@ export default function AdminDashboard() {
     today: { sales: 0, orders: 0, tickets: 0 },
     week: { sales: 0, orders: 0, tickets: 0 },
     month: { sales: 0, orders: 0, tickets: 0 },
+    allTime: { sales: 0, orders: 0 },
     chart: []
   };
 
   // Helper to format currency
-  const fmtMoney = (amount) => `RM ${parseFloat(amount || 0).toFixed(2)}`;
+  const fmtMoney = (amount) => `RM ${parseFloat(amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-  // Calculate chart max for scaling
-  const maxChartValue = Math.max(...(stats.chart.map(d => d.amount) || [0]), 100);
+  // Chart Logic
+  const Chart = () => {
+      if (!stats.chart || stats.chart.length === 0) return <div className="h-64 flex items-center justify-center text-gray-500">No Data</div>;
+
+      const data = stats.chart;
+      const values = data.map(d => d.amount);
+      const maxVal = Math.max(...values, 100) * 1.2; // Add 20% headroom
+      const height = 300;
+      const width = 1000; // viewBox width
+
+      const points = data.map((d, i) => {
+          const x = (i / (data.length - 1)) * width;
+          const y = height - (d.amount / maxVal) * height;
+          return `${x},${y}`;
+      }).join(' ');
+
+      const fillPath = `M 0,${height} ${points} L ${width},${height} Z`;
+      const strokePath = `M ${points.replace(/ /g, ' L ')}`; // Basic line
+
+      return (
+          <div className="w-full h-80 relative">
+              <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full overflow-visible" preserveAspectRatio="none">
+                  <defs>
+                      <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.5" />
+                          <stop offset="100%" stopColor="#3b82f6" stopOpacity="0" />
+                      </linearGradient>
+                      <linearGradient id="chartLine" x1="0" y1="0" x2="1" y2="0">
+                          <stop offset="0%" stopColor="#60a5fa" />
+                          <stop offset="100%" stopColor="#3b82f6" />
+                      </linearGradient>
+                  </defs>
+                  
+                  {/* Grid Lines */}
+                  {[0, 0.25, 0.5, 0.75, 1].map((p) => (
+                      <line 
+                          key={p} 
+                          x1="0" 
+                          y1={height * p} 
+                          x2={width} 
+                          y2={height * p} 
+                          stroke="#333" 
+                          strokeWidth="1" 
+                          strokeDasharray="4 4"
+                      />
+                  ))}
+
+                  <path d={fillPath} fill="url(#chartGradient)" />
+                  <path d={strokePath} fill="none" stroke="#60a5fa" strokeWidth="3" vectorEffect="non-scaling-stroke" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              
+              {/* Labels (X-Axis) */}
+              <div className="absolute bottom-0 left-0 right-0 flex justify-between text-xs text-gray-500 mt-2">
+                 {data.filter((_, i) => i % 5 === 0).map((d, i) => (
+                     <span key={i}>{d.label}</span>
+                 ))}
+              </div>
+          </div>
+      );
+  };
+
+  const Card = ({ title, amount, subtext, icon: Icon, colorClass, bgClass }) => (
+      <div className="bg-[#222] rounded-xl p-6 border border-white/5 relative overflow-hidden group">
+          <div className={`absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity ${colorClass}`}>
+              <Icon className="w-24 h-24" />
+          </div>
+          <div className="relative z-10">
+              <h3 className="text-gray-400 text-sm font-medium mb-3">{title}</h3>
+              <div className="flex items-center justify-between mb-4">
+                  <span className={`text-2xl lg:text-3xl font-bold text-white`}>{amount}</span>
+                  <div className={`p-2 rounded-lg ${bgClass}`}>
+                      <Icon className={`w-5 h-5 ${colorClass.replace('text-', '')}`} /> 
+                      {/* Note: colorClass prop handles text color, but for icon inside bg we assume matching text color or white? Ref image has colored icon */}
+                  </div>
+              </div>
+              <div className="text-xs text-gray-500 flex justify-between border-t border-white/10 pt-3 mt-2">
+                  <span>{subtext.label}</span>
+                  <span className="text-white font-mono">{subtext.value}</span>
+              </div>
+          </div>
+      </div>
+  );
 
   return (
-    <div className="min-h-screen bg-[#1a1a1a]">
-      {/* Main Content */}
-      <div className="container mx-auto px-4 py-8">
+    <div className="min-h-screen bg-[#111] p-6 text-white font-sans">
+      <div className="max-w-7xl mx-auto space-y-8">
         <h1 className="text-3xl font-bold text-[#FFCA20] mb-8">Dashboard Overview</h1>
 
-        {/* Sales Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          
-          {/* Today */}
-          <div className="bg-[#2a2a2a] rounded-xl p-6 border border-[#3a3a3a] shadow-lg relative overflow-hidden group hover:border-[#FFCA20]/50 transition duration-300">
-            <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition">
-              <DollarSign className="w-24 h-24 text-[#FFCA20]" />
-            </div>
-            <h3 className="text-gray-400 font-medium mb-2 flex items-center gap-2">
-              <Calendar className="w-4 h-4" /> Today's Sales
-            </h3>
-            <div className="text-3xl font-bold text-white mb-4">{fmtMoney(stats.today.sales)}</div>
-            <div className="flex gap-4 text-sm">
-                <div className="flex items-center gap-1 text-[#FFCA20]">
-                    <ShoppingBag className="w-4 h-4" />
-                    <span>{stats.today.orders} Orders</span>
-                </div>
-                <div className="flex items-center gap-1 text-blue-400">
-                    <Ticket className="w-4 h-4" />
-                    <span>{stats.today.tickets} Tickets</span>
-                </div>
-            </div>
-          </div>
-
-          {/* This Week */}
-          <div className="bg-[#2a2a2a] rounded-xl p-6 border border-[#3a3a3a] shadow-lg relative overflow-hidden group hover:border-[#FFCA20]/50 transition duration-300">
-             <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition">
-              <TrendingUp className="w-24 h-24 text-blue-500" />
-            </div>
-            <h3 className="text-gray-400 font-medium mb-2 flex items-center gap-2">
-              <BarChart3 className="w-4 h-4" /> This Week
-            </h3>
-            <div className="text-3xl font-bold text-white mb-4">{fmtMoney(stats.week.sales)}</div>
-            <div className="flex gap-4 text-sm">
-                <div className="flex items-center gap-1 text-gray-300">
-                    <ShoppingBag className="w-4 h-4" />
-                    <span>{stats.week.orders} Orders</span>
-                </div>
-                 <div className="flex items-center gap-1 text-gray-300">
-                    <Ticket className="w-4 h-4" />
-                    <span>{stats.week.tickets} Tickets</span>
-                </div>
-            </div>
-          </div>
-
-          {/* This Month */}
-          <div className="bg-[#2a2a2a] rounded-xl p-6 border border-[#3a3a3a] shadow-lg relative overflow-hidden group hover:border-[#FFCA20]/50 transition duration-300">
-             <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition">
-              <LayoutDashboard className="w-24 h-24 text-green-500" />
-            </div>
-            <h3 className="text-gray-400 font-medium mb-2 flex items-center gap-2">
-              <Calendar className="w-4 h-4" /> This Month
-            </h3>
-            <div className="text-3xl font-bold text-white mb-4">{fmtMoney(stats.month.sales)}</div>
-             <div className="flex gap-4 text-sm">
-                <div className="flex items-center gap-1 text-gray-300">
-                    <ShoppingBag className="w-4 h-4" />
-                    <span>{stats.month.orders} Orders</span>
-                </div>
-                 <div className="flex items-center gap-1 text-gray-300">
-                    <Ticket className="w-4 h-4" />
-                    <span>{stats.month.tickets} Tickets</span>
-                </div>
-            </div>
-          </div>
+        {/* 1. Metrics Cards (4 Columns) */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <Card 
+                title="Today's Sales" 
+                amount={fmtMoney(stats.today.sales)} 
+                subtext={{ label: 'Total Orders', value: stats.today.orders }}
+                icon={DollarSign}
+                colorClass="text-blue-500"
+                bgClass="bg-blue-500/10 text-blue-500"
+            />
+            <Card 
+                title="This Week" 
+                amount={fmtMoney(stats.week.sales)} 
+                subtext={{ label: 'Total Orders', value: stats.week.orders }}
+                icon={BarChart3}
+                colorClass="text-pink-500"
+                bgClass="bg-pink-500/10 text-pink-500"
+            />
+            <Card 
+                title="This Month" 
+                amount={fmtMoney(stats.month.sales)} 
+                subtext={{ label: 'Total Orders', value: stats.month.orders }}
+                icon={Calendar}
+                colorClass="text-orange-500"
+                bgClass="bg-orange-500/10 text-orange-500"
+            />
+            <Card 
+                title="All Time Sales" 
+                amount={fmtMoney(stats.allTime.sales)} 
+                subtext={{ label: 'Total Orders', value: stats.allTime.orders }}
+                icon={Target}
+                colorClass="text-yellow-500"
+                bgClass="bg-yellow-500/10 text-yellow-500"
+            />
         </div>
 
-        {/* Sales Chart (Last 30 Days) */}
-        <div className="bg-[#2a2a2a] rounded-xl p-6 border border-[#3a3a3a] shadow-lg mb-8">
-            <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
-                <BarChart3 className="w-5 h-5 text-[#FFCA20]" />
-                Sales Summary (Last 30 Days)
-            </h3>
+        {/* 2. Main Chart Section */}
+        <div className="bg-[#222] rounded-xl border border-white/5 p-6 shadow-2xl">
+            <div className="flex items-center justify-between mb-8">
+                <div>
+                     <h3 className="text-lg font-bold text-white">Sales Trend</h3>
+                     <p className="text-xs text-gray-500">Daily sales performance over the last 30 days</p>
+                </div>
+                <div className="flex gap-2">
+                    <span className="px-3 py-1 bg-white/5 rounded text-xs text-gray-300">Sales Amount</span>
+                </div>
+            </div>
             
-            <div className="w-full h-64 flex items-end gap-1 sm:gap-2">
-                {stats.chart.length > 0 ? stats.chart.map((day, i) => {
-                    const heightPercent = (day.amount / maxChartValue) * 100;
-                    const isToday = i === stats.chart.length - 1;
-                    return (
-                        <div key={day.date} className="flex-1 flex flex-col justify-end group relative h-full">
-                            {/* Tooltip */}
-                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 bg-black border border-[#3a3a3a] text-white text-xs py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition pointer-events-none whitespace-nowrap z-10">
-                                <div className="font-bold">{day.label}</div>
-                                <div>{fmtMoney(day.amount)}</div>
-                            </div>
-                            
-                            {/* Bar */}
-                            <div 
-                                className={`w-full rounded-t transition-all duration-500 hover:brightness-110 ${isToday ? 'bg-[#FFCA20]' : 'bg-[#333]'}`}
-                                style={{ height: `${Math.max(heightPercent, 2)}%` }} // Min 2% height visibility
-                            ></div>
-                            
-                            {/* X-axis Label (Show roughly every 5 days to avoid clutter) */}
-                            {i % 5 === 0 && (
-                                <div className="text-[10px] text-gray-500 text-center mt-2 absolute top-full w-full">
-                                    {day.label}
-                                </div>
-                            )}
-                        </div>
-                    );
-                }) : (
-                     <div className="w-full h-full flex items-center justify-center text-gray-500">
-                        No Data Available
-                     </div>
-                )}
-            </div>
+            <Chart />
         </div>
 
-        {/* Quick Actions */}
-        <h2 className="text-xl font-bold text-white mb-4 mt-12">Quick Management</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {/* Banner Management */}
-          <div className="bg-[#2a2a2a] rounded-lg p-6 border border-[#3a3a3a] hover:border-[#FFCA20]/30 transition">
-            <div className="flex items-center gap-3 mb-4">
-              <Image className="w-6 h-6 text-[#FFCA20]" />
-              <h2 className="text-xl font-bold text-[#FAFAFA]">Banner Management</h2>
+        {/* 3. Quick Actions */}
+        <div>
+            <h2 className="text-xl font-bold text-white mb-6">Quick Management</h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <Link href="/admin/banners" className="bg-[#222] p-6 rounded-xl border border-white/5 hover:border-[#FFCA20]/50 transition group">
+                   <div className="flex items-center gap-3 mb-2">
+                       <Image className="w-5 h-5 text-[#FFCA20]" />
+                       <h3 className="font-bold">Banners</h3>
+                   </div>
+                   <p className="text-sm text-gray-500 group-hover:text-gray-300 transition">Manage homepage slides</p>
+                </Link>
+                <Link href="/admin/about" className="bg-[#222] p-6 rounded-xl border border-white/5 hover:border-[#FFCA20]/50 transition group">
+                   <div className="flex items-center gap-3 mb-2">
+                       <FileText className="w-5 h-5 text-[#FFCA20]" />
+                       <h3 className="font-bold">About Content</h3>
+                   </div>
+                   <p className="text-sm text-gray-500 group-hover:text-gray-300 transition">Edit website sections</p>
+                </Link>
+                <Link href="/admin/pages" className="bg-[#222] p-6 rounded-xl border border-white/5 hover:border-[#FFCA20]/50 transition group">
+                   <div className="flex items-center gap-3 mb-2">
+                       <Settings className="w-5 h-5 text-[#FFCA20]" />
+                       <h3 className="font-bold">Settings</h3>
+                   </div>
+                   <p className="text-sm text-gray-500 group-hover:text-gray-300 transition">System configuration</p>
+                </Link>
             </div>
-            <p className="text-sm text-[#D3D3D3] mb-4">
-              Manage homepage banners. Add, edit, or delete banners with images and links.
-            </p>
-            <Link
-              href="/admin/banners"
-              className="inline-flex items-center gap-2 px-4 py-2 bg-[#FFCA20] text-black font-semibold rounded hover:bg-[#FFCA20]/90 transition"
-            >
-              <Settings className="w-4 h-4" />
-              <span>Manage Banners</span>
-            </Link>
-          </div>
-
-          {/* About Page Management */}
-          <div className="bg-[#2a2a2a] rounded-lg p-6 border border-[#3a3a3a] hover:border-[#FFCA20]/30 transition">
-            <div className="flex items-center gap-3 mb-4">
-              <FileText className="w-6 h-6 text-[#FFCA20]" />
-              <h2 className="text-xl font-bold text-[#FAFAFA]">About Page Content</h2>
-            </div>
-            <p className="text-sm text-[#D3D3D3] mb-4">
-              Manage about page content sections. Edit hero, mission, vision, and other sections.
-            </p>
-            <Link
-              href="/admin/about"
-              className="inline-flex items-center gap-2 px-4 py-2 bg-[#FFCA20] text-black font-semibold rounded hover:bg-[#FFCA20]/90 transition"
-            >
-              <Settings className="w-4 h-4" />
-              <span>Manage Content</span>
-            </Link>
-          </div>
-
-          {/* Dynamic Pages Management */}
-          <div className="bg-[#2a2a2a] rounded-lg p-6 border border-[#3a3a3a] hover:border-[#FFCA20]/30 transition">
-            <div className="flex items-center gap-3 mb-4">
-              <FileText className="w-6 h-6 text-[#FFCA20]" />
-              <h2 className="text-xl font-bold text-[#FAFAFA]">Dynamic Pages</h2>
-            </div>
-            <p className="text-sm text-[#D3D3D3] mb-4">
-              Manage extra pages like Privacy Policy, Terms & Conditions, etc.
-            </p>
-            <Link
-              href="/admin/pages"
-              className="inline-flex items-center gap-2 px-4 py-2 bg-[#FFCA20] text-black font-semibold rounded hover:bg-[#FFCA20]/90 transition"
-            >
-              <Settings className="w-4 h-4" />
-              <span>Manage Pages</span>
-            </Link>
-          </div>
         </div>
       </div>
     </div>

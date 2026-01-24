@@ -26,19 +26,25 @@ export async function GET() {
     thirtyDaysAgo.setDate(now.getDate() - 29);
     thirtyDaysAgo.setHours(0,0,0,0);
 
-    const orders = await prisma.order.findMany({
-      where: {
-        paymentStatus: 'PAID',
-        createdAt: { gte: thirtyDaysAgo }
-      },
-      select: {
-        createdAt: true,
-        totalAmount: true,
-        seats: true,
-        id: true
-      },
-      orderBy: { createdAt: 'asc' }
-    });
+    const [allTime, orders] = await Promise.all([
+        prisma.order.aggregate({
+            _sum: { totalAmount: true },
+            _count: { id: true },
+            where: { paymentStatus: 'PAID' }
+        }),
+        prisma.order.findMany({
+            where: {
+                paymentStatus: 'PAID',
+                createdAt: { gte: thirtyDaysAgo }
+            },
+            select: {
+                createdAt: true,
+                totalAmount: true,
+                seats: true
+            },
+            orderBy: { createdAt: 'asc' }
+        })
+    ]);
 
     // Helper functions
     const sumAmount = (ords) => ords.reduce((acc, o) => acc + Number(o.totalAmount), 0);
@@ -77,6 +83,10 @@ export async function GET() {
         sales: sumAmount(monthOrders),
         orders: monthOrders.length,
         tickets: countSeats(monthOrders)
+      },
+      allTime: {
+        sales: Number(allTime._sum.totalAmount || 0),
+        orders: allTime._count.id || 0
       },
       chart: []
     };

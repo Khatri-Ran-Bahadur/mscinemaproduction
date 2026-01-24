@@ -3,12 +3,12 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Eye, EyeOff, Lock, User } from 'lucide-react';
-import { useGoogleReCaptcha } from 'react-google-recaptcha-v3';
+import ReCAPTCHA from 'react-google-recaptcha';
 
 export default function AdminLoginPage() {
   const router = useRouter();
-  const { executeRecaptcha } = useGoogleReCaptcha();
   const [showPassword, setShowPassword] = useState(false);
+  const [recaptchaToken, setRecaptchaToken] = useState(null);
   const [formData, setFormData] = useState({
     username: '',
     password: ''
@@ -24,6 +24,11 @@ export default function AdminLoginPage() {
     if (error) setError('');
   };
 
+  const handleCaptchaChange = (token) => {
+    setRecaptchaToken(token);
+    if (error) setError('');
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -32,8 +37,8 @@ export default function AdminLoginPage() {
       return;
     }
 
-    if (!executeRecaptcha) {
-      setError('Recaptcha not ready. Please try again.');
+    if (!recaptchaToken) {
+      setError('Please verify you are not a robot');
       return;
     }
 
@@ -41,8 +46,6 @@ export default function AdminLoginPage() {
     setError('');
 
     try {
-      const token = await executeRecaptcha('admin_login');
-
       const response = await fetch('/api/admin/login', {
         method: 'POST',
         headers: {
@@ -50,7 +53,7 @@ export default function AdminLoginPage() {
         },
         body: JSON.stringify({
           ...formData,
-          recaptchaToken: token
+          recaptchaToken: recaptchaToken
         }),
       });
 
@@ -59,6 +62,7 @@ export default function AdminLoginPage() {
       if (!response.ok) {
         setError(data.error || 'Login failed. Please check your credentials.');
         setIsLoading(false);
+        // Reset Captcha if needed, but simple alert is enough usually.
         return;
       }
 
@@ -139,6 +143,15 @@ export default function AdminLoginPage() {
                   {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
               </div>
+            </div>
+            
+            {/* ReCAPTCHA */}
+            <div className="flex justify-center">
+                <ReCAPTCHA
+                    sitekey={process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY}
+                    onChange={handleCaptchaChange}
+                    theme="dark"
+                />
             </div>
 
             {/* Error Message */}
