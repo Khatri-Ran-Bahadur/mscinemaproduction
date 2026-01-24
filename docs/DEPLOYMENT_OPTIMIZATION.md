@@ -182,7 +182,7 @@ pm2 save
 
 ## 🔧 Customization
 
-### Change Cleanup Schedule u
+### Change Cleanup Schedule 
 
 Edit crontab:
 ```bash
