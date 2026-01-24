@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1️⃣ Checkout repository
+      # 1️⃣ Checkout code
       - name: Checkout code
         uses: actions/checkout@v4
 
@@ -21,20 +21,18 @@ jobs:
           node-version: '20'
           cache: 'npm'
 
-      # 3️⃣ Install all dependencies (devDependencies included!)
+      # 3️⃣ Install all dependencies (includes devDependencies for Tailwind/PostCSS)
       - name: Install Dependencies
         run: npm ci
-        env:
-          NODE_ENV: production
 
-      # 4️⃣ Build Next.js project
+      # 4️⃣ Build Next.js
       - name: Build Next.js App
         run: npm run build
         env:
           NODE_ENV: production
           NEXT_TELEMETRY_DISABLED: 1
 
-      # 5️⃣ Deploy project to VPS using rsync
+      # 5️⃣ Deploy via Rsync
       - name: Deploy Files via Rsync
         run: |
           rsync -az --delete \
@@ -42,8 +40,8 @@ jobs:
             -e "ssh -p ${{ secrets.SSH_PORT || 22 }} -i ~/.ssh/id_ed25519" \
             ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }}:/var/www/mscinemas
 
-      # 6️⃣ Restart PM2 on VPS and ensure cleanup scripts are executable
-      - name: Restart PM2 & Setup Scripts
+      # 6️⃣ Restart PM2 on server
+      - name: Restart PM2 & Scripts
         run: |
           ssh -p ${{ secrets.SSH_PORT || 22 }} -i ~/.ssh/id_ed25519 \
             ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} \
