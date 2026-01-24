@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { resendTicketEmail } from '@/utils/email';
 
 const API_BASE_URL = process.env.API_BASE_URL || 'https://apiv5.mscinemas.my/api';
 
@@ -183,7 +182,6 @@ export async function POST(request, { params }) {
 
     console.log(`Resending ticket email to ${emailTo} (Ref: ${ticketInfo.referenceNo})`);
     
-    await resendTicketEmail(emailTo, ticketInfo);
     
     return NextResponse.json({ success: true, message: 'Email sent successfully' });
 
