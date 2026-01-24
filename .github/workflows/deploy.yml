@@ -10,44 +10,45 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # 1️⃣ Checkout the repo
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # 2️⃣ Setup Node.js
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
 
+      # 3️⃣ Install dependencies
       - name: Install Dependencies
         run: npm ci
+        env:
+          NODE_ENV: production
 
+      # 4️⃣ Build Next.js app
       - name: Build App
         run: npm run build
         env:
           NEXT_TELEMETRY_DISABLED: 1
+          NODE_ENV: production
 
-      - name: Prepare SSH
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_ed25519
-          chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -p ${{ secrets.VPS_PORT || 22 }} ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
-
+      # 5️⃣ Deploy built files via rsync
       - name: Deploy Files via Rsync
         run: |
-          # Sync listed files/dirs to server. 
-          # We export node_modules too so server cpu is not used for install.
           rsync -az --delete \
             .next public package.json package-lock.json node_modules next.config.mjs ecosystem.config.js scripts \
-            -e "ssh -p ${{ secrets.VPS_PORT || 22 }} -i ~/.ssh/id_ed25519" \
-            ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/var/www/mscinemas
+            -e "ssh -p ${{ secrets.SSH_PORT }} -i ${{ secrets.SSH_PRIVATE_KEY }}" \
+            ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }}:/var/www/mscinemas
 
-      - name: Restart PM2 & Setup Cleanup
+      # 6️⃣ Restart PM2 & ensure cleanup scripts executable
+      - name: Restart PM2 & Set Permissions
         run: |
-          ssh -p ${{ secrets.VPS_PORT || 22 }} -i ~/.ssh/id_ed25519 \
-            ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} \
+          ssh -p ${{ secrets.SSH_PORT }} -i ${{ secrets.SSH_PRIVATE_KEY }} \
+            ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }} \
             "cd /var/www/mscinemas && \
              chmod +x scripts/server-setup.sh && \
              chmod +x scripts/cleanup-old-files.js && \
-             pm2 reload mscinemas-nextjs || pm2 start ecosystem.config.js"
+             pm2 reload mscinemas-nextjs || pm2 start ecosystem.config.js && \
+             pm2 save"
