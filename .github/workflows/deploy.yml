@@ -1,62 +1,53 @@
-name: Build and Deploy to Production
+name: Build & Deploy to VPS
 
 on:
   push:
-    branches:
-      - main
-      - master
-  workflow_dispatch:  # Allows manual triggering from GitHub UI
+    branches: [ "main" ]
+  workflow_dispatch:
 
 jobs:
-  build-and-deploy:
-    name: Build and Deploy Next.js App
+  deploy:
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
-      - name: Setup Node.js
+
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
-      
-      - name: Install dependencies
-        run: |
-          npm ci
-      
-      - name: Build Next.js application
-        run: |
-          npm run build
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Build App
+        run: npm run build
         env:
-          NODE_ENV: production
-      
-      - name: Deploy to production server
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          port: ${{ secrets.SSH_PORT || 22 }}
-          script: |
-            cd /var/www/mscinemas
-            
-            # Pull latest changes
-            git pull origin main || git pull origin master
-            
-            # Install dependencies (in case package.json changed)
-            npm ci --production=false
-            
-            # Build the application
-            npm run build
-            
-            # Restart PM2 application
-            pm2 restart mscinemas-nextjs --update-env || pm2 start ecosystem.config.js
-            
-            # Save PM2 configuration
-            pm2 save
-            
-            # Verify deployment
-            sleep 3
-            pm2 status mscinemas-nextjs
+          NEXT_TELEMETRY_DISABLED: 1
+
+      - name: Prepare SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -p ${{ secrets.VPS_PORT || 22 }} ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Deploy Files via Rsync
+        run: |
+          # Sync listed files/dirs to server. 
+          # We export node_modules too so server cpu is not used for install.
+          rsync -az --delete \
+            .next public package.json package-lock.json node_modules next.config.mjs ecosystem.config.js scripts \
+            -e "ssh -p ${{ secrets.VPS_PORT || 22 }} -i ~/.ssh/id_ed25519" \
+            ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/var/www/mscinemas
+
+      - name: Restart PM2 & Setup Cleanup
+        run: |
+          ssh -p ${{ secrets.VPS_PORT || 22 }} -i ~/.ssh/id_ed25519 \
+            ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} \
+            "cd /var/www/mscinemas && \
+             chmod +x scripts/server-setup.sh && \
+             chmod +x scripts/cleanup-old-files.js && \
+             pm2 reload mscinemas-nextjs || pm2 start ecosystem.config.js"
