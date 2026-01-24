@@ -46,4 +46,6 @@ next-env.d.ts
 /public/uploads/
 /temp
 /logs
+cron-release-seats.log
+
 
