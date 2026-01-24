@@ -493,12 +493,8 @@ export default function MyTicketsPage() {
                                             className="bg-[#2a2a2a] border border-[#3a3a3a] rounded-lg p-6 hover:border-[#FFCA20]/50 transition"
                                         >
                                             <div className="flex flex-col md:flex-row gap-6">
-                                                {/* Movie Poster Placeholder */}
-                                                <div className="flex-shrink-0">
-                                                    <div className="w-20 h-28 md:w-24 md:h-32 bg-[#3a3a3a] rounded flex items-center justify-center">
-                                                        <span className="text-[#D3D3D3] text-xs text-center px-2">{booking.movieName || 'Movie'}</span>
-                                                    </div>
-                                                </div>
+                                                {/* Movie Poster Placeholder Removed */}
+
 
                                                 {/* Ticket Details */}
                                                 <div className="flex-1 flex flex-col gap-4">
@@ -514,12 +510,14 @@ export default function MyTicketsPage() {
                                                                 <span>Cinema: {booking.cinemaName || 'N/A'}</span>
                                                             </div>
                                                         </div>
-                                                        <button
-                                                            onClick={() => handleViewTransaction(booking)}
-                                                            className="bg-[#FFCA20] text-black px-4 py-2 rounded font-semibold hover:bg-[#FFCA20]/90 transition text-sm whitespace-nowrap"
-                                                        >
-                                                            View Details
-                                                        </button>
+                                                        {booking.status === 2 && (
+                                                            <button
+                                                                onClick={() => handleViewTransaction(booking)}
+                                                                className="bg-[#FFCA20] text-black px-4 py-2 rounded font-semibold hover:bg-[#FFCA20]/90 transition text-sm whitespace-nowrap"
+                                                            >
+                                                                View Details
+                                                            </button>
+                                                        )}
                                                     </div>
 
                                                     {/* Middle Row - Show Date & Time */}
@@ -571,52 +569,58 @@ export default function MyTicketsPage() {
 
             {/* Booking Summary Modal (keep for now, can be removed later) */}
             {showModal && selectedTicket && (
-                <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4 overflow-y-auto">
-                    <div className="relative w-full max-w-2xl bg-[#2a2a2a] rounded-lg border border-[#3a3a3a] my-8">
-                        {/* Close Button */}
-                        <button
-                            onClick={handleCloseModal}
-                            className="absolute top-4 right-4 text-[#D3D3D3] hover:text-[#FAFAFA] transition z-10"
-                        >
-                            <X className="w-6 h-6" />
-                        </button>
+                <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4">
+                    <div className="relative w-full max-w-2xl bg-[#2a2a2a] rounded-lg border border-[#3a3a3a] flex flex-col max-h-[90vh] shadow-2xl">
+                        {/* Fixed Header */}
+                        <div className="flex items-center justify-between p-4 md:p-6 border-b border-[#3a3a3a] bg-[#2a2a2a] rounded-t-lg z-10 shrink-0">
+                            <h2 className="text-xl md:text-2xl font-bold text-[#FAFAFA]">Booking Summary</h2>
+                            <button
+                                onClick={handleCloseModal}
+                                className="text-[#D3D3D3] hover:text-[#FFCA20] transition p-1"
+                            >
+                                <X className="w-6 h-6" />
+                            </button>
+                        </div>
 
-                        <div className="p-6 md:p-8">
-                            <h2 className="text-2xl font-bold text-[#FAFAFA] mb-6">Booking Summary</h2>
-
+                        {/* Scrollable Content */}
+                        <div className="p-6 md:p-8 overflow-y-auto">
                             {/* Movie Details */}
                             <div className="flex flex-col md:flex-row gap-6 mb-6 pb-6 border-b border-[#3a3a3a]">
-                                <div className="flex-shrink-0">
-                                    <img
-                                        src={selectedTicket.movieImage}
-                                        alt={selectedTicket.movieTitle}
-                                        className="w-32 h-48 object-cover rounded"
-                                        onError={(e) => { e.target.src = 'img/movies1.png'; }}
-                                    />
-                                </div>
+                                {/* Movie Image Removed as per request */}
+
                                 <div className="flex-1">
                                     <h3 className="text-xl md:text-2xl font-bold text-[#FAFAFA] mb-3">
-                                        {selectedTicket.movieTitle}
+                                        {selectedTicket.movieName || selectedTicket.movieTitle || 'Unknown Movie'}
                                     </h3>
                                     <div className="space-y-2 text-sm text-[#D3D3D3]">
                                         <div className="flex flex-wrap items-center gap-2">
-                                            <span>{selectedTicket.genre}</span>
-                                            <span className="text-[#D3D3D3]/30">|</span>
-                                            <span>{selectedTicket.duration}</span>
-                                            <span className="text-[#D3D3D3]/30">|</span>
-                                            <span>{selectedTicket.language}</span>
+                                            {selectedTicket.genre && (
+                                                <>
+                                                    <span>{selectedTicket.genre}</span>
+                                                    <span className="text-[#D3D3D3]/30">|</span>
+                                                </>
+                                            )}
+                                            {selectedTicket.duration && (
+                                                <>
+                                                    <span>{selectedTicket.duration}</span>
+                                                    <span className="text-[#D3D3D3]/30">|</span>
+                                                </>
+                                            )}
+                                            <span>{selectedTicket.language || selectedTicket.type || '2D'}</span>
                                         </div>
                                         <div>
                                             <span className="text-[#FAFAFA]">Cinema: </span>
-                                            <span>{selectedTicket.cinema}</span>
+                                            <span>{selectedTicket.cinemaName || selectedTicket.cinema || 'MS Cinemas'}</span>
                                         </div>
                                         <div>
                                             <span className="text-[#FAFAFA]">Screen: </span>
-                                            <span>{selectedTicket.experience}</span>
+                                            <span>{selectedTicket.hallName || selectedTicket.experience || 'Standard'}</span>
                                         </div>
                                         <div>
                                             <span className="text-[#FAFAFA]">Showtime: </span>
-                                            <span>{selectedTicket.date}, {selectedTicket.time}</span>
+                                            <span>
+                                                {formatDate(selectedTicket.showDate || selectedTicket.date)}, {selectedTicket.showTime || selectedTicket.time}
+                                            </span>
                                         </div>
                                     </div>
                                 </div>
@@ -626,14 +630,18 @@ export default function MyTicketsPage() {
                             <div className="mb-6 pb-6 border-b border-[#3a3a3a]">
                                 <h4 className="text-lg font-semibold text-[#FAFAFA] mb-3">Seat Info</h4>
                                 <div className="flex flex-wrap gap-3">
-                                    {selectedTicket.seats?.map((seat, index) => (
+                                    {selectedTicket.seats ? selectedTicket.seats.map((seat, index) => (
                                         <div key={index} className="flex items-center gap-2">
                                             <span className="text-[#D3D3D3]">{seat.type}:</span>
                                             <span className="bg-[#FFCA20]/20 border border-[#FFCA20] text-[#FFCA20] px-3 py-1 rounded font-semibold">
                                                 {seat.seat}
                                             </span>
                                         </div>
-                                    ))}
+                                    )) : (
+                                        <span className="text-[#D3D3D3]">
+                                            {selectedTicket.seatNo || 'Check details in Ticket View'}
+                                        </span>
+                                    )}
                                 </div>
                             </div>
 
@@ -642,16 +650,16 @@ export default function MyTicketsPage() {
                                 <h4 className="text-lg font-semibold text-[#FAFAFA] mb-3">Ticket Price</h4>
                                 <div className="space-y-2 text-sm">
                                     <div className="flex justify-between text-[#D3D3D3]">
-                                        <span>Net Price ({selectedTicket.seats?.length || 0} X Ticket(s))</span>
-                                        <span className="text-[#FAFAFA]">RM {selectedTicket.netPrice?.toFixed(2)}</span>
+                                        <span>Net Price</span>
+                                        <span className="text-[#FAFAFA]">RM {(selectedTicket.netPrice || 0).toFixed(2)}</span>
                                     </div>
                                     <div className="flex justify-between text-[#D3D3D3]">
                                         <span>Tax</span>
-                                        <span className="text-[#FAFAFA]">RM {selectedTicket.tax?.toFixed(2)}</span>
+                                        <span className="text-[#FAFAFA]">RM {(selectedTicket.tax || 0).toFixed(2)}</span>
                                     </div>
                                     <div className="flex justify-between text-[#FAFAFA] font-semibold pt-2 border-t border-[#3a3a3a]">
                                         <span>Total Ticket Price</span>
-                                        <span>RM {selectedTicket.totalTicketPrice?.toFixed(2)}</span>
+                                        <span>RM {(selectedTicket.totalTicketPrice || 0).toFixed(2)}</span>
                                     </div>
                                 </div>
                             </div>
@@ -662,15 +670,15 @@ export default function MyTicketsPage() {
                                 <div className="space-y-2 text-sm">
                                     <div className="flex justify-between text-[#D3D3D3]">
                                         <span>Sub Total</span>
-                                        <span className="text-[#FAFAFA]">RM {selectedTicket.totalTicketPrice?.toFixed(2)}</span>
+                                        <span className="text-[#FAFAFA]">RM {(selectedTicket.totalTicketPrice || 0).toFixed(2)}</span>
                                     </div>
                                     <div className="flex justify-between text-[#D3D3D3]">
                                         <span>RESERVATION FEE</span>
-                                        <span className="text-[#FAFAFA]">RM {selectedTicket.reservationFee?.toFixed(2)}</span>
+                                        <span className="text-[#FAFAFA]">RM {(selectedTicket.reservationFee || 0).toFixed(2)}</span>
                                     </div>
                                     <div className="flex justify-between text-[#FAFAFA] font-semibold pt-2 border-t border-[#3a3a3a]">
                                         <span>Grand total</span>
-                                        <span>RM {selectedTicket.grandTotal?.toFixed(2)}</span>
+                                        <span>RM {(selectedTicket.grandTotal || selectedTicket.totalAmount || 0).toFixed(2)}</span>
                                     </div>
                                 </div>
                             </div>
@@ -681,15 +689,17 @@ export default function MyTicketsPage() {
                                 <div className="space-y-2 text-sm text-[#D3D3D3]">
                                     <div className="flex justify-between">
                                         <span>Date of booking</span>
-                                        <span className="text-[#FAFAFA]">{selectedTicket.bookingDate}</span>
+                                        <span className="text-[#FAFAFA]">{formatDate(selectedTicket.bookingDateTime || selectedTicket.bookingDate)}</span>
                                     </div>
-                                    <div className="flex justify-between">
+                                    {/* <div className="flex justify-between">
                                         <span>Time of booking</span>
                                         <span className="text-[#FAFAFA]">{selectedTicket.bookingTime}</span>
-                                    </div>
+                                    </div> */}
                                     <div className="flex justify-between">
                                         <span>Status</span>
-                                        <span className="text-green-500 font-semibold">{selectedTicket.status}</span>
+                                        <span className={`font-semibold ${selectedTicket.status === 2 ? 'text-green-500' : 'text-yellow-500'}`}>
+                                            {selectedTicket.status === 2 ? 'Confirmed' : selectedTicket.status === 1 ? 'Processing' : 'Failed'}
+                                        </span>
                                     </div>
                                 </div>
                             </div>
@@ -700,26 +710,16 @@ export default function MyTicketsPage() {
                                 <div className="space-y-2 text-sm text-[#D3D3D3]">
                                     <div className="flex justify-between">
                                         <span>Transaction ID</span>
-                                        <span className="text-[#FAFAFA]">{selectedTicket.transactionId}</span>
+                                        <span className="text-[#FAFAFA]">{selectedTicket.transactionId || selectedTicket.bookingId}</span>
                                     </div>
                                     <div className="flex justify-between">
                                         <span>Payment method</span>
-                                        <span className="text-[#FAFAFA]">{selectedTicket.paymentMethod}</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span>Payment status</span>
-                                        <span className="text-green-500 font-semibold">{selectedTicket.paymentStatus}</span>
+                                        <span className="text-[#FAFAFA]">{selectedTicket.paymentMethod || 'Online Banking'}</span>
                                     </div>
                                 </div>
                             </div>
 
-                            {/* Cancel Ticket Button */}
-                            <button
-                                onClick={handleCancelTicket}
-                                className="w-full border-2 border-red-500 text-red-500 bg-transparent py-3 rounded font-semibold hover:bg-red-500/10 transition"
-                            >
-                                Cancel ticket
-                            </button>
+                            {/* Cancel Ticket Button logic can go here if needed */}
                         </div>
                     </div>
                 </div>

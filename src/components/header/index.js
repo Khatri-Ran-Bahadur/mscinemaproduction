@@ -502,7 +502,7 @@ const Header = () => {
                                         ))}
 
                                         {/* User Menu Items - After Main Menu */}
-                                        {isLoggedIn && (
+                                        {isLoggedIn ? (
                                             <>
                                                 <Link
                                                     href="/profile"
@@ -538,25 +538,21 @@ const Header = () => {
                                                     <span className="text-base font-medium text-white">Logout</span>
                                                 </button>
                                             </>
+                                        ) : (
+                                            <Link
+                                                href="/sign-in"
+                                                onClick={() => {
+                                                    setShowMobileMenu(false);
+                                                    unlockBodyScroll();
+                                                }}
+                                                className="flex items-center gap-4 py-4 px-2 text-white hover:text-[#FFCA20] transition border-b border-[#3a3a3a]/50"
+                                            >
+                                                <User className="w-5 h-5 text-white" strokeWidth={2} fill="none" />
+                                                <span className="text-base font-medium text-white">Sign in</span>
+                                            </Link>
                                         )}
                                     </div>
                                 </div>
-
-                                {/* Sign In Button - Fixed at Bottom (when not logged in) */}
-                                {!isLoggedIn && (
-                                    <div className="flex-shrink-0 p-4 border-t border-[#3a3a3a]/50 bg-transparent">
-                                        <Link
-                                            href="/sign-in"
-                                            className="block w-full bg-[#FFCA20] text-black text-center py-3 rounded-lg font-semibold hover:bg-[#FFCA20]/90 transition"
-                                            onClick={() => {
-                                                setShowMobileMenu(false);
-                                                document.body.style.overflow = '';
-                                            }}
-                                        >
-                                            Sign in
-                                        </Link>
-                                    </div>
-                                )}
                             </div>
                         </div>
                     </div>

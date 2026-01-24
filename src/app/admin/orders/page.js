@@ -17,7 +17,8 @@ import {
     XCircle,
     Clock,
     Eye,
-    Trash2
+    Trash2,
+    RotateCcw
 } from 'lucide-react';
 import TicketModal from '@/components/TicketModal';
 import OrderDetailsModal from '@/components/admin/OrderDetailsModal';
@@ -101,6 +102,15 @@ export default function AdminOrdersPage() {
     const handleDateChange = (e) => {
         setDateFilter(e.target.value);
         setPage(1);
+    };
+
+    const handleReset = () => {
+        setSearchQuery('');
+        setFilterStatus('All');
+        setFilterPaymentStatus('All');
+        setDateFilter('');
+        setPage(1);
+        setSelectedOrders([]);
     };
 
     const handleSelectOrder = (orderId) => {
@@ -337,6 +347,16 @@ export default function AdminOrdersPage() {
                         </select>
                         <CreditCard className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[#666] pointer-events-none" />
                     </div>
+                    
+                    <button
+                        onClick={handleReset}
+                        className="flex items-center gap-2 px-3 py-2 bg-[#333] border border-[#3a3a3a] text-white rounded-lg hover:bg-[#444] hover:text-[#FFCA20] transition h-10"
+                        title="Reset Filters"
+                    >
+                        <RotateCcw className="w-4 h-4" />
+                        <span className="hidden xl:inline text-sm">Reset</span>
+                    </button>
+
                     {selectedOrders.length > 0 && (
                         <button
                             onClick={handleBulkDelete}
@@ -371,6 +391,7 @@ export default function AdminOrdersPage() {
                                     <th className="px-3 py-3 text-[#888] font-medium text-xs hidden sm:table-cell">Movie Details</th>
                                     <th className="px-3 py-3 text-[#888] font-medium text-xs hidden lg:table-cell">Details</th>
                                     <th className="px-3 py-3 text-[#888] font-medium text-xs hidden sm:table-cell">Amount</th>
+                                    <th className="px-3 py-3 text-[#888] font-medium text-xs hidden md:table-cell">Payment</th>
                                     <th className="px-3 py-3 text-[#888] font-medium text-xs">Status</th>
                                     <th className="px-3 py-3 text-[#888] font-medium text-xs hidden xl:table-cell">Date</th>
                                     <th className="px-3 py-3 text-[#888] font-medium text-xs hidden lg:table-cell">Time Ago</th>
@@ -429,14 +450,16 @@ export default function AdminOrdersPage() {
                                                  </div>
                                             </td>
                                             <td className="px-3 py-2 hidden sm:table-cell">
+                                                <span className="text-white font-bold text-xs">
+                                                    RM {parseFloat(order.totalAmount).toFixed(2)}
+                                                </span>
+                                            </td>
+                                            <td className="px-3 py-2 hidden md:table-cell">
                                                 <div className="flex flex-col">
-                                                    <span className="text-white font-bold text-xs">
-                                                        RM {parseFloat(order.totalAmount).toFixed(2)}
-                                                    </span>
                                                     <span className={`text-[10px] font-medium flex items-center gap-1 ${getPaymentStatusColor(order.paymentStatus)}`}>
                                                         {order.paymentStatus}
-                                                        <span className="text-[#666] font-normal">• {order.paymentMethod}</span>
                                                     </span>
+                                                    <span className="text-[#666] text-[10px] font-normal">{order.paymentMethod}</span>
                                                 </div>
                                             </td>
                                             <td className="px-3 py-2">

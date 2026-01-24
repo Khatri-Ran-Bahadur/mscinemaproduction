@@ -34,7 +34,7 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { image, type, movieId, title, description, link, order, isActive } = body;
+    const { image, type, movieId, title, description, link, order, isActive, startDate, endDate } = body;
 
     if (!image) {
       return NextResponse.json(
@@ -60,6 +60,8 @@ export async function POST(request) {
         link: link || null,
         order: order || 0,
         isActive: isActive !== undefined ? isActive : true,
+        startDate: startDate ? new Date(startDate) : null,
+        endDate: endDate ? new Date(endDate) : null,
       }
     });
 

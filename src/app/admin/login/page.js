@@ -1,11 +1,13 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Eye, EyeOff, Lock, User } from 'lucide-react';
+import { useGoogleReCaptcha } from 'react-google-recaptcha-v3';
 
 export default function AdminLoginPage() {
   const router = useRouter();
+  const { executeRecaptcha } = useGoogleReCaptcha();
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
     username: '',
@@ -30,16 +32,26 @@ export default function AdminLoginPage() {
       return;
     }
 
+    if (!executeRecaptcha) {
+      setError('Recaptcha not ready. Please try again.');
+      return;
+    }
+
     setIsLoading(true);
     setError('');
 
     try {
+      const token = await executeRecaptcha('admin_login');
+
       const response = await fetch('/api/admin/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          ...formData,
+          recaptchaToken: token
+        }),
       });
 
       const data = await response.json();

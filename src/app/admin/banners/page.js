@@ -25,10 +25,13 @@ export default function BannersPage() {
     image: '',
     type: 'normal',
     movieId: '',
+// 1. Initial State
     description: '',
     link: '',
     order: 0,
-    isActive: true
+    isActive: true,
+    startDate: '',
+    endDate: ''
   });
 
   useEffect(() => {
@@ -73,12 +76,15 @@ export default function BannersPage() {
       description: '',
       link: '',
       order: 0,
-      isActive: true
+      isActive: true,
+      startDate: '',
+      endDate: ''
     });
     setCurrentBanner(null);
     setPreviewImage(null);
   };
 
+// 3. Handle Open Modal
   const handleOpenModal = (banner = null) => {
     if (banner) {
       setCurrentBanner(banner);
@@ -90,7 +96,9 @@ export default function BannersPage() {
         description: banner.description || '',
         link: banner.link || '',
         order: banner.order || 0,
-        isActive: banner.isActive
+        isActive: banner.isActive,
+        startDate: banner.startDate ? new Date(banner.startDate).toISOString().slice(0, 16) : '',
+        endDate: banner.endDate ? new Date(banner.endDate).toISOString().slice(0, 16) : ''
       });
       setPreviewImage(null);
     } else {
@@ -420,6 +428,27 @@ export default function BannersPage() {
                       min="0"
                     />
                     <p className="text-xs text-gray-500 mt-1">Lower numbers appear first</p>
+                  </div>
+
+                  <div className="w-full grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-[#D3D3D3] mb-1">Start Date</label>
+                      <input
+                        type="datetime-local"
+                        value={formData.startDate}
+                        onChange={(e) => setFormData({...formData, startDate: e.target.value})}
+                        className="w-full bg-[#1a1a1a] border border-[#3a3a3a] text-white rounded-lg py-2.5 px-4 focus:outline-none focus:border-[#FFCA20]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-[#D3D3D3] mb-1">End Date</label>
+                      <input
+                        type="datetime-local"
+                        value={formData.endDate}
+                        onChange={(e) => setFormData({...formData, endDate: e.target.value})}
+                        className="w-full bg-[#1a1a1a] border border-[#3a3a3a] text-white rounded-lg py-2.5 px-4 focus:outline-none focus:border-[#FFCA20]"
+                      />
+                    </div>
                   </div>
                 </div>
 

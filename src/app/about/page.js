@@ -59,11 +59,28 @@ export default async function AboutUsPage() {
     
     const main = content['main'] || {
         title: 'About MS Cinemas',
-        content: `Located in the heart of Kampar, Perak, MS Cinemas is the ultimate destination for movie lovers seeking a complete and immersive cinematic experience. Featuring 8 state-of-the-art screens, our cinema offers the perfect blend of comfort, technology, and entertainment. Whether you're catching the latest Hollywood blockbuster, a heartwarming local film, or an international release, MS Cinemas provides crystal-clear visuals, powerful surround sound, and cozy seating to ensure every visit is memorable.\n\nAt MS Cinemas, we believe that watching a movie is more than just seeing a film - it's about creating moments, sharing emotions, and enjoying the magic of cinema together.`,
+        content: `Located in the heart of Kampar, Perak, MS Cinemas is the ultimate destination for movie goers seeking a complete and immersive cinematic experience. Featuring 8 state-of-the-art screens, our cinema offers the perfect blend of comfort, technology, and entertainment. Whether you're catching the latest Hollywood blockbuster, a heartwarming local film, or an international release, MS Cinemas provides crystal clear visuals, powerful surround sound (One hall with multi speaker Dolby Atmos surround sound setup that delivers pristine, crystal clear audio and two halls equipped 2 XL screen hall brings to life high octane action), the cinema hall provides an immersive sound and picture quality, making every movie experience unforgettable. The halls use silver screens, which guarantee excellent presentation quality, and spacious seating with ample legroom that ensures you feel comfortable throughout the entire movie.\n\nMS Cinemas also offers something for the whole family, with Kids Family Halls and a designated kids’ toilet. Additionally, there’s a party area available for birthdays or other celebrations, providing a unique and fun environment to celebrate special occasions.\n\nBesides movie screenings, MS Cinemas also offers versatile facilities that can be used for presentations or seminars, making it an excellent venue for corporate events. And for those who want to grab a bite or enjoy a cup of coffee, the cinema has an MS Cafe where you can relax and enjoy refreshments before or after the movie.\n\nWith a total seating capacity of approximately 1200, MS Cinemas has something for everyone. Whether you’re looking to catch the latest blockbuster or host an event, MS Cinemas in Kampar Perak has it all, and more.`,
         image: 'img/about-mid-section.jpg'
     };
 
     const contact = content['contact'] || {};
+
+    const formatTextToHtml = (text) => {
+        if (!text) return '';
+        // If it looks like HTML (starts with tag), return as is
+        if (/^\s*<[a-z][^>]*>/i.test(text)) return text;
+        
+        // Split by double newlines for paragraphs
+        return text
+            .split(/\n\s*\n/)
+            .map(para => {
+                // For each paragraph, replace single newlines with space to join lines
+                // Also handle the case where a word was hyphenated at end of line (e.g. "movie-\ngoers" -> "movie-goers")
+                // We keep the hyphen but remove the newline.
+                return `<p>${para.trim().replace(/-\n/g, '-').replace(/\n/g, ' ')}</p>`;
+            })
+            .join('');
+    };
 
     return (
         <div className="min-h-screen bg-black text-[#FAFAFA]">
@@ -145,7 +162,7 @@ export default async function AboutUsPage() {
                                 <h2 className="text-3xl md:text-4xl font-bold text-[#FFCA20] border-b border-[#3a3a3a] pb-4 inline-block">
                                     {main.title}
                                 </h2>
-                                <ReadMoreContent content={main.content} maxHeightPercentage={53} />
+                                <ReadMoreContent content={formatTextToHtml(main.content)} maxHeightPercentage={53} />
                             </div>
                         </div>
                     </div>

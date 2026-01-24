@@ -59,7 +59,7 @@ export async function PUT(request, { params }) {
       );
     }
 
-    const { image, type, movieId, title, description, link, order, isActive } = body;
+    const { image, type, movieId, title, description, link, order, isActive, startDate, endDate } = body;
 
     // Validate movie ID if type is movie
     if (type === 'movie' && !movieId) {
@@ -78,6 +78,8 @@ export async function PUT(request, { params }) {
     if (link !== undefined) updateData.link = link;
     if (order !== undefined) updateData.order = order;
     if (isActive !== undefined) updateData.isActive = isActive;
+    if (startDate !== undefined) updateData.startDate = startDate ? new Date(startDate) : null;
+    if (endDate !== undefined) updateData.endDate = endDate ? new Date(endDate) : null;
 
     const banner = await prisma.banner.update({
       where: { id },

@@ -34,6 +34,8 @@ model Banner {
   link        String?  // Optional link URL
   order       Int      @default(0) // Display order
   isActive    Boolean  @default(true)
+  startDate   DateTime? // Optional start date for scheduling
+  endDate     DateTime? // Optional end date
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
