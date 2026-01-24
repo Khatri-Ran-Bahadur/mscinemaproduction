@@ -221,6 +221,16 @@ export default function MovieStreamingSite() {
     return () => clearInterval(interval);
   }, [heroMovies.length]);
 
+  const movieListRef = React.useRef(null);
+
+  const scroll = (direction) => {
+    if (movieListRef.current) {
+      const { current } = movieListRef;
+      const scrollAmount = direction === 'left' ? -300 : 300;
+      current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+    }
+  };
+
   return (
     <div className="bg-black min-h-screen text-[#D3D3D3]">
       <Header/>
@@ -422,7 +432,7 @@ export default function MovieStreamingSite() {
         {/* Movie Grid - 2x2 for mobile with horizontal scroll, horizontal scroll for desktop */}
         {!isLoading && (
         <>
-        <div className="relative">
+        <div className="relative group/movies">
           {/* Mobile: 2x2 Grid */}
           <div className="md:hidden mb-6">
             <div className="grid grid-cols-2 gap-4">
@@ -474,8 +484,11 @@ export default function MovieStreamingSite() {
           </div>
 
           {/* Desktop: Horizontal Scrollable Movie List */}
-          <div className="hidden md:block">
-            <div className="overflow-x-auto scrollbar-hide pb-4">
+          <div className="hidden md:block relative">
+            <div 
+              ref={movieListRef}
+              className="overflow-x-auto scrollbar-hide pb-4 scroll-smooth"
+            >
               <div className="flex gap-4" style={{ width: 'max-content' }}>
                 {(() => {
                   let moviesToShow = [];
@@ -515,7 +528,7 @@ export default function MovieStreamingSite() {
                     })
                   ) : (
                     !isLoading && (
-                      <div className="text-center text-[#D3D3D3] py-8 w-full">
+                      <div className="text-center text-[#D3D3D3] py-8 w-full p-6">
                         No movies available in this category
                       </div>
                     )
@@ -523,6 +536,33 @@ export default function MovieStreamingSite() {
                 })()}
               </div>
             </div>
+            
+            {/* Scroll Buttons */}
+            {(() => {
+                let moviesToShow = [];
+                switch(activeMovieTab) {
+                    case 'now-showing': moviesToShow = nowShowingMovies; break;
+                    case 'advance-booking': moviesToShow = advanceBookingMovies; break;
+                    case 'coming-soon': moviesToShow = comingSoonMovies; break;
+                    default: moviesToShow = nowShowingMovies;
+                }
+                return moviesToShow.length > 4 ? (
+                    <>
+                        <button
+                            onClick={() => scroll('left')}
+                            className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 z-10 p-2 bg-black/60 rounded-full text-white hover:bg-[#FFCA20] hover:text-black transition-all opacity-0 group-hover/movies:opacity-100"
+                        >
+                            <ChevronLeft size={24} />
+                        </button>
+                        <button
+                            onClick={() => scroll('right')}
+                            className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 z-10 p-2 bg-black/60 rounded-full text-white hover:bg-[#FFCA20] hover:text-black transition-all opacity-0 group-hover/movies:opacity-100"
+                        >
+                            <ChevronRight size={24} />
+                        </button>
+                    </>
+                ) : null;
+            })()}
           </div>
         </div>
 
