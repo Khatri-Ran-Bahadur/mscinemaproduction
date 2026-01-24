@@ -18,7 +18,9 @@ import {
     Clock,
     Eye,
     Trash2,
-    RotateCcw
+    RotateCcw,
+    Edit,
+    Mail
 } from 'lucide-react';
 import TicketModal from '@/components/TicketModal';
 import OrderDetailsModal from '@/components/admin/OrderDetailsModal';
@@ -45,6 +47,14 @@ export default function AdminOrdersPage() {
     const [limit, setLimit] = useState(10);
     const [totalPages, setTotalPages] = useState(1);
     const [totalOrders, setTotalOrders] = useState(0);
+
+    // Status Modal State
+    const [showStatusModal, setShowStatusModal] = useState(false);
+    const [statusOrder, setStatusOrder] = useState(null);
+    const [newStatus, setNewStatus] = useState('PENDING');
+
+    // Action Menu State
+    const [openActionMenuId, setOpenActionMenuId] = useState(null);
 
     useEffect(() => {
         const timeoutId = setTimeout(() => {
@@ -285,11 +295,56 @@ export default function AdminOrdersPage() {
                  alert("Error fetching ticket details");
              }
         } else {
-            // Fallback if we don't have cinemaId/showId (old orders perhaps)
-            // But user wants standardize GetTickets call. 
-            // If missing, maybe alert or try best effort. 
-            // For now, if missing ID, we can't call GetTickets accurately.
             alert("This order is missing CinemaID/ShowID to fetch details.");
+        }
+    };
+
+    const handleStatusUpdate = (order) => {
+        setStatusOrder(order);
+        setNewStatus(order.paymentStatus || 'PENDING');
+        setShowStatusModal(true);
+    };
+
+    const confirmStatusUpdate = async () => {
+        if (!statusOrder) return;
+
+        try {
+            const res = await fetch(`/api/admin/orders/${statusOrder.id}/status`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ status: newStatus })
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert("Status updated successfully");
+                fetchOrders();
+                setShowStatusModal(false);
+                setStatusOrder(null);
+            } else {
+                alert(data.error || "Failed to update status");
+            }
+        } catch(e) {
+            console.error(e);
+            alert("Error updating status");
+        }
+    };
+
+    const handleResendEmail = async (order) => {
+        if (!confirm(`Resend ticket email to ${order.customerEmail}?`)) return;
+        
+        try {
+            const res = await fetch(`/api/admin/orders/${order.id}/resend-email`, {
+                method: 'POST'
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert("Email sent successfully");
+            } else {
+                alert(data.error || "Failed to send email");
+            }
+        } catch(e) {
+            console.error(e);
+            alert("Error sending email");
         }
     };
 
@@ -476,30 +531,71 @@ export default function AdminOrdersPage() {
                                                 </span>
                                             </td>
                                             <td className="px-3 py-2 text-right">
-                                                <div className="flex items-center justify-end gap-2">
-                                                    <button 
-                                                        onClick={() => handleOpenViewModal(order)}
-                                                        className="p-1 text-[#888] hover:text-white hover:bg-[#444] rounded transition"
-                                                        title="View Details"
-                                                    >
-                                                        <Eye className="w-3.5 h-3.5" />
-                                                    </button>
+                                                <div className="flex items-center justify-end gap-2 relative">
                                                     {order.paymentStatus === 'PAID' && (
                                                         <button 
                                                             onClick={() => handleViewTicket(order)}
-                                                            className="px-2 py-1 bg-[#FFCA20] text-black text-[10px] font-bold rounded hover:bg-[#FFCA20]/90 transition inline-flex items-center gap-1 whitespace-nowrap"
+                                                            className="px-3 py-1 bg-[#FFCA20] text-black text-xs font-bold rounded hover:bg-[#FFCA20]/90 transition inline-flex items-center gap-1 shadow-sm"
                                                         >
                                                             Ticket
                                                         </button>
                                                     )}
-                                                    <button 
-                                                        onClick={() => handleDeleteSingle(order.id)}
-                                                        disabled={isDeleting}
-                                                        className="p-1 text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded transition disabled:opacity-50"
-                                                        title="Delete Order"
-                                                    >
-                                                        <Trash2 className="w-3.5 h-3.5" />
-                                                    </button>
+
+                                                    <div className="relative">
+                                                        <button 
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setOpenActionMenuId(openActionMenuId === order.id ? null : order.id);
+                                                            }}
+                                                            className={`p-1.5 rounded transition ${openActionMenuId === order.id ? 'bg-[#444] text-white' : 'text-[#888] hover:text-white hover:bg-[#333]'}`}
+                                                        >
+                                                            <MoreVertical className="w-4 h-4" />
+                                                        </button>
+                                                        
+                                                        {openActionMenuId === order.id && (
+                                                            <>
+                                                                <div className="fixed inset-0 z-40 cursor-default" onClick={() => setOpenActionMenuId(null)}></div>
+                                                                <div className="absolute right-0 top-full mt-2 w-48 bg-[#1a1a1a] border border-[#444] rounded-lg shadow-xl z-50 flex flex-col py-1 overflow-hidden">
+                                                                    <button 
+                                                                        onClick={() => { handleOpenViewModal(order); setOpenActionMenuId(null); }} 
+                                                                        className="text-left px-4 py-2.5 hover:bg-[#333] text-sm flex items-center gap-2 text-gray-300 hover:text-white transition"
+                                                                    >
+                                                                        <Eye className="w-4 h-4" /> View Details
+                                                                    </button>
+                                                                    
+                                                                    <button 
+                                                                        onClick={() => { handleStatusUpdate(order); setOpenActionMenuId(null); }} 
+                                                                        className="text-left px-4 py-2.5 hover:bg-[#333] text-sm flex items-center gap-2 text-blue-400 hover:text-blue-300 transition"
+                                                                    >
+                                                                        <Edit className="w-4 h-4" /> Edit Status
+                                                                    </button>
+                                                                    
+                                                                    {/* 
+                                                                    <button 
+                                                                        onClick={() => { handleResendEmail(order); setOpenActionMenuId(null); }} 
+                                                                        disabled={order.paymentStatus !== 'PAID'}
+                                                                        className={`text-left px-4 py-2.5 hover:bg-[#333] text-sm flex items-center gap-2 transition ${
+                                                                            order.paymentStatus === 'PAID' 
+                                                                                ? 'text-yellow-400 hover:text-yellow-300' 
+                                                                                : 'text-gray-600 cursor-not-allowed opacity-50'
+                                                                        }`}
+                                                                    >
+                                                                        <Mail className="w-4 h-4" /> Resend Email
+                                                                    </button>
+                                                                    */}
+                                                                    
+                                                                    <div className="border-t border-[#333] my-1"></div>
+                                                                    
+                                                                    <button 
+                                                                        onClick={() => { handleDeleteSingle(order.id); setOpenActionMenuId(null); }} 
+                                                                        className="text-left px-4 py-2.5 hover:bg-red-500/10 text-sm flex items-center gap-2 text-red-400 hover:text-red-300 transition"
+                                                                    >
+                                                                        <Trash2 className="w-4 h-4" /> Delete Order
+                                                                    </button>
+                                                                </div>
+                                                            </>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </td>
                                         </tr>
@@ -603,6 +699,50 @@ export default function AdminOrdersPage() {
                 onClose={() => setShowViewOrderModal(false)}
                 order={viewOrder}
             />
+
+            {/* Status Update Modal */}
+            {showStatusModal && (
+                <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+                    <div className="bg-[#2a2a2a] border border-[#3a3a3a] rounded-lg p-6 w-full max-w-sm shadow-2xl transform transition-all scale-100">
+                        <h3 className="text-xl font-bold text-white mb-4">Update Payment Status</h3>
+                        <p className="text-sm text-gray-400 mb-6">
+                            Changing status for Order <span className="text-[#FFCA20] font-mono bg-black/30 px-1 rounded">{statusOrder?.referenceNo}</span>
+                        </p>
+                        
+                        <div className="mb-6">
+                            <label className="block text-sm text-gray-400 mb-2 font-medium">New Status</label>
+                            <div className="relative">
+                                <select
+                                    value={newStatus}
+                                    onChange={(e) => setNewStatus(e.target.value)}
+                                    className="w-full bg-[#1a1a1a] border border-[#3a3a3a] text-white rounded-lg px-4 py-3 focus:border-[#FFCA20] focus:ring-1 focus:ring-[#FFCA20] outline-none appearance-none cursor-pointer"
+                                >
+                                    <option value="PAID">PAID</option>
+                                    <option value="PENDING">PENDING</option>
+                                    <option value="FAILED">FAILED</option>
+                                    <option value="REFUNDED">REFUNDED</option>
+                                </select>
+                                <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none" />
+                            </div>
+                        </div>
+                        
+                        <div className="flex justify-end gap-3">
+                            <button 
+                                onClick={() => setShowStatusModal(false)}
+                                className="px-4 py-2 rounded text-gray-400 hover:text-white hover:bg-[#333] transition font-medium"
+                            >
+                                Cancel
+                            </button>
+                            <button 
+                                onClick={confirmStatusUpdate}
+                                className="px-4 py-2 rounded bg-[#FFCA20] text-black font-bold hover:bg-[#FFCA20]/90 transition shadow-lg shadow-[#FFCA20]/20"
+                            >
+                                Update Status
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

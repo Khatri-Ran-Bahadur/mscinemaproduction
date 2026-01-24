@@ -1,6 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   /* config options here */
+  output: 'standalone', // Reduces deployment size significantly by bundling only necessary files
   reactCompiler: true,
   images: {
     remotePatterns: [

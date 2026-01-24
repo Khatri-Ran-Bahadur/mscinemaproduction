@@ -42,6 +42,19 @@ npm run build
 
 if [ $? -eq 0 ]; then
     echo -e "${GREEN}✓ Build completed successfully${NC}"
+    
+    # Prepare Standalone Build
+    echo -e "${YELLOW}[3.5/5] Preparing Standalone Build artifacts...${NC}"
+    # Ensure destination directories exist
+    mkdir -p .next/standalone/.next/static
+    mkdir -p .next/standalone/public
+    
+    # Copy static assets
+    echo "Copying static files..."
+    cp -r .next/static/* .next/standalone/.next/static/
+    cp -r public/* .next/standalone/public/
+    
+    echo -e "${GREEN}✓ Standalone build prepared${NC}"
 else
     echo -e "${RED}✗ Build failed. Please check the errors above.${NC}"
     exit 1

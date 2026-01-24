@@ -40,6 +40,29 @@ export default function MyTicketsPage() {
     const formatDate = (dateString) => {
         if (!dateString) return 'N/A';
         try {
+            // Check if standard YYYY-MM-DD or similar
+            const parts = dateString.split(/[- :T\/]/).filter(p => p !== '');
+            // Simple check for YYYY-MM-DD or DD-MM-YYYY
+            if (parts.length >= 3) {
+                 let y = parts[0];
+                 let m = parts[1];
+                 let d = parts[2];
+                 
+                 // Heuristic: If first part is day (DD-MM-YYYY), swap.
+                 // Assuming YYYY is 4 chars.
+                 if (y.length <= 2 && d.length === 4) {
+                     const temp = y;
+                     y = d;
+                     d = temp;
+                 }
+                
+                // Create local date (months are 0-indexed)
+                const date = new Date(y, m - 1, d);
+                if (!isNaN(date.getTime())) {
+                    return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+                }
+            }
+            
             const date = new Date(dateString);
             return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
         } catch (e) {
@@ -58,16 +81,31 @@ export default function MyTicketsPage() {
             if (isNaN(date.getTime())) {
                 // Try parsing custom formats if needed, or return original
                 // For now, assume common formats
-                const parts = dateTimeString.split(/[- :T]/);
-                if (parts.length >= 6) {
-                   const d = new Date(parts[0], parts[1]-1, parts[2], parts[3], parts[4], parts[5]);
-                   if (!isNaN(d.getTime())) {
-                       return d.toLocaleString('en-GB', { 
+                const parts = dateTimeString.split(/[- :T\/]/).filter(p => p !== '');
+                if (parts.length >= 5) { // Allow missing seconds
+                   let y = parts[0];
+                   let m = parts[1];
+                   let d = parts[2];
+                   let h = parts[3];
+                   let min = parts[4];
+                   let s = parts[5] || '00';
+
+                   // Handle DD-MM-YYYY format
+                   if (y.length <= 2 && d.length === 4) {
+                       const temp = y;
+                       y = d;
+                       d = temp;
+                   }
+
+                   const dateObj = new Date(y, m - 1, d, h, min, s);
+                   if (!isNaN(dateObj.getTime())) {
+                       return dateObj.toLocaleString('en-GB', { 
                            day: 'numeric', 
                            month: 'short', 
                            year: 'numeric',
-                           hour: '2-digit',
+                           hour: 'numeric',
                            minute: '2-digit',
+                           second: '2-digit',
                            hour12: true
                        });
                    }
@@ -79,8 +117,9 @@ export default function MyTicketsPage() {
                 day: 'numeric', 
                 month: 'short', 
                 year: 'numeric',
-                hour: '2-digit',
+                hour: 'numeric',
                 minute: '2-digit',
+                second: '2-digit',
                 hour12: true
             });
         } catch (e) {
