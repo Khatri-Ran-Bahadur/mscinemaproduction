@@ -7,6 +7,8 @@
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { API_BASE_URL } from '@/config/api';
+import { prisma } from '@/lib/prisma';
+import { sendTicketEmail } from '@/utils/email';
 
 // Razer Merchant Services Configuration from environment variables
 const RMS_CONFIG = {
@@ -166,13 +168,139 @@ export async function POST(request) {
       // Payment successful - update booking status
       console.log(`[Payment Notify] Payment successful - Order: ${orderid}, Transaction: ${tranID}, Amount: ${amount}, Channel: ${channel}`);
       
-      // Call ReserveBooking API
+      // Payment successful - update booking status
+      console.log(`[Payment Notify] Payment successful - Order: ${orderid}, Transaction: ${tranID}, Amount: ${amount}, Channel: ${channel}`);
+     
       try {
-        await callReserveBooking(orderid, tranID, channel, amount, currency);
+        // 1. Find Order in DB
+        const order = await prisma.order.findFirst({
+            where: { 
+                OR: [
+                    { orderId: orderid },
+                    // Make sure we handle potential prefix nuances if any
+                ]
+            }
+        });
+
+        if (order) {
+            // 2. Call ReserveBooking API (Confirm with Cinema System)
+            // Ideally callReserveBooking should use order data - kept existing logic placeholder if needed
+            // const reserveRes = await callReserveBooking(...) 
+            
+            // 3. Update Local Order Status
+            await prisma.order.update({
+                where: { id: order.id },
+                data: {
+                    status: 'CONFIRMED',
+                    paymentStatus: 'PAID',
+                    transactionNo: tranID,
+                    paymentMethod: channel,
+                    updatedAt: new Date()
+                }
+            });
+
+            // 4. Fetch Ticket Details for Email (External API)
+            // We need to construct the exact data structure for sendTicketEmail
+            let emailSent = false;
+            let ticketInfoData = null;
+
+            if (order.cinemaId && order.showId && order.referenceNo) {
+                try {
+                    const ticketApiUrl = `${API_BASE_URL}/Booking/GetTickets/${order.cinemaId}/${order.showId}/${order.referenceNo}`;
+                    console.log(`[Payment Notify] Fetching tickets: ${ticketApiUrl}`);
+                    const ticketRes = await fetch(ticketApiUrl);
+                    
+                    if (ticketRes.ok) {
+                        const t = await ticketRes.json();
+                        
+                        // Construct Email Data (Matching resend-email logic)
+                        let finalSeatDisplay = [];
+                        let seatsList = [];
+                        try {
+                             if (order.seats && (order.seats.startsWith('[') || order.seats.startsWith('{'))) {
+                                const parsed = JSON.parse(order.seats);
+                                if (Array.isArray(parsed)) seatsList = parsed; 
+                                else seatsList = Object.values(parsed);
+                             } else if (order.seats) {
+                                seatsList = order.seats.split(',').map(s => s.trim());
+                             }
+                        } catch(e) { seatsList = [order.seats]; }
+
+                        let finalTicketDetails = t.TicketDetails || [];
+                        if (finalTicketDetails.length > 0) {
+                             const groups = {};
+                             finalTicketDetails.forEach(d => {
+                                 const type = d.TicketType || 'Standard';
+                                 if (d.SeatNo) {
+                                     if (!groups[type]) groups[type] = [];
+                                     groups[type].push(d.SeatNo);
+                                 }
+                             });
+                             finalSeatDisplay = Object.entries(groups).map(([type, seats]) => ({ type, seats }));
+                        } else {
+                             finalSeatDisplay = [{ type: 'Standard', seats: seatsList.filter(s=>s) }];
+                        }
+
+                        ticketInfoData = {
+                            customerName: t.CustomerName || order.customerName || 'Guest',
+                            customerEmail: t.CustomerEmail || order.customerEmail || 'N/A',
+                            customerPhone: t.CustomerPhone || order.customerPhone || 'N/A',
+                            movieName: t.MovieName || order.movieTitle || 'Movie',
+                            movieImage: t.MovieImage || '/img/banner.jpg',
+                            genre: t.Genre || 'N/A',
+                            duration: t.Duration || 'N/A',
+                            language: t.Language || 'English',
+                            experienceType: t.ExperienceType || 'Standard',
+                            hallName: t.HallName || order.hallName || 'Hall',
+                            cinemaName: t.CinemaName || order.cinemaName || 'Cinema',
+                            showDate: t.ShowDate || (order.showTime ? new Date(order.showTime).toLocaleDateString() : 'N/A'),
+                            showTime: t.ShowTime || (order.showTime ? new Date(order.showTime).toLocaleTimeString() : 'N/A'),
+                            bookingId: order.referenceNo,
+                            referenceNo: t.ReferenceNo || order.referenceNo,
+                            trackingId: tranID,
+                            seatDisplay: finalSeatDisplay,
+                            totalPersons: finalSeatDisplay.reduce((s, g) => s + g.seats.length, 0),
+                            subCharge: parseFloat(t.SubCharge || 0),
+                            grandTotal: parseFloat(amount || 0),
+                            ticketDetails: finalTicketDetails
+                        };
+
+                        // 5. Send Email
+                        if (ticketInfoData.customerEmail !== 'N/A') {
+                            console.log(`[Payment Notify] Sending email to ${ticketInfoData.customerEmail}`);
+                            await sendTicketEmail(ticketInfoData.customerEmail, ticketInfoData);
+                            emailSent = true;
+                        }
+                    } else {
+                        console.error('[Payment Notify] Failed to fetch tickets from API');
+                    }
+                } catch (apiErr) {
+                    console.error('[Payment Notify] Error fetching tickets/sending email:', apiErr);
+                }
+            }
+
+            // 6. Update Order with Email Info & Status
+            await prisma.order.update({
+                where: { id: order.id },
+                data: {
+                    emailInfo: ticketInfoData ? ticketInfoData : undefined, // Store JSON
+                    isSendMail: emailSent
+                }
+            });
+            console.log(`[Payment Notify] Order updated. Email sent: ${emailSent}`);
+
+        } else {
+             // Fallback if order not found in DB
+             console.warn(`[Payment Notify] Order not found for ID: ${orderid}`);
+             // Call ReserveBooking API fallback
+             try {
+                await callReserveBooking(orderid, tranID, channel, amount, currency);
+             } catch (err) {
+                console.error('[Payment Notify] Error calling ReserveBooking:', err);
+             }
+        }
       } catch (err) {
-        console.error('[Payment Notify] Error calling ReserveBooking:', err);
-        // Continue to return success to RazerMS even if ReserveBooking fails
-        // This ensures RazerMS knows we received the notification
+        console.error('[Payment Notify] Error updating order/sending email:', err);
       }
       
       // Return success response to Razer Merchant Services

@@ -570,19 +570,18 @@ export default function AdminOrdersPage() {
                                                                         <Edit className="w-4 h-4" /> Edit Status
                                                                     </button>
                                                                     
-                                                                    {/* 
                                                                     <button 
                                                                         onClick={() => { handleResendEmail(order); setOpenActionMenuId(null); }} 
-                                                                        disabled={order.paymentStatus !== 'PAID'}
+                                                                        // Enable only if PAID and NOT yet sent
+                                                                        disabled={order.paymentStatus !== 'PAID' || order.isSendMail}
                                                                         className={`text-left px-4 py-2.5 hover:bg-[#333] text-sm flex items-center gap-2 transition ${
-                                                                            order.paymentStatus === 'PAID' 
+                                                                            order.paymentStatus === 'PAID' && !order.isSendMail 
                                                                                 ? 'text-yellow-400 hover:text-yellow-300' 
                                                                                 : 'text-gray-600 cursor-not-allowed opacity-50'
                                                                         }`}
                                                                     >
                                                                         <Mail className="w-4 h-4" /> Resend Email
                                                                     </button>
-                                                                    */}
                                                                     
                                                                     <div className="border-t border-[#333] my-1"></div>
                                                                     

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { resendTicketEmail } from '@/utils/email';
 
 const API_BASE_URL = process.env.API_BASE_URL || 'https://apiv5.mscinemas.my/api';
 
@@ -143,7 +144,9 @@ export async function POST(request, { params }) {
     if (!displayShowTime && o.showTime) displayShowTime = normalizeTime(o.showTime);
     else displayShowTime = normalizeTime(displayShowTime); // Clean existing string
 
-    const ticketInfo = {
+    const ticketInfo = order.emailInfo ? 
+        (typeof order.emailInfo === 'string' ? JSON.parse(order.emailInfo) : order.emailInfo) 
+        : {
         customerName: t.CustomerName || t.customerName || o.customerName || 'Guest',
         customerEmail: t.CustomerEmail || o.customerEmail || 'N/A',
         customerPhone: t.CustomerPhone || o.customerPhone || 'N/A',
@@ -182,6 +185,14 @@ export async function POST(request, { params }) {
 
     console.log(`Resending ticket email to ${emailTo} (Ref: ${ticketInfo.referenceNo})`);
     
+    // Use the resendTicketEmail helper (which reuses sendTicketEmail template logic)
+    await resendTicketEmail(emailTo, ticketInfo);
+    
+    // Update isSendMail status
+    await prisma.order.update({
+        where: { id: id },
+        data: { isSendMail: true }
+    });
     
     return NextResponse.json({ success: true, message: 'Email sent successfully' });
 

@@ -144,6 +144,10 @@ model Order {
   paymentStatus String   @default("PAID")      // PAID, PENDING, FAILED, REFUNDED
   paymentMethod String?  // e.g. "Credit Card", "FPX", "Cash"
   
+  // Email Tracking
+  emailInfo     Json?    // Store email data JSON
+  isSendMail    Boolean  @default(false)
+  
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 

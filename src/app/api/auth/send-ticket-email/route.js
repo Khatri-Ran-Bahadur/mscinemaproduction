@@ -6,6 +6,7 @@
 
 import { NextResponse } from 'next/server';
 import { sendTicketEmail } from '@/utils/email';
+import { prisma } from '@/lib/prisma';
 
 export async function POST(request) {
   try {
@@ -33,6 +34,40 @@ export async function POST(request) {
     console.log(`API: Attempting to send ticket email to ${email}`);
     const emailResult = await sendTicketEmail(email, ticketInfo);
     console.log('API: sendTicketEmail result:', emailResult);
+
+    // Update Database Status
+    try {
+        const refNo = ticketInfo.referenceNo !== 'N/A' ? ticketInfo.referenceNo : null;
+        const bookingId = ticketInfo.bookingId !== 'N/A' ? ticketInfo.bookingId : null;
+        
+        if (refNo || bookingId) {
+            // Try to find the order
+            const order = await prisma.order.findFirst({
+                where: {
+                    OR: [
+                        { referenceNo: refNo },
+                        { orderId: bookingId }
+                    ]
+                }
+            });
+
+            if (order) {
+                await prisma.order.update({
+                    where: { id: order.id },
+                    data: {
+                        isSendMail: true,
+                        emailInfo: ticketInfo // Store the JSON used to send
+                    }
+                });
+                console.log(`API: Updated order ${order.referenceNo} email status to SENT.`);
+            } else {
+                console.warn(`API: Order not found for Ref: ${refNo} / ID: ${bookingId}, skipped DB update.`);
+            }
+        }
+    } catch (dbErr) {
+        console.error('API Error updating DB status:', dbErr);
+        // Don't fail the response if email was sent but DB update failed
+    }
 
     return NextResponse.json({
       success: true,

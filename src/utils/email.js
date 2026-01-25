@@ -753,9 +753,15 @@ Malaysia
 // ... sendEmail implementation needs small update to accept attachments
 
 
+export const resendTicketEmail = async (to, ticketData) => {
+  console.log(`[Email Service] Resending ticket to ${to}`);
+  return await sendTicketEmail(to, ticketData);
+};
+
 export default {
   sendEmail,
   sendActivationEmail,
   sendForgotPasswordEmail,
   sendTicketEmail,
+  resendTicketEmail
 };
