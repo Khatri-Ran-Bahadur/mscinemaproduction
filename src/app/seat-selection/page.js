@@ -38,7 +38,7 @@ export default function SeatSelection() {
   const [selectedTimeIndex, setSelectedTimeIndex] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
-  const [pageTimer, setPageTimer] = useState(300); // 5 minutes for page timer
+  const [pageTimer, setPageTimer] = useState(120); // 2 minutes (User requested 2 mins)
   const [pageTimerActive, setPageTimerActive] = useState(false);
   const [maxSeats, setMaxSeats] = useState(6); // Default to 6, will be updated from ticket data
   const [ticketData, setTicketData] = useState(null); // Store ticket data for price calculation
@@ -74,7 +74,7 @@ export default function SeatSelection() {
       localStorage.removeItem('seatSelectionPageTimerStartTime');
       localStorage.removeItem('seatSelectionTimerMovieId');
       localStorage.removeItem('seatSelectionTimerShowId');
-      const timerDuration = 300; // 5 minutes
+      const timerDuration = 120; // 2 minutes (Changed from 5 mins)
       const timerStartTime = Date.now().toString();
       localStorage.setItem('seatSelectionPageTimerStartTime', timerStartTime);
       localStorage.setItem('seatSelectionTimerMovieId', movieId || '');
@@ -88,7 +88,7 @@ export default function SeatSelection() {
     const pageTimerStartTime = localStorage.getItem('seatSelectionPageTimerStartTime');
     const timerMovieId = localStorage.getItem('seatSelectionTimerMovieId');
     const timerShowId = localStorage.getItem('seatSelectionTimerShowId');
-    const timerDuration = 300; // 5 minutes
+    const timerDuration = 120; // 2 minutes
     
     // Check if timer is for the same movie/show
     const isSameMovie = timerMovieId === movieId && timerShowId === showId;

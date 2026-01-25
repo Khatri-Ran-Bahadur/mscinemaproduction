@@ -1008,7 +1008,7 @@ export default function MovieBooking() {
                 alt={movieTitle}
                 className="w-32 h-48 object-cover rounded"
                 onError={(e) => {
-                  e.target.src = 'img/movies1.png';
+                  e.target.src = 'placeholder.png';
                 }}
               />
               <div className="flex-1">

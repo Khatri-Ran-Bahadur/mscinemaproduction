@@ -71,6 +71,7 @@ export default function PaymentPage() {
           
           if (remaining <= 0) {
             // Timer expired - release seats and redirect
+            console.log('Timer expired on load, releasing seats...');
             releaseConfirmedSeats();
             return;
           }
@@ -78,11 +79,15 @@ export default function PaymentPage() {
           setTimeLeft(remaining);
           setTimerActive(true);
         } else {
-          // No timer found - might be expired, redirect to seat selection
-          setError('Booking session expired. Please select seats again.');
-          setTimeout(() => {
-            const encrypted = encryptIds({ cinemaId: data.cinemaId || '', showId: data.showId || '', movieId: data.movieId || '' });
-            router.push(`/seat-selection?cinemaId=${encrypted.cinemaId}&showId=${encrypted.showId}&movieId=${encrypted.movieId}`);
+          // No timer found - check 'createdAt' or just default to expired if logic dictates
+          // But actually, we need a reference time. If no timerStartTime, maybe we set one now?
+          // OR if we assume new booking -> 2 mins from now.
+          // BUT request says: "order created time check if morethan 2 minute session expire"
+          
+          // If we rely on localStorage 'timerStartTime' which is set during seat locking:
+          setError('Booking session details missing. Please select seats again.');
+           setTimeout(() => {
+            window.location.href = '/';
           }, 2000);
         }
         
@@ -143,8 +148,8 @@ export default function PaymentPage() {
     
     if (!referenceNo || !cinemaId || !showId) {
       // No reference - just redirect to seat selection
-      const encrypted = encryptIds({ cinemaId: cinemaId || '', showId: showId || '', movieId: movieId || '' });
-      window.location.href = `/seat-selection?cinemaId=${encrypted.cinemaId}&showId=${encrypted.showId}&movieId=${encrypted.movieId}`;
+      // No reference - just redirect to home
+      window.location.href = '/';
       return;
     }
     
@@ -160,8 +165,8 @@ export default function PaymentPage() {
       console.error('Error releasing seats:', err);
     } finally {
       // Always redirect to seat selection page after releasing (reload page)
-      const encrypted = encryptIds({ cinemaId: cinemaId || '', showId: showId || '', movieId: movieId || '' });
-      window.location.href = `/seat-selection?cinemaId=${encrypted.cinemaId}&showId=${encrypted.showId}&movieId=${encrypted.movieId}`;
+      // Always redirect to home page after releasing (reload page)
+      window.location.href = '/';
     }
   };
 

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { API_CONFIG } from '@/config/api';
+import { prisma } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
 
@@ -114,10 +115,26 @@ export async function GET(request) {
                         if (datePart && timePart) {
                             const [d, m, y] = datePart.split('-');
                             if (d && m && y) {
-                                const bookingTime = new Date(`${y}-${m}-${d}T${timePart}+08:00`);
-                                if (!isNaN(bookingTime.getTime())) {
-                                    const diffMinutes = (Date.now() - bookingTime.getTime()) / (1000 * 60);
-                                    if (diffMinutes > 10) shouldRelease = true;
+                                // 1. Parse the Booking Time (It is physically "25-01-2026 11:55:33" in MYT)
+                                // We create a Date object where the internal numbers match this face value.
+                                const bookingDateObj = new Date(`${y}-${m}-${d}T${timePart}`);
+
+                                // 2. Get Current Time as "Malaysia Time" string
+                                // This ensures we are getting the "Wall Clock" time in Malaysia right now.
+                                const now = new Date();
+                                const mytNow = new Date(now.toLocaleString("en-US", {timeZone: "Asia/Kuala_Lumpur"}));
+                                
+                                if (!isNaN(bookingDateObj.getTime()) && !isNaN(mytNow.getTime())) {
+                                    const diffMs = mytNow.getTime() - bookingDateObj.getTime();
+                                    const diffMinutes = diffMs / (1000 * 60);
+                                    
+                                    // Rule: "this time is malesian time ... add 15 minute to delete"
+                                    if (diffMinutes > 15) {
+                                        shouldRelease = true;
+                                        console.log(`[Cron] ${env.name}: releasing ${b.referenceNo} (Age: ${diffMinutes.toFixed(1)}m > 15m)`);
+                                    } else {
+                                        console.log(`[Cron] ${env.name}: Keeping ${b.referenceNo}. Age: ${diffMinutes.toFixed(1)}m. (Booking: ${bookingDateObj.toLocaleTimeString()} vs Now: ${mytNow.toLocaleTimeString()} MYT)`);
+                                    }
                                 }
                             }
                         }
@@ -157,6 +174,22 @@ export async function GET(request) {
                         if (ok) {
                             totalProcessed++;
                             releasedInEnv++;
+                            
+                            // Update local DB status to ensure user cannot pay for this released booking
+                            try {
+                                await prisma.order.update({
+                                    where: { referenceNo: b.referenceNo },
+                                    data: {
+                                        status: 'CANCELLED',
+                                        paymentStatus: 'FAILED',
+                                        updatedAt: new Date(),
+                                    },
+                                });
+                                console.log(`[Cron] ${env.name}: Updated local order ${b.referenceNo} to CANCELLED/FAILED.`);
+                            } catch (dbErr) {
+                                // It's possible the order doesn't exist locally if it was a ghost booking or cleaned up
+                                console.warn(`[Cron] ${env.name}: Could not update local order ${b.referenceNo}:`, dbErr.message);
+                            }
                         } else {
                             console.error(`[Cron] ${env.name}: Release failed for ${b.referenceNo}: ${status}`, body);
                         }

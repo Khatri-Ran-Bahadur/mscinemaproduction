@@ -6,6 +6,7 @@
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { storeBookingDetails } from '@/utils/booking-storage';
+import { prisma } from '@/lib/prisma';
 
 // Fiuu Payment Gateway Configuration from environment variables
 const FIUU_CONFIG = {
@@ -140,6 +141,52 @@ export async function POST(request) {
         referenceNo,
         hasReturnUrl: !!finalReturnUrl
       });
+    }
+
+    // CRITICAL SECURITY CHECK: Validate Booking Status
+    // Prevent payment if the booking has been released/cancelled by the cron job or expired.
+    if (referenceNo) {
+        try {
+            // Check if there is a valid, active order for this reference number
+            // We search for orders that are NOT Cancelled or Failed
+            const validOrder = await prisma.order.findFirst({
+                where: {
+                    referenceNo: referenceNo,
+                    status: { notIn: ['CANCELLED', 'FAILED'] }, // Must be CONFIRMED or PENDING
+                    paymentStatus: { notIn: ['FAILED', 'REFUNDED'] } // Must not be already failed
+                },
+                orderBy: { createdAt: 'desc' } // Get the latest one if duplicates exist
+            });
+
+            if (!validOrder) {
+                console.error(`[Payment Create] ❌ REJECTED: Attempt to pay for invalid/expired booking ${referenceNo}`);
+                return NextResponse.json(
+                    {
+                        status: false,
+                        error_code: '400',
+                        error_desc: 'Booking session expired or seats released. Please try again.',
+                        failureurl: finalCancelUrl || `${new URL(request.url).origin}/home`
+                    },
+                    { status: 400 }
+                );
+            }
+            
+            console.log(`[Payment Create] ✅ Validated active order for ${referenceNo}`);
+        } catch (dbErr) {
+            console.error('[Payment Create] Database validation error:', dbErr);
+            // We allow proceeding if DB is down? No, better to be safe.
+            // But for now, let's log and maybe allow if it's a critical connectivity issue? 
+            // Better to block to prevent double payment.
+             return NextResponse.json(
+                {
+                    status: false,
+                    error_code: '500',
+                    error_desc: 'System validation failed. Please try again.',
+                    failureurl: finalCancelUrl
+                },
+                { status: 500 }
+            );
+        }
     }
     
     // Validate required fields (matching process_order.php logic)

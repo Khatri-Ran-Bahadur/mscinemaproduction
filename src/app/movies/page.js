@@ -34,7 +34,7 @@ export default function MoviesPage() {
             // Transform API data to match component structure
             const transformedMovies = Array.isArray(data) ? data.map((movie, index) => ({
                 id: movie.movieID || movie.id || index + 1,
-                image: movie.imageURL || movie.image || movie.poster || "img/movies1.png",
+                image: movie.imageURL || movie.image || movie.poster || "placeholder.png",
                 title: movie.movieName || movie.title || movie.name || "Unknown Movie",
                 genre: movie.genre || movie.genres || movie.category || "Action",
                 rating: movie.rating || movie.ageRating || "U/A",

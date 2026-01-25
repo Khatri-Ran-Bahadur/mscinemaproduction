@@ -104,7 +104,7 @@ export default function MovieStreamingSite() {
       const transformedMovies = moviesData.map((movie) => ({
         id: movie.movieID,
         title: movie.movieName?.replace(/^\./, '') || "Unknown Movie", // Remove leading dot
-        image: movie.imageURL || `img/movies1.png`,
+        image: movie.imageURL || `placeholder.png`,
         rating: movie.rating || "U/A",
         year: movie.releaseDate ? movie.releaseDate.split('-')[2] : new Date().getFullYear().toString(),
         genre: movie.genre || "Action",

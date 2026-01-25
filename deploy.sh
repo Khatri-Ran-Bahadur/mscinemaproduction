@@ -18,6 +18,12 @@ echo -e "${GREEN}=========================================${NC}"
 echo -e "${GREEN}MSCinemas Deployment Script${NC}"
 echo -e "${GREEN}=========================================${NC}"
 echo ""
+echo -e "${RED}⚠️  WARNING: Running this script on the server uses 100% CPU!${NC}"
+echo -e "${YELLOW}>> We have set up GitHub Actions to build automatically.${NC}"
+echo -e "${YELLOW}>> Just git push your changes instead of running this script.${NC}"
+echo -e "${YELLOW}>> If you MUST run this, expect downtime during build.${NC}"
+echo ""
+sleep 3
 
 # Navigate to app directory
 cd $APP_DIR

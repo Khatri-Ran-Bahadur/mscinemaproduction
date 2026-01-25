@@ -215,7 +215,7 @@ export default function FoodDrinksPage() {
                                     src={item.image} 
                                     alt={item.title}
                                     className="w-full h-full object-cover group-hover:scale-110 transition duration-500"
-                                    onError={(e) => { e.target.src = 'img/movies1.png'; }}
+                                    onError={(e) => { e.target.src = 'placeholder.png'; }}
                                 />
                                 {item.tag && (
                                     <div className="absolute top-2 sm:top-3 right-2 sm:right-3 bg-[#FFCA20] text-black px-2 sm:px-3 py-0.5 sm:py-1 text-[10px] sm:text-xs font-bold rounded">
@@ -268,7 +268,7 @@ export default function FoodDrinksPage() {
                                         src={modalItem.image} 
                                         alt={modalItem.title}
                                         className="w-full h-full object-cover"
-                                        onError={(e) => { e.target.src = 'img/movies1.png'; }}
+                                        onError={(e) => { e.target.src = 'placeholder.png'; }}
                                     />
                                     {modalItem.tag && (
                                         <div className="absolute top-1 right-1 bg-[#FFCA20] text-black px-1.5 py-0.5 text-[8px] font-bold rounded">

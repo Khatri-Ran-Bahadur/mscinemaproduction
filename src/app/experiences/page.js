@@ -113,7 +113,7 @@ export default function ExperiencesPage() {
                                     src={exp.image} 
                                     alt={exp.title}
                                     className="w-full h-full object-cover group-hover:scale-110 transition duration-500"
-                                    onError={(e) => { e.target.src = exp.fallbackImage || 'img/movies1.png'; }}
+                                    onError={(e) => { e.target.src = exp.fallbackImage || 'placeholder.png'; }}
                                 />
                                 <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-transparent"></div>
                                 

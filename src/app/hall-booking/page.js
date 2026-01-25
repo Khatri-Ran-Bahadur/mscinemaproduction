@@ -277,7 +277,7 @@ export default function BookHallPage() {
                                     src={hall.image}
                                     alt={hall.title}
                                     className="w-full h-full object-cover group-hover:scale-110 transition duration-500"
-                                    onError={(e) => { e.target.src = 'img/movies1.png'; }}
+                                    onError={(e) => { e.target.src = 'placeholder.png'; }}
                                 />
                                 {/* Gradient overlay for text readability */}
                                 <div className="absolute inset-0 bg-gradient-to-t from-black via-black/70 to-transparent"></div>
