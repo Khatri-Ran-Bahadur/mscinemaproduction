@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { API_CONFIG } from '@/config/api';
-import { prisma } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
 
@@ -43,7 +42,6 @@ async function fetchWithAuth(url, token, options = {}) {
 
 export async function GET(request) {
     try {
-        return NextResponse.json({ success: true, message: 'Cron job is currently disabled.' });
         // Optional: require CRON_SECRET to avoid unauthorized hits (set in .env)
         const cronSecret = process.env.CRON_SECRET;
         if (cronSecret) {
@@ -56,14 +54,14 @@ export async function GET(request) {
         const { searchParams } = new URL(request.url);
         const m1 = searchParams.get('m1') || 2;
         const m2 = searchParams.get('m2') || 50;
-
+        
         const environments = [
             { name: 'Test', url: API_CONFIG.TEST_API_URL, credentials: API_CONFIG.TEST_GUEST_CREDENTIALS },
             { name: 'Live', url: API_CONFIG.LIVE_API_URL, credentials: API_CONFIG.LIVE_GUEST_CREDENTIALS },
         ];
 
         console.log(`[Cron] Starting release-locked-seats. Params: m1=${m1}, m2=${m2}`);
-
+        
         const results = [];
         let totalProcessed = 0;
 
@@ -99,7 +97,7 @@ export async function GET(request) {
 
                 const targetBookings = bookings.filter((b) => b.status === 0 || b.status === 1);
                 console.log(`[Cron] ${env.name}: Fetched ${bookings.length} bookings, ${targetBookings.length} to check (status 0 or 1).`);
-
+                
                 if (targetBookings.length === 0) {
                     results.push({ env: env.name, message: 'No target bookings', count: 0 });
                     continue;
@@ -109,88 +107,56 @@ export async function GET(request) {
 
                 // 3. Release each qualifying booking (with token)
                 for (const b of targetBookings) {
-                    let shouldRelease = false;
-
-                    if (b.bookingDateTime) {
+                        let shouldRelease = false;
+                        
+                        if (b.bookingDateTime) {
                         const [datePart, timePart] = String(b.bookingDateTime).split(' ');
-                        if (datePart && timePart) {
-                            const [d, m, y] = datePart.split('-');
+                            if (datePart && timePart) {
+                                const [d, m, y] = datePart.split('-');
                             if (d && m && y) {
-                                // 1. Parse the Booking Time (It is physically "25-01-2026 11:55:33" in MYT)
-                                // We create a Date object where the internal numbers match this face value.
-                                const bookingDateObj = new Date(`${y}-${m}-${d}T${timePart}`);
-
-                                // 2. Get Current Time as "Malaysia Time" string
-                                // This ensures we are getting the "Wall Clock" time in Malaysia right now.
-                                const now = new Date();
-                                const mytNow = new Date(now.toLocaleString("en-US", {timeZone: "Asia/Kuala_Lumpur"}));
-                                
-                                if (!isNaN(bookingDateObj.getTime()) && !isNaN(mytNow.getTime())) {
-                                    const diffMs = mytNow.getTime() - bookingDateObj.getTime();
-                                    const diffMinutes = diffMs / (1000 * 60);
-                                    
-                                    // Rule: "this time is malesian time ... add 15 minute to delete"
-                                    if (diffMinutes > 15) {
-                                        shouldRelease = true;
-                                        console.log(`[Cron] ${env.name}: releasing ${b.referenceNo} (Age: ${diffMinutes.toFixed(1)}m > 15m)`);
-                                    } else {
-                                        console.log(`[Cron] ${env.name}: Keeping ${b.referenceNo}. Age: ${diffMinutes.toFixed(1)}m. (Booking: ${bookingDateObj.toLocaleTimeString()} vs Now: ${mytNow.toLocaleTimeString()} MYT)`);
-                                    }
+                                const bookingTime = new Date(`${y}-${m}-${d}T${timePart}+08:00`);
+                                if (!isNaN(bookingTime.getTime())) {
+                                    const diffMinutes = (Date.now() - bookingTime.getTime()) / (1000 * 60);
+                                    if (diffMinutes > 10) shouldRelease = true;
+                                }
                                 }
                             }
                         }
-                    }
 
-                    if (!shouldRelease) continue;
+                        if (!shouldRelease) continue;
 
-                    let endpoint = '';
-                    if (b.status === 0) {
-                        endpoint = `${env.url}/Booking/ReleaseLockedSeats/${b.cinemaID}/${b.showID}/${b.referenceNo}`;
-                    } else if (b.status === 1) {
-                        endpoint = `${env.url}/Booking/ReleaseConfirmedLockedSeats/${b.cinemaID}/${b.showID}/${b.referenceNo}`;
-                    }
+                        let endpoint = '';
+                        if (b.status === 0) {
+                            endpoint = `${env.url}/Booking/ReleaseLockedSeats/${b.cinemaID}/${b.showID}/${b.referenceNo}`;
+                        } else if (b.status === 1) {
+                            endpoint = `${env.url}/Booking/ReleaseConfirmedLockedSeats/${b.cinemaID}/${b.showID}/${b.referenceNo}`;
+                        }
 
                     if (!endpoint) continue;
 
                     try {
                         const releaseRes = await fetchWithAuth(endpoint, token, {
-                            method: 'POST',
+                                method: 'POST',
                             body: b.status === 1 ? JSON.stringify({}) : undefined, // ReleaseConfirmedLockedSeats expects {}; ReleaseLockedSeats no body
-                        });
+                            });
 
                         const ok = releaseRes.ok;
                         const status = releaseRes.status;
                         let body = null;
                         try { body = await releaseRes.json(); } catch { body = await releaseRes.text(); }
 
-                        results.push({
-                            env: env.name,
-                            referenceNo: b.referenceNo,
-                            type: b.status === 0 ? 'Locked' : 'ConfirmLocked',
+                            results.push({
+                                env: env.name,
+                                referenceNo: b.referenceNo,
+                                type: b.status === 0 ? 'Locked' : 'ConfirmLocked',
                             success: ok,
                             status,
                             apiResponse: body,
-                        });
-
+                            });
+                            
                         if (ok) {
                             totalProcessed++;
                             releasedInEnv++;
-                            
-                            // Update local DB status to ensure user cannot pay for this released booking
-                            try {
-                                await prisma.order.update({
-                                    where: { referenceNo: b.referenceNo },
-                                    data: {
-                                        status: 'CANCELLED',
-                                        paymentStatus: 'FAILED',
-                                        updatedAt: new Date(),
-                                    },
-                                });
-                                console.log(`[Cron] ${env.name}: Updated local order ${b.referenceNo} to CANCELLED/FAILED.`);
-                            } catch (dbErr) {
-                                // It's possible the order doesn't exist locally if it was a ghost booking or cleaned up
-                                console.warn(`[Cron] ${env.name}: Could not update local order ${b.referenceNo}:`, dbErr.message);
-                            }
                         } else {
                             console.error(`[Cron] ${env.name}: Release failed for ${b.referenceNo}: ${status}`, body);
                         }
@@ -201,10 +167,10 @@ export async function GET(request) {
                 }
 
                 results.push({ env: env.name, message: `Checked ${targetBookings.length}, released ${releasedInEnv}` });
-            } catch (envErr) {
+             } catch (envErr) {
                 console.error(`[Cron] Error for ${env.name}:`, envErr);
-                results.push({ env: env.name, error: envErr.message });
-            }
+                 results.push({ env: env.name, error: envErr.message });
+             }
         }
 
         return NextResponse.json({

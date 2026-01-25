@@ -1,0 +1,58 @@
+name: Deploy Next.js Application to Production Server
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Checkout repository
+      - uses: actions/checkout@v3
+
+      # 2. Setup Node.js
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '20'  # Or the version your Next.js project uses
+
+      # 3. Install dependencies
+      - name: Install NPM Dependencies
+        run: npm ci
+
+      # 4. Build the Next.js project
+      - name: Build Next.js
+        run: npm run build
+
+      # 5. Setup SSH key for rsync
+      - name: Setup SSH Key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -t ed25519 -p ${{ secrets.SSH_PORT }} ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
+
+      # 6. Deploy built files to server using rsync
+      - name: Copy Next.js Build to Server
+        run: |
+          rsync -az --delete \
+            -e "ssh -p ${{ secrets.SSH_PORT }} -i ~/.ssh/id_ed25519" \
+            .next/ public/ package.json package-lock.json node_modules next.config.mjs ecosystem.config.js scripts/ \
+            ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }}:/var/www/mscinemas
+        env:
+          SSH_KEY: ${{ secrets.SSH_KEY }}
+
+      # 7. Run server-side commands (optional)
+      - name: Run Server Commands
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          script: |
+            cd /var/www/mscinemas
+            # Example: restart your Next.js app with pm2
+            pm2 restart nextjs || pm2 start npm --name "nextjs" -- start

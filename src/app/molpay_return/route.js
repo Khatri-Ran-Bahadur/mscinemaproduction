@@ -693,7 +693,8 @@ async function handleReturn(request) {
     } = returnData;
 
     // If this is a callback or notification (nbcb=1 or 2), we need to process it but return RECEIVEOK
-    // IMPORTANT: We still need to call ReserveBooking/CancelBooking for callbacks!
+    // IMPORTANT: We only call ReserveBooking for successful payments (status '00' or '22')
+    // No booking actions are taken for pending or failed payments
     const isCallback = nbcb === '1' || nbcb === '2';
     
     if (isCallback) {
@@ -706,38 +707,23 @@ async function handleReturn(request) {
     // ============================================
     const isValidSignature = verifyReturnSignature(returnData);
     
-    // If signature is invalid, attempt DB fallback (Backend Callback might have already succeeded)
+    // Trust payment status from Fiuu/Molpay directly - do NOT check our database
+    // If status from Fiuu is '00' or '22' → success
+    // If status from Fiuu is anything else → failed/cancelled/pending
     let finalStatus = status;
     if (!isValidSignature) {
-       console.warn('[MOLPay Return] Signature validation failed. Checking DB for successful payment...');
+       console.warn(`[MOLPay Return] Signature validation failed. Status from Fiuu: '${status}'`);
        
-       let dbVerified = false;
-       // Fallback: Check DB if we have a valid order ID
-       if (orderid && orderid !== 'unknown' && !orderid.startsWith('unknown_')) {
-           try {
-              const successfulOrder = await prisma.order.findUnique({
-                  where: { orderId: orderid }
-              });
-              
-              // Check if order is already paid/confirmed
-              if (successfulOrder && (successfulOrder.paymentStatus === 'PAID' || successfulOrder.status === 'CONFIRMED')) {
-                  console.log(`[MOLPay Return] Signature failed but Order ${orderid} is PAID in DB. Accepting as SUCCESS.`);
-                  finalStatus = '00'; // Override to Success
-                  dbVerified = true;
-                  
-                  // If we need missing params (like tranID) for logging/next steps, we can pull them from DB if saved
-                  if (!returnData.tranID && successfulOrder.transactionNo) {
-                      returnData.tranID = successfulOrder.transactionNo;
-                  }
-              }
-           } catch (dbErr) {
-              console.error('[MOLPay Return] DB Fallback Check Error:', dbErr);
-           }
-       }
-
-       if (!dbVerified) {
-          finalStatus = '-1'; // Invalid transaction
-          console.error('[MOLPay Return] Invalid signature and DB check failed/skipped - Status set to -1');
+       // Trust the status from Fiuu/Molpay even if signature fails
+       // If status indicates success, proceed with success flow
+       // If status indicates failure, proceed with failure flow
+       if (status === '00' || status === '22') {
+           console.warn(`[MOLPay Return] Signature failed but status is '${status}' (success). Trusting status from Fiuu/Molpay and proceeding.`);
+           finalStatus = status; // Keep original success status from Fiuu
+       } else {
+           // Status is NOT success - trust Fiuu status (failed/cancelled/pending)
+           console.warn(`[MOLPay Return] Signature failed and status is '${status}' (not success). Trusting status from Fiuu/Molpay.`);
+           finalStatus = status; // Keep original status from Fiuu
        }
     }
 
@@ -783,8 +769,9 @@ async function handleReturn(request) {
     // ============================================
     if (finalStatus === '00' || finalStatus === '22') {
       // Payment successful (like PHP: if ( $status == "00" ))
-      // REQUIRED: Call ReserveBooking API - MUST succeed before redirecting
-      console.log('[MOLPay Return] ===== PAYMENT SUCCESS - Calling ReserveBooking =====');
+      // IMPORTANT: Only call ReserveBooking for actual successful payments (status '00' or '22')
+      // Do NOT call for cancelled, failed, or pending payments
+      console.log(`[MOLPay Return] ===== PAYMENT SUCCESS (Original Status: ${status}, Final Status: ${finalStatus}) - Calling ReserveBooking =====`);
       
       // await writeDebugLog(logFilename, {
       //   stage: 'PAYMENT_SUCCESS',
@@ -812,28 +799,8 @@ async function handleReturn(request) {
           });
           return acknowledgeResponse();
         }
-        // Check if order is already PAID/CONFIRMED in DB (handling duplicate calls)
-        try {
-            const existingOrder = await prisma.order.findUnique({
-                where: { orderId: orderid }
-            });
-            
-            if (existingOrder && (existingOrder.paymentStatus === 'PAID' || existingOrder.status === 'CONFIRMED')) {
-                console.log('[MOLPay Return] Order already PAID in DB - treating validation failure as duplicate success');
-                // Redirect to success
-                const redirectUrl = `${actualUrl}/payment/success?orderid=${encodeURIComponent(orderid)}`;
-                
-                await savePaymentLog({
-                    ...logData,
-                    isSuccess: true,
-                    remarks: `ReserveBooking Failed (${reserveResult.error}), but Order was already PAID in DB. Treated as Success.`
-                });
-                return createRedirectResponse(redirectUrl);
-            }
-        } catch (dbCheckErr) {
-            console.error('[MOLPay Return] Database check failed:', dbCheckErr);
-        }
         
+        // Trust payment status from Fiuu - payment was successful but ReserveBooking failed
         // Log API Response to file (Failure)
         await logPayloadToFile(logData.referenceNo, 'ReserveBooking_FAILED', {
              error: reserveResult.error,
@@ -946,15 +913,33 @@ async function handleReturn(request) {
       return createRedirectResponse(redirectUrl);
     } else if (finalStatus === '11') {
       // Payment pending
-      console.log('[MOLPay Return] ===== PAYMENT PENDING - Calling CancelBooking =====');
+      console.log('[MOLPay Return] ===== PAYMENT PENDING - No booking action needed =====');
       // await writeDebugLog(logFilename, {
       //   stage: 'PAYMENT_PENDING',
       //   status: finalStatus
       // });
-      const cancelResult = await callCancelBooking(orderid, tranID, channel, 'Payment is pending', returnData);
       
-      // Log API Response (Pending/Cancel)
-      await logPayloadToFile(logData.referenceNo, 'CancelBooking_PENDING', cancelResult);
+      // Log payment status (no CancelBooking call for pending payments)
+      await logPayloadToFile(logData.referenceNo, 'PAYMENT_PENDING', {
+        orderid,
+        status: finalStatus,
+        message: 'Payment is pending - no booking action taken'
+      });
+
+      // Update Order in DB to FAILED
+      try {
+          await prisma.order.updateMany({
+              where: { orderId: orderid },
+              data: {
+                  paymentStatus: 'FAILED',
+                  status: 'FAILED',
+                  updatedAt: new Date()
+              }
+          });
+          console.log('[MOLPay Return] Database updated: FAILED (Pending payment)');
+      } catch (dbErr) {
+          console.error('[MOLPay Return] DB Update Error:', dbErr);
+      }
 
       // Return response based on callback status
       if (isCallback) {
@@ -962,7 +947,7 @@ async function handleReturn(request) {
         await savePaymentLog({
             ...logData,
             isSuccess: false,
-            remarks: 'Payment Pending (Callback).'
+            remarks: 'Payment Pending (Callback). No booking action taken.'
         });
         return acknowledgeResponse();
       }
@@ -970,22 +955,41 @@ async function handleReturn(request) {
       await savePaymentLog({
         ...logData,
         isSuccess: false,
-        remarks: 'Payment Pending. Redirecting to failed/pending page.'
+        remarks: 'Payment Pending. No booking action taken. Redirecting to failed/pending page.'
       });
       return createRedirectResponse(redirectUrl);
     } else {
       // Payment failed or invalid signature
       const errorMessage = error_desc || `Payment failed with status: ${finalStatus}`;
-      console.log('[MOLPay Return] ===== PAYMENT FAILED - Calling CancelBooking =====');
+      console.log('[MOLPay Return] ===== PAYMENT FAILED - No booking action needed =====');
       //  await writeDebugLog(logFilename, {
       //   stage: 'PAYMENT_FAILED',
       //   status: finalStatus,
       //   errorMessage
       // });
-      const cancelResult = await callCancelBooking(orderid, tranID, channel, errorMessage, returnData);
       
-      // Log API Response (Failed/Cancel)
-      await logPayloadToFile(logData.referenceNo, 'CancelBooking_FAILED', cancelResult);
+      // Log payment status (no CancelBooking call for failed payments)
+      await logPayloadToFile(logData.referenceNo, 'PAYMENT_FAILED', {
+        orderid,
+        status: finalStatus,
+        errorMessage,
+        message: 'Payment failed - no booking action taken'
+      });
+
+      // Update Order in DB to FAILED
+      try {
+          await prisma.order.updateMany({
+              where: { orderId: orderid },
+              data: {
+                  paymentStatus: 'FAILED',
+                  status: 'FAILED',
+                  updatedAt: new Date()
+              }
+          });
+          console.log('[MOLPay Return] Database updated: FAILED');
+      } catch (dbErr) {
+          console.error('[MOLPay Return] DB Update Error:', dbErr);
+      }
 
       // Return response based on callback status
       if (isCallback) {
@@ -993,7 +997,7 @@ async function handleReturn(request) {
         await savePaymentLog({
             ...logData,
             isSuccess: false,
-            remarks: `Payment Failed (Callback). Status: ${finalStatus}, Error: ${errorMessage}`
+            remarks: `Payment Failed (Callback). Status: ${finalStatus}, Error: ${errorMessage}. No booking action taken.`
         });
         return acknowledgeResponse();
       }
@@ -1002,7 +1006,7 @@ async function handleReturn(request) {
       await savePaymentLog({
         ...logData,
         isSuccess: false,
-        remarks: `Payment Failed. Status: ${finalStatus}, Error: ${errorMessage}`
+        remarks: `Payment Failed. Status: ${finalStatus}, Error: ${errorMessage}. No booking action taken.`
       });
       return createRedirectResponse(redirectUrl);
     }

@@ -18,12 +18,6 @@ echo -e "${GREEN}=========================================${NC}"
 echo -e "${GREEN}MSCinemas Deployment Script${NC}"
 echo -e "${GREEN}=========================================${NC}"
 echo ""
-echo -e "${RED}⚠️  WARNING: Running this script on the server uses 100% CPU!${NC}"
-echo -e "${YELLOW}>> We have set up GitHub Actions to build automatically.${NC}"
-echo -e "${YELLOW}>> Just git push your changes instead of running this script.${NC}"
-echo -e "${YELLOW}>> If you MUST run this, expect downtime during build.${NC}"
-echo ""
-sleep 3
 
 # Navigate to app directory
 cd $APP_DIR
@@ -48,19 +42,6 @@ npm run build
 
 if [ $? -eq 0 ]; then
     echo -e "${GREEN}✓ Build completed successfully${NC}"
-    
-    # Prepare Standalone Build
-    echo -e "${YELLOW}[3.5/5] Preparing Standalone Build artifacts...${NC}"
-    # Ensure destination directories exist
-    mkdir -p .next/standalone/.next/static
-    mkdir -p .next/standalone/public
-    
-    # Copy static assets
-    echo "Copying static files..."
-    cp -r .next/static/* .next/standalone/.next/static/
-    cp -r public/* .next/standalone/public/
-    
-    echo -e "${GREEN}✓ Standalone build prepared${NC}"
 else
     echo -e "${RED}✗ Build failed. Please check the errors above.${NC}"
     exit 1

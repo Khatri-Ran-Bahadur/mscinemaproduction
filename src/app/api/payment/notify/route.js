@@ -18,53 +18,14 @@ const RMS_CONFIG = {
 };
 
 /**
- * Call ReserveBooking API
- * Note: In server-to-server notification, we don't have access to localStorage
- * We need to extract booking info from orderid or use a database/cache
- * For now, we'll try to extract reference number from orderid format
+ * NOTE: This notify route does NOT call ReserveBooking or CancelBooking APIs
+ * Those booking operations are handled exclusively by the molpay_return route
+ * This route only:
+ * - Verifies payment signature
+ * - Updates order status in database
+ * - Sends confirmation emails
+ * - Returns RECEIVEOK to acknowledge receipt
  */
-async function callReserveBooking(orderid, tranID, channel, amount, currency) {
-  try {
-    // Extract booking info from orderid
-    // OrderID format: MS{timestamp}{random} or may contain reference number
-    // We need to get booking data - this should ideally be stored in a database
-    // For now, we'll log and skip if we can't extract the info
-    
-    // TODO: Implement proper booking data storage/retrieval
-    // Options:
-    // 1. Store booking data in database with orderid as key
-    // 2. Encode reference number in orderid format
-    // 3. Use Redis/cache to store orderid -> booking data mapping
-    
-    console.log('[Payment Notify] ReserveBooking - Order:', orderid, 'Transaction:', tranID);
-    console.warn('[Payment Notify] ReserveBooking requires booking data - implement storage/retrieval');
-    
-    // For now, we'll skip the API call if we can't get booking data
-    // The return URL handler will handle the ReserveBooking call
-    return { success: false, message: 'Booking data not available in server context' };
-  } catch (error) {
-    console.error('[Payment Notify] ReserveBooking error:', error);
-    throw error;
-  }
-}
-
-/**
- * Call CancelBooking API
- */
-async function callCancelBooking(orderid, tranID, channel, errorDesc) {
-  try {
-    // Similar to ReserveBooking, we need booking data
-    // For now, we'll log and skip
-    console.log('[Payment Notify] CancelBooking - Order:', orderid, 'Transaction:', tranID);
-    console.warn('[Payment Notify] CancelBooking requires booking data - implement storage/retrieval');
-    
-    // The return URL handler will handle the CancelBooking call
-    return { success: false, message: 'Booking data not available in server context' };
-  } catch (error) {
-    console.error('[Payment Notify] CancelBooking error:', error);
-    throw error;
-  }
-}
 
 /**
  * Verify payment notification signature (skey)
@@ -183,11 +144,8 @@ export async function POST(request) {
         });
 
         if (order) {
-            // 2. Call ReserveBooking API (Confirm with Cinema System)
-            // Ideally callReserveBooking should use order data - kept existing logic placeholder if needed
-            // const reserveRes = await callReserveBooking(...) 
-            
-            // 3. Update Local Order Status
+            // 2. Update Local Order Status
+            // NOTE: ReserveBooking is NOT called here - it's handled by molpay_return route
             await prisma.order.update({
                 where: { id: order.id },
                 data: {
@@ -290,14 +248,9 @@ export async function POST(request) {
             console.log(`[Payment Notify] Order updated. Email sent: ${emailSent}`);
 
         } else {
-             // Fallback if order not found in DB
+             // Order not found in DB
              console.warn(`[Payment Notify] Order not found for ID: ${orderid}`);
-             // Call ReserveBooking API fallback
-             try {
-                await callReserveBooking(orderid, tranID, channel, amount, currency);
-             } catch (err) {
-                console.error('[Payment Notify] Error calling ReserveBooking:', err);
-             }
+             // NOTE: ReserveBooking is NOT called here - it's handled by molpay_return route
         }
       } catch (err) {
         console.error('[Payment Notify] Error updating order/sending email:', err);
@@ -314,13 +267,8 @@ export async function POST(request) {
       // Payment failed or pending
       console.log(`[Payment Notify] Payment failed - Order: ${orderid}, Status: ${status}, Error: ${error_desc || 'Unknown'}`);
       
-      // Call CancelBooking API
-      try {
-        await callCancelBooking(orderid, tranID, channel, error_desc || 'Payment failed');
-      } catch (err) {
-        console.error('[Payment Notify] Error calling CancelBooking:', err);
-        // Continue to return success to RazerMS even if CancelBooking fails
-      }
+      // NOTE: CancelBooking is NOT called here - it's handled by molpay_return route
+      // This route only acknowledges receipt of the notification
       
       return NextResponse.json({
         status: 'RECEIVEOK',
