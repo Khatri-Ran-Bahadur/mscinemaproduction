@@ -51,6 +51,24 @@ export default function MovieStreamingSite() {
   }, [heroMovies.length, currentSlide]);
 
   useEffect(() => {
+    // Clear any stale booking data when landing on home page
+    const keysToClear = [
+        'showId', 
+        'selectedTickets', 
+        'ticketData', 
+        'bookingData', 
+        'timerStartTime',
+        'lockReferenceNo',
+        'confirmedReferenceNo',
+        'seatSelectionPageTimerStartTime',
+        'seatSelectionTimerMovieId',
+        'seatSelectionTimerShowId',
+        'lockTime', 
+        'timerDuration'
+    ];
+    
+    keysToClear.forEach(key => localStorage.removeItem(key));
+    
     loadMovies();
   }, []);
 
