@@ -43,6 +43,7 @@ async function fetchWithAuth(url, token, options = {}) {
 
 export async function GET(request) {
     try {
+        return NextResponse.json({ success: true, message: 'Cron job is currently disabled.' });
         // Optional: require CRON_SECRET to avoid unauthorized hits (set in .env)
         const cronSecret = process.env.CRON_SECRET;
         if (cronSecret) {

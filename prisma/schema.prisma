@@ -177,3 +177,37 @@ model Setting {
   
   @@map("settings")
 }
+
+// Payment Transaction Logs
+model PaymentLog {
+  id            Int      @id @default(autoincrement())
+  orderId       String?  // Payment Gateway Order ID
+  referenceNo   String?  // Internal Booking Reference
+  transactionNo String?  // Payment Gateway Transaction ID
+  
+  // Payment Details
+  status        String?  // Return status code (e.g., 00, 11, -1)
+  amount        Decimal? @db.Decimal(10, 2)
+  currency      String?
+  channel       String?  // Payment channel (credit, fpx, etc.)
+  
+  // Request context
+  method        String?  // GET or POST
+  ipAddress     String?
+  userAgent     String?
+  
+  // Detailed Data
+  returnData    Json?    // Full return data from MolPay
+  
+  // Outcome Analysis
+  isSuccess     Boolean  @default(false) // Did our system consider it a success?
+  remarks       String?  @db.Text        // Explanation (why success/fail)
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([orderId])
+  @@index([referenceNo])
+  @@index([transactionNo])
+  @@map("payment_logs")
+}

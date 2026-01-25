@@ -11,6 +11,40 @@ import crypto from 'crypto';
 import { PaymentLogger } from '@/utils/logger';
 import { getBookingDetails, deleteBookingDetails } from '@/utils/booking-storage';
 import prisma from '@/lib/prisma';
+import fs from 'fs';
+import path from 'path';
+
+/**
+ * Log payload to file (Persistent logs in public/payment-api-logs)
+ */
+async function logPayloadToFile(referenceNo, type, payload) {
+    if (!referenceNo) return;
+    try {
+        const logsDir = path.join(process.cwd(), 'logs');
+        if (!fs.existsSync(logsDir)) {
+             fs.mkdirSync(logsDir, { recursive: true });
+        }
+        
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        // Sanitise reference no to be safe filename
+        const safeRef = referenceNo.replace(/[^a-zA-Z0-9_-]/g, '');
+        const filename = `payment_api_${safeRef}.log`;
+        const logPath = path.join(logsDir, filename);
+        
+        const logEntry = `
+========================================
+TIMESTAMP: ${new Date().toISOString()}
+TYPE: ${type}
+payload:
+${typeof payload === 'string' ? payload : JSON.stringify(payload, null, 2)}
+========================================
+`;
+        fs.appendFileSync(logPath, logEntry);
+        console.log(`[MOLPay API Log] Written to ${filename}`);
+    } catch(e) {
+        console.error('[MOLPay API Log] Failed to write log:', e);
+    }
+}
 
 
 // Razer Merchant Services Configuration
@@ -20,6 +54,62 @@ const RMS_CONFIG = {
   verifyKey: process.env.FIUU_VERIFY_KEY || '', // Used for vcode creation
   secretKey: process.env.FIUU_SECRET_KEY || '', // Used for skey verification (like WordPress)
 };
+
+/**
+ * Save payment log to Database
+ */
+async function savePaymentLog({
+  orderid,
+  referenceNo,
+  transactionNo,
+  status,
+  amount,
+  currency,
+  channel,
+  method,
+  returnData,
+  isSuccess,
+  remarks,
+  request
+}) {
+  try {
+    // Safety check for unknown orderid
+    if (!orderid || orderid === 'unknown' || orderid.startsWith('unknown_')) {
+        // We still try to log if we have some data
+        if (!returnData) return; 
+    }
+
+    const ipAddress = request.headers.get('x-forwarded-for') || 'unknown';
+    const userAgent = request.headers.get('user-agent') || 'unknown';
+    
+    // format amount
+    let amt = 0;
+    if (amount) {
+        amt = parseFloat(amount);
+    }
+    
+    await prisma.paymentLog.create({
+      data: {
+        orderId: orderid || 'unknown',
+        referenceNo: referenceNo || returnData?.referenceNo || '',
+        transactionNo: transactionNo || returnData?.tranID || '',
+        status: status || '',
+        amount: amt,
+        currency: currency || 'MYR',
+        channel: channel || 'unknown',
+        method: method || 'UNKNOWN',
+        ipAddress: ipAddress, // truncate if too long? Prisma handles string text
+        userAgent: userAgent,
+        returnData: returnData || {},
+        isSuccess: !!isSuccess,
+        remarks: remarks || '',
+      }
+    });
+    console.log(`[MOLPay Log] Saved DB Log for ${orderid}: ${remarks}`);
+  } catch (err) {
+    console.error('[MOLPay Log] Failed to save DB log:', err);
+  }
+}
 
 /**
  * Verify payment return signature (skey)
@@ -365,7 +455,6 @@ async function callReserveBooking(orderid, tranID, channel, appcode, returnData)
     const data = await response.json();
     
     // Clean up stored booking details after successful processing
-    deleteBookingDetails(orderid);
     
     return { success: true, data };
   } catch (error) {
@@ -472,7 +561,6 @@ async function callCancelBooking(orderid, tranID, channel, errorDesc, returnData
     const data = await response.json();
     
     // Clean up stored booking details after successful processing
-    deleteBookingDetails(orderid);
     
     return { success: true, data };
   } catch (error) {
@@ -653,6 +741,33 @@ async function handleReturn(request) {
        }
     }
 
+    // Prepare common log data
+    const logData = {
+        orderid,
+        referenceNo: returnData.referenceNo || returnData.refno || '',
+        transactionNo: tranID,
+        status: finalStatus,
+        amount,
+        currency,
+        channel,
+        method: request.method,
+        returnData,
+        request
+    };
+
+    if (finalStatus !== status) {
+        logData.remarks = `Signature mismatch (Status: ${status}), but DB check passed/failed. Final Status: ${finalStatus}`;
+    }
+
+    if (finalStatus === '-1') {
+         await savePaymentLog({
+            ...logData,
+            isSuccess: false,
+            remarks: 'Invalid Signature. Verification failed.'
+         });
+         return createRedirectResponse(`${actualUrl}/payment/failed?orderid=${orderid}&error=invalid_signature`);
+    }
+
     // LOG: Verification Result
     // await writeDebugLog(logFilename, {
     //     stage: 'SIGNATURE_VERIFICATION',
@@ -690,6 +805,11 @@ async function handleReturn(request) {
         if (isCallback) {
           // For callbacks, return RECEIVEOK even on failure
           console.log('[MOLPay Return] Callback - returning RECEIVEOK despite failure');
+          await savePaymentLog({
+            ...logData,
+            isSuccess: false,
+            remarks: `ReserveBooking API Failed (Callback). Error: ${reserveResult.error}`
+          });
           return acknowledgeResponse();
         }
         // Check if order is already PAID/CONFIRMED in DB (handling duplicate calls)
@@ -702,41 +822,127 @@ async function handleReturn(request) {
                 console.log('[MOLPay Return] Order already PAID in DB - treating validation failure as duplicate success');
                 // Redirect to success
                 const redirectUrl = `${actualUrl}/payment/success?orderid=${encodeURIComponent(orderid)}`;
+                
+                await savePaymentLog({
+                    ...logData,
+                    isSuccess: true,
+                    remarks: `ReserveBooking Failed (${reserveResult.error}), but Order was already PAID in DB. Treated as Success.`
+                });
                 return createRedirectResponse(redirectUrl);
             }
         } catch (dbCheckErr) {
             console.error('[MOLPay Return] Database check failed:', dbCheckErr);
         }
+        
+        // Log API Response to file (Failure)
+        await logPayloadToFile(logData.referenceNo, 'ReserveBooking_FAILED', {
+             error: reserveResult.error,
+             response: reserveResult.data || 'No Data',
+             orderId: orderid
+        });
 
         const redirectUrl = `${actualUrl}/payment/failed?orderid=${encodeURIComponent(orderid)}&error=reserve_booking_failed&error_desc=${encodeURIComponent(reserveResult.error || 'ReserveBooking failed')}`;
+        
+        await savePaymentLog({
+            ...logData,
+            isSuccess: false,
+            remarks: `ReserveBooking Failed. Error: ${reserveResult.error}`
+        });
         return createRedirectResponse(redirectUrl);
       }
       
       // ReserveBooking successful
       console.log('[MOLPay Return] ReserveBooking SUCCESS');
       
+      // Log API Response to file (Success)
+      await logPayloadToFile(logData.referenceNo, 'ReserveBooking_SUCCESS', reserveResult.data);
+      
       // Update Order in DB to PAID
+      // Use UPSERT to handle missing order case
       try {
-          await prisma.order.update({
+          const orderData = {
+              paymentStatus: 'PAID',
+              status: 'CONFIRMED',
+              transactionNo: tranID,
+              updatedAt: new Date()
+          };
+
+          // Try to extract extra details from ReserveBooking response if needed
+          /* 
+             Example Response data might contain: 
+             { TicketPrintInfo: { MovieName: "...", HallName: "...", SeatInfo: "..." } }
+          */
+          let movieTitle = '';
+          let cinemaName = '';
+          let hallName = '';
+          let seats = '';
+          
+          if (reserveResult.data && reserveResult.data.TicketPrintInfo) {
+               const info = reserveResult.data.TicketPrintInfo;
+               if (info.MovieName) movieTitle = info.MovieName;
+               if (info.CinemaName) cinemaName = info.CinemaName;
+               if (info.HallName) hallName = info.HallName;
+               if (info.SeatInfo) seats = info.SeatInfo;
+          }
+
+          // If upserting (creating new), we need mandatory fields
+          const createData = {
+               orderId: orderid || `MS${Date.now()}`,
+               referenceNo: returnData.referenceNo || returnData.refno || `REF_${Date.now()}`,
+               transactionNo: tranID || returnData.tranID,
+               totalAmount: amount ? parseFloat(amount) : 0,
+               customerName: returnData.bill_name || 'Guest',
+               customerEmail: returnData.bill_email || '',
+               customerPhone: returnData.bill_mobile || '',
+               paymentStatus: 'PAID',
+               status: 'CONFIRMED',
+               paymentMethod: channel || 'Fiuu/MolPay',
+               
+               // Use extracted or default values for movie details
+               movieTitle: movieTitle || 'Unknown Movie',
+               cinemaId: returnData.cinemaId || '',
+               showId: returnData.showId || '',
+               cinemaName: cinemaName || 'Unknown Cinema',
+               hallName: hallName || 'Standard Hall',
+               seats: seats || 'Unspecified',
+               // We don't have movieID, ticketType easily unless parsed.
+          };
+
+          // UPSERT: Update if exists, Create if missing
+          const updatedOrder = await prisma.order.upsert({
              where: { orderId: orderid },
-             data: { 
-                 paymentStatus: 'PAID',
-                 status: 'CONFIRMED',
-                 transactionNo: tranID
-             }
+             update: orderData,
+             create: createData
           });
-          console.log('[MOLPay Return] Database updated: PAID/CONFIRMED');
+          
+          console.log('[MOLPay Return] Database updated/created: PAID/CONFIRMED', updatedOrder.id);
       } catch (dbErr) {
           console.error('[MOLPay Return] DB Update Error:', dbErr);
           // Continue even if DB update fails
+          await savePaymentLog({
+            ...logData,
+            isSuccess: true, // Payment was success, DB fail
+            remarks: `Payment Success. DB Update Failed: ${dbErr.message}`
+          });
       }
 
       if (isCallback) {
         // For callbacks, return RECEIVEOK
         console.log('[MOLPay Return] Callback - returning RECEIVEOK');
+        await savePaymentLog({
+            ...logData,
+            isSuccess: true,
+            remarks: 'Payment Successful (Callback). Booking Reserved.'
+        });
         return acknowledgeResponse();
       }
       const redirectUrl = `${actualUrl}/payment/success?orderid=${encodeURIComponent(orderid)}`;
+      
+      await savePaymentLog({
+        ...logData,
+        isSuccess: true,
+        remarks: 'Payment Successful. Redirecting to success page.'
+      });
       return createRedirectResponse(redirectUrl);
     } else if (finalStatus === '11') {
       // Payment pending
@@ -747,12 +953,25 @@ async function handleReturn(request) {
       // });
       const cancelResult = await callCancelBooking(orderid, tranID, channel, 'Payment is pending', returnData);
       
+      // Log API Response (Pending/Cancel)
+      await logPayloadToFile(logData.referenceNo, 'CancelBooking_PENDING', cancelResult);
+
       // Return response based on callback status
       if (isCallback) {
         console.log('[MOLPay Return] Callback - returning RECEIVEOK for pending payment');
+        await savePaymentLog({
+            ...logData,
+            isSuccess: false,
+            remarks: 'Payment Pending (Callback).'
+        });
         return acknowledgeResponse();
       }
       const redirectUrl = `${actualUrl}/payment/failed?orderid=${encodeURIComponent(orderid)}&status=${finalStatus}`;
+      await savePaymentLog({
+        ...logData,
+        isSuccess: false,
+        remarks: 'Payment Pending. Redirecting to failed/pending page.'
+      });
       return createRedirectResponse(redirectUrl);
     } else {
       // Payment failed or invalid signature
@@ -765,12 +984,26 @@ async function handleReturn(request) {
       // });
       const cancelResult = await callCancelBooking(orderid, tranID, channel, errorMessage, returnData);
       
+      // Log API Response (Failed/Cancel)
+      await logPayloadToFile(logData.referenceNo, 'CancelBooking_FAILED', cancelResult);
+
       // Return response based on callback status
       if (isCallback) {
         console.log('[MOLPay Return] Callback - returning RECEIVEOK for failed payment');
+        await savePaymentLog({
+            ...logData,
+            isSuccess: false,
+            remarks: `Payment Failed (Callback). Status: ${finalStatus}, Error: ${errorMessage}`
+        });
         return acknowledgeResponse();
       }
       const redirectUrl = `${actualUrl}/payment/failed?orderid=${encodeURIComponent(orderid)}&status=${finalStatus}&error_desc=${encodeURIComponent(errorMessage)}`;
+      
+      await savePaymentLog({
+        ...logData,
+        isSuccess: false,
+        remarks: `Payment Failed. Status: ${finalStatus}, Error: ${errorMessage}`
+      });
       return createRedirectResponse(redirectUrl);
     }
   } catch (error) {
@@ -788,6 +1021,18 @@ async function handleReturn(request) {
       const baseUrl = `${protocol}://${host}`;
       errorRedirectUrl = `${baseUrl}/payment/failed?error=processing_error&error_desc=${encodeURIComponent(error.message || 'An error occurred processing your payment')}`;
     }
+    
+    // Attempt to log exception if possible
+    try {
+        await savePaymentLog({
+            orderid: orderid || 'unknown',
+            method: request.method,
+            isSuccess: false,
+            remarks: `Exception in handleReturn: ${error.message}`,
+            request
+        });
+    } catch(e) {}
+
     return createRedirectResponse(errorRedirectUrl.toString());
   }
 }

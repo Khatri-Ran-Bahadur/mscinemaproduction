@@ -24,6 +24,11 @@ export default function AdminSidebar() {
       href: '/admin/dashboard'
     },
     {
+      title: 'Payment Logs',
+      icon: <FileText className="w-5 h-5" />,
+      href: '/admin/payment-logs'
+    },
+    {
       title: 'Orders',
       icon: <CreditCard className="w-5 h-5" />, // Use a relevant icon
       href: '/admin/orders'

@@ -13,6 +13,52 @@ import { getBookingDetails, deleteBookingDetails } from '@/utils/booking-storage
 import fs from 'fs';
 import path from 'path';
 
+/**
+ * Save payment log to Database (Prisma)
+ */
+async function savePaymentLogDB({
+  orderid,
+  referenceNo,
+  transactionNo,
+  status,
+  amount,
+  currency,
+  channel,
+  method,
+  returnData,
+  isSuccess,
+  remarks,
+  request
+}) {
+  try {
+    if (!orderid) return;
+
+    const ipAddress = request.headers.get('x-forwarded-for') || 'unknown';
+    const userAgent = request.headers.get('user-agent') || 'unknown';
+    const amt = amount ? parseFloat(amount) : 0;
+    
+    await prisma.paymentLog.create({
+      data: {
+        orderId: orderid,
+        referenceNo: referenceNo || returnData?.referenceNo || '',
+        transactionNo: transactionNo || returnData?.tranID || '',
+        status: status || '',
+        amount: amt,
+        currency: currency || 'MYR',
+        channel: channel || 'unknown',
+        method: method || 'UNKNOWN',
+        ipAddress,
+        userAgent,
+        returnData: returnData || {},
+        isSuccess: !!isSuccess,
+        remarks: remarks || '',
+      }
+    });
+  } catch (err) {
+    console.error('[Payment DB Log] Failed:', err);
+  }
+}
+
 // Razer Merchant Services Configuration
 const RMS_CONFIG = {
   merchantId: process.env.FIUU_MERCHANT_ID || '',
@@ -470,6 +516,19 @@ async function handleReturn(request) {
       console.error('[Payment Return] Invalid signature - setting status to -1');
       if (orderid) {
         logPayment(orderid, 'ERROR', 'Invalid signature verification');
+        
+        await savePaymentLogDB({
+            orderid,
+            status: status || '',
+            amount,
+            currency,
+            channel,
+            method: request.method,
+            returnData,
+            isSuccess: false,
+            remarks: 'Invalid Signature',
+            request
+        });
       }
       // Invalid transaction - set status to -1 as per documentation
       return NextResponse.redirect(
@@ -531,6 +590,22 @@ async function handleReturn(request) {
       
       // Redirect to success page with all payment details
       logPayment(orderid, 'INFO', 'Redirecting to success page');
+      
+      await savePaymentLogDB({
+            orderid,
+            referenceNo: reserveResult.data?.referenceNo || returnData.referenceNo,
+            transactionNo: tranID,
+            status,
+            amount,
+            currency,
+            channel,
+            method: request.method,
+            returnData,
+            isSuccess: true,
+            remarks: reserveResult.success ? 'Payment Success. Booking Reserved.' : `Payment Success but ReserveBooking Failed: ${reserveResult.error}`,
+            request
+      });
+      
       return NextResponse.redirect(
         new URL(`/payment/success?orderid=${orderid}&tranID=${tranID}&status=${status}&amount=${amount}&currency=${currency}&channel=${channel || ''}&cardType=${cardType}`, request.url)
       );
@@ -573,6 +648,21 @@ async function handleReturn(request) {
       
       // Redirect to failure page
       logPayment(orderid, 'INFO', 'Redirecting to failed page');
+      
+      await savePaymentLogDB({
+            orderid,
+            transactionNo: tranID,
+            status,
+            amount,
+            currency,
+            channel,
+            method: request.method,
+            returnData,
+            isSuccess: false,
+            remarks: `Payment Failed. Status: ${status}. Error: ${error_desc || 'Unknown'}. CancelResult: ${cancelResult.success ? 'OK' : cancelResult.error}`,
+            request
+      });
+      
       return NextResponse.redirect(
         new URL(`/payment/failed?orderid=${orderid}&status=${status}&error_code=${error_code || ''}&error_desc=${encodeURIComponent(error_desc || 'Payment failed')}&tranID=${tranID || ''}&cardType=${cardType}`, request.url)
       );
