@@ -21,19 +21,28 @@ export async function POST(request) {
     }
 
     // Verify Recaptcha
-    if (body.recaptchaToken && process.env.RECAPTCHA_SECRET_KEY) {
-      const verifyRes = await fetch('https://www.google.com/recaptcha/api/siteverify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: `secret=${process.env.RECAPTCHA_SECRET_KEY}&response=${body.recaptchaToken}`,
-      });
-      const verifyData = await verifyRes.json();
-      
-      if (!verifyData.success || verifyData.score < 0.5) {
+    if (process.env.NEXT_PUBLIC_ADMIN_LOGIN_CAPTCHA === 'true') {
+      if (!body.recaptchaToken) {
         return NextResponse.json(
-          { error: 'Recaptcha verification failed. Please try again.' },
-          { status: 400 }
+             { error: 'Recaptcha verification is required.' },
+             { status: 400 }
         );
+      }
+      
+      if (process.env.RECAPTCHA_SECRET_KEY) {
+        const verifyRes = await fetch('https://www.google.com/recaptcha/api/siteverify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: `secret=${process.env.RECAPTCHA_SECRET_KEY}&response=${body.recaptchaToken}`,
+        });
+        const verifyData = await verifyRes.json();
+        
+        if (!verifyData.success || verifyData.score < 0.5) {
+          return NextResponse.json(
+            { error: 'Recaptcha verification failed. Please try again.' },
+            { status: 400 }
+          );
+        }
       }
     }
 

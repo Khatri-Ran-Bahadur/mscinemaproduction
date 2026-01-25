@@ -37,7 +37,7 @@ export default function AdminLoginPage() {
       return;
     }
 
-    if (!recaptchaToken) {
+    if (process.env.NEXT_PUBLIC_ADMIN_LOGIN_CAPTCHA === 'true' && !recaptchaToken) {
       setError('Please verify you are not a robot');
       return;
     }
@@ -146,6 +146,7 @@ export default function AdminLoginPage() {
             </div>
             
             {/* ReCAPTCHA */}
+            {process.env.NEXT_PUBLIC_ADMIN_LOGIN_CAPTCHA === 'true' && (
             <div className="flex justify-center">
                 <ReCAPTCHA
                     sitekey={process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY}
@@ -153,7 +154,7 @@ export default function AdminLoginPage() {
                     theme="dark"
                 />
             </div>
-
+            )}
             {/* Error Message */}
             {error && (
               <div className="p-3 bg-red-500/10 border border-red-500/50 rounded text-sm text-red-400">

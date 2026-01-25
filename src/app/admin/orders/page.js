@@ -447,9 +447,11 @@ export default function AdminOrdersPage() {
                                     <th className="px-3 py-3 text-[#888] font-medium text-xs hidden lg:table-cell">Details</th>
                                     <th className="px-3 py-3 text-[#888] font-medium text-xs hidden sm:table-cell">Amount</th>
                                     <th className="px-3 py-3 text-[#888] font-medium text-xs hidden md:table-cell">Payment</th>
+                                   
                                     <th className="px-3 py-3 text-[#888] font-medium text-xs">Status</th>
                                     <th className="px-3 py-3 text-[#888] font-medium text-xs hidden xl:table-cell">Date</th>
-                                    <th className="px-3 py-3 text-[#888] font-medium text-xs hidden lg:table-cell">Time Ago</th>
+                                        <th className="px-3 py-3 text-[#888] font-medium text-xs hidden lg:table-cell">Time Ago</th>
+                                         <th className="px-3 py-3 text-[#888] font-medium text-xs">Email</th>
                                     <th className="px-3 py-3 text-[#888] font-medium text-xs text-right">Action</th>
                                 </tr>
                             </thead>
@@ -517,6 +519,7 @@ export default function AdminOrdersPage() {
                                                     <span className="text-[#666] text-[10px] font-normal">{order.paymentMethod}</span>
                                                 </div>
                                             </td>
+                                           
                                             <td className="px-3 py-2">
                                                 <span className={`px-1.5 py-0.5 rounded text-[10px] border ${getStatusColor(order.status)}`}>
                                                     {order.status}
@@ -529,6 +532,19 @@ export default function AdminOrdersPage() {
                                                 <span className="text-[10px] font-mono text-gray-400 bg-[#333] px-1.5 py-0.5 rounded whitespace-nowrap">
                                                     {timeAgo(order.createdAt)}
                                                 </span>
+                                            </td>
+                                             <td className="px-3 py-2">
+                                                <div className="flex items-center justify-between gap-2">
+                                                    {order.isSendMail ? (
+                                                        <div className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-green-500/10 text-green-500 shrink-0" title="Email Sent">
+                                                            <CheckCircle className="w-3 h-3" />
+                                                        </div>
+                                                    ) : (
+                                                        <div className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-red-500/10 text-red-500 shrink-0" title="Not Sent">
+                                                            <XCircle className="w-3 h-3" />
+                                                        </div>
+                                                    )}
+                                                </div>
                                             </td>
                                             <td className="px-3 py-2 text-right">
                                                 <div className="flex items-center justify-end gap-2 relative">
