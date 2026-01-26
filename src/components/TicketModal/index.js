@@ -144,7 +144,7 @@ export default function TicketModal({ ticketData, isOpen, onClose }) {
                   </div>
                   <div className="text-center">
                     <p className="text-xs text-gray-500 uppercase tracking-widest mb-1">Time</p>
-                    <p className="text-white font-bold text-lg">{formatTime(bookingDetails.showTime || bookingDetails.time)}</p>
+                    <p className="text-white font-bold text-lg">{bookingDetails.showTime}</p>
                   </div>
                   
                   {/* Reference & Booking ID */}

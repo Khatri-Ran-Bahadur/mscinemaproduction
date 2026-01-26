@@ -463,7 +463,7 @@ export default function MyTicketsPage() {
                                         <div>
                                             <span className="text-[#FAFAFA]">Showtime: </span>
                                             <span>
-                                                {formatDate(selectedTicket.showDate || selectedTicket.date)}, {selectedTicket.showTime || selectedTicket.time}
+                                                 {selectedTicket.showTime}
                                             </span>
                                         </div>
                                     </div>

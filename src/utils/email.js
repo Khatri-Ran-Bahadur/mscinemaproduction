@@ -599,8 +599,8 @@ Malaysia
                   </thead>
                   <tbody>
                     <tr style="background-color: ${colors.tableRow};">
-                      <td style="border-bottom: 1px solid ${colors.border}; color: ${colors.light}; font-weight: bold;">${formatDate(showDate)}</td>
-                      <td style="border-bottom: 1px solid ${colors.border}; color: ${colors.light}; font-weight: bold;">${formatTime(showTime)}</td>
+                      <td style="border-bottom: 1px solid ${colors.border}; color: ${colors.light}; font-weight: bold;">${showDate}</td>
+                      <td style="border-bottom: 1px solid ${colors.border}; color: ${colors.light}; font-weight: bold;">${showTime}</td>
                       <td style="border-bottom: 1px solid ${colors.border}; color: ${colors.gold}; font-weight: bold;">${movieName.toUpperCase()}</td>
                     </tr>
                   </tbody>
