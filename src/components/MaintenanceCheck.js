@@ -19,29 +19,27 @@ export default function MaintenanceCheck({ children }) {
     setIsChecking(true);
     
     try {
-      // TESTING MODE: Set to true to hardcode maintenance mode for testing
-      // Set to false to use actual API response
-      const TESTING_MODE = false; // Change to false to use real API
-      const TESTING_MAINTENANCE_ACTIVE = false; // Set to true/false for testing
-      
-      let maintenanceActive;
-      
-      if (TESTING_MODE) {
-        // Use hardcoded value for testing
-        maintenanceActive = TESTING_MAINTENANCE_ACTIVE;
+      // First: allow overriding maintenance mode via env var (NEXT_PUBLIC_MAINTENANCE)
+      // This avoids waiting on the API when you want to enable maintenance immediately.
+      const MAINTENANCE_ENV =false;
+
+      let maintenanceActive = false;
+
+      if (MAINTENANCE_ENV) {
+        maintenanceActive = true;
       } else {
         // Use actual API response
         const response = await auth.getMaintenanceModeAndAppVersionById(1);
         
         // Check if maintenance mode is active
-        // API returns maintenanceMode as string "True" or "False"
+        // API may return maintenanceMode in multiple shapes/keys
         const maintenanceModeValue = 
           response?.maintenanceMode || 
           response?.MaintenanceMode || 
           response?.isMaintenanceMode || 
           response?.IsMaintenanceMode;
         
-        // Check if maintenance mode is "True" (string comparison)
+        // Check if maintenance mode is "True" (string comparison) or boolean/number
         maintenanceActive = 
           maintenanceModeValue === "True" || 
           maintenanceModeValue === "true" || 

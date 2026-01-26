@@ -48,6 +48,8 @@ export default function SeatSelection() {
   const [isLocking, setIsLocking] = useState(false);
   const [isReleasing, setIsReleasing] = useState(false);
   const [showBookingSummary, setShowBookingSummary] = useState(false);
+  const [showMaintenanceModal, setShowMaintenanceModal] = useState(false);
+  const MAINTENANCE_ENV = process.env.NEXT_PUBLIC_MAINTENANCE === 'true';
   const [isConfirming, setIsConfirming] = useState(false);
   const [confirmedReferenceNo, setConfirmedReferenceNo] = useState(null); // Store confirmed reference number
   const [lockReferenceNo, setLockReferenceNo] = useState(null); // Store referenceNo from lockSeat API
@@ -1312,6 +1314,10 @@ export default function SeatSelection() {
   };
 
   const handleBookSeat = async () => {
+    // If maintenance mode is enabled via env, block booking and show modal
+    // if (MAINTENANCE_ENV) {
+    //   // return;
+    // }
     // Check if seats are selected
     if (selectedSeats.length === 0) {
       setError('Please select at least one seat.');
@@ -2222,6 +2228,23 @@ export default function SeatSelection() {
       </div>
 
       {/* Booking Summary Modal */}
+      {/* Maintenance Modal */}
+      {showMaintenanceModal && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-60 p-4">
+          <div className="bg-[#1a1a1a] rounded-lg w-full max-w-md p-6 text-center">
+            <h2 className="text-2xl font-bold text-white mb-4">Maintenance</h2>
+            <p className="text-white/80 mb-6">We are unable to process online booking now. Thank you for your patience.</p>
+            <div className="flex justify-center">
+              <button
+                onClick={() => setShowMaintenanceModal(false)}
+                className="px-6 py-2 rounded bg-[#FFCA20] text-black font-medium"
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {showBookingSummary && (() => {
         const priceInfo = calculateDetailedPrice();
         const seatsByType = getSeatsByTicketType();

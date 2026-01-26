@@ -6,7 +6,7 @@ export default function MaintenancePage() {
   const router = useRouter();
   
   // Static maintenance message
-  const maintenanceMessage = 'Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry';
+  const maintenanceMessage = "";
 
   return (
     <div className="min-h-screen bg-[#1a1a1a] flex flex-col items-center justify-center p-6">

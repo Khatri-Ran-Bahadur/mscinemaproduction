@@ -121,7 +121,6 @@ export async function POST(request) {
           token // Store the token
         };
         
-        console.log('[Payment Create] Storing booking details for orderid:', orderId, { ...bookingDetails, token: token ? '***' : 'null' });
         const stored = storeBookingDetails(orderId, bookingDetails);
         
         if (stored) {
