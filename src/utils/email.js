@@ -277,12 +277,17 @@ export const sendTicketEmail = async (to, ticketData, corporateInfoPassed = null
     grandTotal = 0,
   } = ticketData;
 
-  // Format date and time
+  // Format date and time (Malaysian locale)
   const formatDate = (dateStr) => {
     if (!dateStr) return '';
     try {
       const date = new Date(dateStr);
-      return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+      return date.toLocaleDateString('en-MY', { 
+        day: 'numeric', 
+        month: 'short', 
+        year: 'numeric',
+        timeZone: 'Asia/Kuala_Lumpur'
+      });
     } catch {
       return dateStr;
     }
@@ -291,6 +296,17 @@ export const sendTicketEmail = async (to, ticketData, corporateInfoPassed = null
   const formatTime = (timeStr) => {
     if (!timeStr) return '';
     try {
+      // If timeStr is a full date-time string, extract time part
+      if (timeStr.includes('T') || timeStr.includes(' ')) {
+        const date = new Date(timeStr);
+        return date.toLocaleTimeString('en-MY', {
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true,
+          timeZone: 'Asia/Kuala_Lumpur'
+        });
+      }
+      // If it's just time string (HH:MM or HH:MM:SS)
       const [hours, minutes] = timeStr.split(':');
       const hour = parseInt(hours);
       const ampm = hour >= 12 ? 'PM' : 'AM';
@@ -468,7 +484,14 @@ export const sendTicketEmail = async (to, ticketData, corporateInfoPassed = null
   const fullAddressHtml = formatAddressHtml(corporateInfo);
   const fullAddressText = formatAddressText(corporateInfo);
 
-  const printedDate = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  const printedDate = new Date().toLocaleString('en-MY', { 
+    day: '2-digit', 
+    month: 'short', 
+    year: 'numeric', 
+    hour: '2-digit', 
+    minute: '2-digit',
+    timeZone: 'Asia/Kuala_Lumpur'
+  });
 
   // Seats string
   const seatsString = seatDisplay.map(g => `${g.type}: ${g.seats.join(', ')}`).join(' | ');

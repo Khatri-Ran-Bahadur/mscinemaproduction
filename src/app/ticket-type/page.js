@@ -321,13 +321,14 @@ export default function TicketSelection() {
     if (showTimeDetails?.showTime) {
       try {
         const date = new Date(showTimeDetails.showTime);
-        const dateStr = date.toLocaleDateString('en-GB', { 
+        const dateStr = date.toLocaleDateString('en-MY', { 
+          timeZone: 'Asia/Kuala_Lumpur',
           weekday: 'short',
           day: 'numeric', 
           month: 'short', 
           year: 'numeric' 
         });
-        const timeStr = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+        const timeStr = date.toLocaleTimeString('en-MY', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Asia/Kuala_Lumpur' });
         return `${dateStr}, ${timeStr}`;
       } catch (e) {
         return showTimeDetails.showTime;

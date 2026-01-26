@@ -11,7 +11,8 @@ import {
   LogOut,
   CreditCard,
   Clock,
-  Mail
+  Mail,
+  Shield
 } from 'lucide-react';
 
 export default function AdminSidebar() {

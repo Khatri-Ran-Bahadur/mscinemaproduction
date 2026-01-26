@@ -1315,9 +1315,10 @@ export default function SeatSelection() {
 
   const handleBookSeat = async () => {
     // If maintenance mode is enabled via env, block booking and show modal
-    // if (MAINTENANCE_ENV) {
-    //   // return;
-    // }
+    if (MAINTENANCE_ENV) {
+      setShowMaintenanceModal(true);
+      return;
+    }
     // Check if seats are selected
     if (selectedSeats.length === 0) {
       setError('Please select at least one seat.');
@@ -1758,7 +1759,8 @@ export default function SeatSelection() {
     if (showTimeDetails?.showTime) {
       try {
         const date = new Date(showTimeDetails.showTime);
-        const dateStr = date.toLocaleDateString('en-GB', { 
+        const dateStr = date.toLocaleDateString('en-MY', { 
+          timeZone: 'Asia/Kuala_Lumpur',
           weekday: 'short',
           day: 'numeric', 
           month: 'short', 
@@ -2260,8 +2262,8 @@ export default function SeatSelection() {
           if (showTimeDetails?.showTime) {
             try {
               const date = new Date(showTimeDetails.showTime);
-              const dateStr = date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-              const timeStr = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+              const dateStr = date.toLocaleDateString('en-MY', { timeZone: 'Asia/Kuala_Lumpur', day: 'numeric', month: 'short', year: 'numeric' });
+              const timeStr = date.toLocaleTimeString('en-MY', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Asia/Kuala_Lumpur' });
               return `${dateStr}, ${timeStr}`;
             } catch (e) {
               return showTimeDetails.showTime;

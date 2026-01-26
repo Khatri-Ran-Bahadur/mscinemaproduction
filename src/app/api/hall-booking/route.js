@@ -41,7 +41,8 @@ export async function POST(request) {
     const recipientEmail = setting?.value || process.env.EMAIL_FROM || 'admin@mscinemas.my';
 
     // Format Date
-    const formattedDate = new Date(date).toLocaleDateString('en-GB', {
+    const formattedDate = new Date(date).toLocaleDateString('en-MY', {
+        timeZone: 'Asia/Kuala_Lumpur',
         day: 'numeric', month: 'long', year: 'numeric'
     });
 

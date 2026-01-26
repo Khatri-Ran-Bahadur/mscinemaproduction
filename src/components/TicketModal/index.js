@@ -36,14 +36,44 @@ export default function TicketModal({ ticketData, isOpen, onClose }) {
 
   if (!isOpen) return null;
 
-  // Format date helper
+  // Format date helper (Malaysian locale)
   const formatDate = (dateStr) => {
     if (!dateStr) return '';
     try {
       const date = new Date(dateStr);
-      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      return date.toLocaleDateString('en-MY', { 
+        month: 'short', 
+        day: 'numeric', 
+        year: 'numeric',
+        timeZone: 'Asia/Kuala_Lumpur'
+      });
     } catch {
       return dateStr;
+    }
+  };
+
+  // Format time helper (Malaysian locale)
+  const formatTime = (timeStr) => {
+    if (!timeStr) return '';
+    try {
+      // If timeStr is a full date-time string, extract time part
+      if (timeStr.includes('T') || timeStr.includes(' ')) {
+        const date = new Date(timeStr);
+        return date.toLocaleTimeString('en-MY', {
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true,
+          timeZone: 'Asia/Kuala_Lumpur'
+        });
+      }
+      // If it's just time string (HH:MM or HH:MM:SS)
+      const [hours, minutes] = timeStr.split(':');
+      const hour = parseInt(hours);
+      const ampm = hour >= 12 ? 'PM' : 'AM';
+      const displayHour = hour % 12 || 12;
+      return `${displayHour}:${minutes} ${ampm}`;
+    } catch {
+      return timeStr;
     }
   };
 
@@ -114,7 +144,7 @@ export default function TicketModal({ ticketData, isOpen, onClose }) {
                   </div>
                   <div className="text-center">
                     <p className="text-xs text-gray-500 uppercase tracking-widest mb-1">Time</p>
-                    <p className="text-white font-bold text-lg">{bookingDetails.showTime}</p>
+                    <p className="text-white font-bold text-lg">{formatTime(bookingDetails.showTime || bookingDetails.time)}</p>
                   </div>
                   
                   {/* Reference & Booking ID */}
