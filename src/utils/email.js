@@ -317,6 +317,22 @@ export const sendTicketEmail = async (to, ticketData, corporateInfoPassed = null
     }
   };
 
+  const getTimeonly = (timeStr) => {
+    if (!timeStr) return '';
+    try {
+      const date = new Date(timeStr);
+    // Format to 12-hour time
+    const time12h = date.toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    });
+      return time12h;
+    } catch {
+      return timeStr;
+    }
+  }
+
   // If no ticket details, try to get from booking data
   if (ticketDetails.length === 0 && bookingData) {
     const seats = bookingData?.seats || [];
@@ -600,7 +616,7 @@ Malaysia
                   <tbody>
                     <tr style="background-color: ${colors.tableRow};">
                       <td style="border-bottom: 1px solid ${colors.border}; color: ${colors.light}; font-weight: bold;">${showDate}</td>
-                      <td style="border-bottom: 1px solid ${colors.border}; color: ${colors.light}; font-weight: bold;">${showTime}</td>
+                      <td style="border-bottom: 1px solid ${colors.border}; color: ${colors.light}; font-weight: bold;">${getTimeonly(showTime)}</td>
                       <td style="border-bottom: 1px solid ${colors.border}; color: ${colors.gold}; font-weight: bold;">${movieName.toUpperCase()}</td>
                     </tr>
                   </tbody>

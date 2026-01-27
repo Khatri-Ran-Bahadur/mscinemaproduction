@@ -10,6 +10,7 @@ export const dynamic = 'force-dynamic';
 async function logPayloadToFile(referenceNo, type, payload) {
     if (!referenceNo) return;
     try {
+        if(referenceNo.includes('unknown')) return;
         const logsDir = path.join(process.cwd(), 'logs');
         if (!fs.existsSync(logsDir)) {
              fs.mkdirSync(logsDir, { recursive: true });
