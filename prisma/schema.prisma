@@ -147,6 +147,12 @@ model Order {
   // Email Tracking
   emailInfo     Json?    // Store email data JSON
   isSendMail    Boolean  @default(false)
+
+  // New flags
+  token         String?
+  reserve_ticket Boolean @default(false)
+  cancel_ticket Boolean @default(false)
+  refund        Boolean?
   
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt

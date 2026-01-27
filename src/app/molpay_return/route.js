@@ -45,28 +45,78 @@ async function handleReturn(request) {
     const order = await prisma.order.findUnique({ where:{ orderId: orderid }});
     if(!order) return createRedirectResponse(`${baseUrl}payment/failed?orderid=${encodeURIComponent(orderid)}&error=order_not_found`);
 
+    // Inject order details for API calls
+    returnData.storedDetails = {
+      token: order.token || '',
+      cinemaId: order.cinemaId || '',
+      showId: order.showId || '',
+      referenceNo: order.referenceNo || ''
+    };
+
     // ReserveBooking or CancelBooking
     if(finalStatus==='00' || finalStatus==='22' || finalStatus==='PAID'){
-      const reserveResult = await callReserveBooking(orderid, returnData.tranID, returnData.channel, returnData.appcode, returnData);
-      if(reserveResult.success){
-        await prisma.order.update({
-          where:{ orderId: orderid },
-          data:{ paymentStatus:'PAID', status:'CONFIRMED', transactionNo:returnData.tranID }
-        });
-      } else {
-        await callCancelBooking(orderid, returnData.tranID, returnData.channel, reserveResult.error || 'ReserveBooking failed', returnData);
-        await prisma.order.update({
-          where:{ orderId: orderid },
-          data:{ paymentStatus:'FAILED', status:'CANCELLED', transactionNo:returnData.tranID }
-        });
-        finalStatus='FAILED';
+      let updateData = { paymentStatus:'PAID', status:'CONFIRMED', transactionNo:returnData.tranID };
+      let updated = false;
+
+      // 1. Reserve Booking
+      if(!order.reserve_ticket){
+        const reserveResult = await callReserveBooking(orderid, returnData.tranID, returnData.channel, returnData.appcode, returnData);
+        if(reserveResult.success){
+          updateData.reserve_ticket = true;
+          updated = true;
+        } else {
+             // Reserve failed case, maybe log it
+             console.error('[Return] ReserveBooking failed:', reserveResult.error);
+             // If we want to strictly fail:
+             // finalStatus = 'FAILED'; 
+             // But for now keeping flow, proceed to cancel to ensure release if needed.
+        }
       }
+
+      // 2. Cancel Booking (Confirmation step)
+      // Only call if not already cancelled
+      if(!order.cancel_ticket){
+          const cancelResult = await callCancelBooking(orderid, returnData.tranID, returnData.channel, 'Automatic Post-Reserve Cancel (Return)', returnData);
+          // We mark cancel_ticket true if success or if it says "already"
+          if(cancelResult.success || cancelResult.error?.includes('already')){
+             updateData.cancel_ticket = true;
+             updated = true;
+          }
+      }
+
+      // Commit updates if any flags changed or if we need to confirm payment status
+      if(updated || order.paymentStatus !== 'PAID'){
+          await prisma.order.update({
+            where:{ orderId: orderid },
+            data: updateData
+          });
+      }
+
     } else {
-      await callCancelBooking(orderid, returnData.tranID, returnData.channel, returnData.error_desc || 'Payment failed', returnData);
-      await prisma.order.update({
-        where:{ orderId: orderid },
-        data:{ paymentStatus:'FAILED', status:'CANCELLED', transactionNo:returnData.tranID }
-      });
+        // Payment Failed Case
+        if(!order.cancel_ticket){
+          let cancelData = await callCancelBooking(orderid, returnData.tranID, returnData.channel, returnData.error_desc || 'Payment failed', returnData);
+          let iscancel = false;
+          if (cancelData.success) {
+            iscancel = true;
+          }
+          
+            await prisma.order.update({
+                where:{ orderId: orderid },
+                data:{ 
+                paymentStatus:'FAILED', 
+                status:'CANCELLED', 
+                transactionNo:returnData.tranID,
+                cancel_ticket: iscancel
+                }
+            });
+        } else if(order.paymentStatus !== 'FAILED') {
+             // Just ensure status is updated even if cancel was done by callback
+             await prisma.order.update({
+                where:{ orderId: orderid },
+                data:{ paymentStatus:'FAILED', status:'CANCELLED' }
+            });
+        }
     }
 
     if(returnData.status==='00' || returnData.status==='22') {

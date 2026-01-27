@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft, Loader2, Clock } from 'lucide-react';
-import { booking } from '@/services/api';
+import { booking,auth } from '@/services/api';
 import { encryptId, decryptId, encryptIds, decryptIds } from '@/utils/encryption';
 
 export default function PaymentPage() {
@@ -18,6 +18,7 @@ export default function PaymentPage() {
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [timeLeft, setTimeLeft] = useState(120);
   const [timerActive, setTimerActive] = useState(false);
+  const [token, setToken] = useState('');
   const scriptsLoadedRef = useRef(false);
   const loadingScriptsRef = useRef(false);
 
@@ -349,11 +350,19 @@ export default function PaymentPage() {
     formDataToSend.append('notifyUrl', `${typeof window !== 'undefined' ? window.location.origin : ''}/api/payment/notify`);
 
     // Get auth token from localStorage to support API calls during callback
+    let tokenString = '';
     if (typeof window !== 'undefined') {
-      const token = localStorage.getItem('ms_cinema_token') || localStorage.getItem('ms_cinema_public_token');
-      if (token) {
-        formDataToSend.append('token', token);
+      tokenString=localStorage.getItem('ms_cinema_public_token');
+      if (tokenString) {
+        formDataToSend.append('token', tokenString);
       }
+      setToken(tokenString);
+    }
+
+    if (!token) {
+      tokenString = localStorage.getItem('ms_cinema_public_token');
+      formDataToSend.append('token', tokenString);
+      setToken(tokenString);
     }
 
     // Don't set isProcessing to true here - allow multiple clicks
@@ -389,7 +398,8 @@ export default function PaymentPage() {
             ticketType: bookingData.ticketType || 'Standard',
             totalAmount: bookingData.priceInfo?.totalTicketPrice || '0.00',
             paymentStatus: 'PENDING',
-            paymentMethod: method.name
+            paymentMethod: method.name,
+            token:token
         };
 
         return fetch('/api/orders', {
@@ -398,8 +408,6 @@ export default function PaymentPage() {
             body: JSON.stringify(orderData)
         }).then(res => res.json())
           .then(orderRes => {
-              console.log('Order created with ID:', data.mpsorderid);
-              // Pass data to next then block
               return data;
           });
       })
@@ -407,6 +415,7 @@ export default function PaymentPage() {
         // Initialize payment with MOLPay Seamless plugin immediately
         if (window.jQuery && window.jQuery.fn && window.jQuery.fn.MOLPaySeamless) {
           const $ = window.jQuery;
+         
           
           // Build payment parameters object
           const paymentParams = {

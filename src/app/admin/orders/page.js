@@ -447,6 +447,7 @@ export default function AdminOrdersPage() {
                                     <th className="px-3 py-3 text-[#888] font-medium text-xs hidden lg:table-cell">Details</th>
                                     <th className="px-3 py-3 text-[#888] font-medium text-xs hidden sm:table-cell">Amount</th>
                                     <th className="px-3 py-3 text-[#888] font-medium text-xs hidden md:table-cell">Payment</th>
+                                    <th className="px-3 py-3 text-[#888] font-medium text-xs hidden lg:table-cell">Flags</th>
                                    
                                     <th className="px-3 py-3 text-[#888] font-medium text-xs">Status</th>
                                     <th className="px-3 py-3 text-[#888] font-medium text-xs hidden xl:table-cell">Date</th>
@@ -517,6 +518,16 @@ export default function AdminOrdersPage() {
                                                         {order.paymentStatus}
                                                     </span>
                                                     <span className="text-[#666] text-[10px] font-normal">{order.paymentMethod}</span>
+                                                </div>
+                                            </td>
+                                            <td className="px-3 py-2 hidden lg:table-cell">
+                                                <div className="flex flex-col gap-1 items-start">
+                                                    <span className={`text-[10px] px-1.5 py-0.5 rounded ${order.reserve_ticket ? 'text-green-400 bg-green-900/30' : 'text-gray-500 bg-[#333]'}`}>
+                                                        Res: {order.reserve_ticket ? 'Yes' : 'No'}
+                                                    </span>
+                                                    <span className={`text-[10px] px-1.5 py-0.5 rounded ${order.cancel_ticket ? 'text-red-400 bg-red-900/30' : 'text-gray-500 bg-[#333]'}`}>
+                                                        Can: {order.cancel_ticket ? 'Yes' : 'No'}
+                                                    </span>
                                                 </div>
                                             </td>
                                            

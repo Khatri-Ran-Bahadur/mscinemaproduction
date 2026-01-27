@@ -1,6 +1,6 @@
 // app/api/molpay_callback/route.js
 import { NextResponse } from 'next/server';
-import { writeMolpayLog, savePaymentLogDB, verifyReturnSignature, acknowledgeResponse } from '@/utils/molpay';
+import { writeMolpayLog, savePaymentLogDB, verifyReturnSignature, acknowledgeResponse, callReserveBooking, callCancelBooking } from '@/utils/molpay';
 import prisma from '@/lib/prisma';
 
 export async function POST(request) {
@@ -61,17 +61,70 @@ async function handleCallback(request) {
       request
     });
 
-    // Update order status
-    if (finalStatus === 'PAID') {
-      await prisma.order.update({
-        where: { orderId: orderid },
-        data: { paymentStatus: 'PAID', status: 'CONFIRMED', transactionNo: returnData.tranID }
-      });
+    // Check existing order to get token and flags
+    const order = await prisma.order.findUnique({ where:{ orderId: orderid }});
+
+    if (order ) {
+        // Inject order details for API calls if needed (fallback if returnData is missing them)
+        returnData.storedDetails = {
+            token: order.token || '',
+            cinemaId: order.cinemaId || '',
+            showId: order.showId || '',
+            referenceNo: order.referenceNo || ''
+        };
+        
+        // Prepare flags for update
+        let updateData = { transactionNo: returnData.tranID };
+        let reserveSuccess = order.reserve_ticket;
+        let cancelSuccess = order.cancel_ticket;
+
+        if (finalStatus === 'PAID') {
+            updateData.paymentStatus = 'PAID';
+            updateData.status = 'CONFIRMED';
+            
+            // 1. Reserve Booking (Idempotent check)
+            if (!order.reserve_ticket) {
+                const reserveResult = await callReserveBooking(orderid, returnData.tranID, returnData.channel, returnData.appcode, returnData);
+                if (reserveResult.success) {
+                    reserveSuccess = true;
+                    updateData.reserve_ticket = true;
+                } else {
+                   
+                }
+            }
+
+            // 2. Cancel Booking (Idempotent check)
+           
+            if (!order.cancel_ticket) {
+                 
+                 const cancelResult = await callCancelBooking(orderid, returnData.tranID, returnData.channel, 'Callback Auto-Cancel', returnData);
+                 if (cancelResult.success || cancelResult.error?.includes('already')) {
+                     cancelSuccess = true;
+                 }
+            }
+           
+        } else {
+             // Payment Failed
+             updateData.paymentStatus = 'FAILED';
+             updateData.status = 'CANCELLED';
+             
+             if (!order.cancel_ticket) {
+               let cancelResult = await callCancelBooking(orderid, returnData.tranID, returnData.channel, returnData.error_desc || 'Payment failed (Callback)', returnData);
+               
+               if (cancelResult.success || cancelResult.error?.includes('already')) {
+                cancelSuccess = true;
+                updateData.cancel_ticket = true;
+              }
+             }
+        }
+
+        await prisma.order.update({
+            where: { orderId: orderid },
+            data: updateData
+        });
+
     } else {
-      await prisma.order.update({
-        where: { orderId: orderid },
-        data: { paymentStatus: 'FAILED', status: 'CANCELLED', transactionNo: returnData.tranID }
-      });
+        console.warn(`[Callback] Order not found for OrderID: ${orderid}`);
     }
 
     // Always return RECEIVEOK for MOLPay callbacks

@@ -23,7 +23,8 @@ export async function POST(request) {
         ticketType,
         totalAmount,
         paymentStatus,
-        paymentMethod
+        paymentMethod,
+        token
     } = body;
 
     // Simple validation
@@ -46,6 +47,7 @@ export async function POST(request) {
                 data: {
                     orderId: orderId, // Critical: Update to new Payment Request ID
                     paymentMethod: paymentMethod || existingByRef.paymentMethod,
+                    token: token || existingByRef.token,
                     updatedAt: new Date()
                 }
             });
@@ -76,7 +78,8 @@ export async function POST(request) {
         totalAmount: parseFloat(totalAmount),
         paymentStatus: paymentStatus || 'PAID',
         paymentMethod: paymentMethod || 'Online',
-        status: 'CONFIRMED'
+        status: 'CONFIRMED',
+        token
       }
     });
 
