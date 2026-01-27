@@ -8,6 +8,7 @@ import { API_CONFIG } from '@/config/api';
 
 export function writeMolpayLog(referenceNo, type, payload) {
   try {
+    /*
     const logsDir = path.join(process.cwd(), 'logs');
     if (!fs.existsSync(logsDir)) fs.mkdirSync(logsDir, { recursive: true });
 
@@ -22,8 +23,9 @@ export function writeMolpayLog(referenceNo, type, payload) {
       '========================================',
       ''
     ].join('\n');
+    */
 
-    fs.appendFileSync(logPath, entry);
+    // fs.appendFileSync(logPath, entry);
     console.log(`[MOLPay API Log] ${type} -> ${logPath}`);
   } catch (err) {
     console.error('[MOLPay API Log] Failed:', err);
@@ -36,6 +38,10 @@ export async function savePaymentLogDB({ orderid, referenceNo, transactionNo, st
                      request.headers.get('x-real-ip') || 'unknown';
     const userAgent = request.headers.get('user-agent') || 'unknown';
     const amt = amount ? parseFloat(amount) : null;
+
+    if (orderid.includes('unknown')) {
+      return null;
+    }
 
     await prisma.paymentLog.create({
       data: {

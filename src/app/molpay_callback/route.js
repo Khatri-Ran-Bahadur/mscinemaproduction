@@ -38,13 +38,18 @@ async function handleCallback(request) {
     const orderid = returnData.orderid || `unknown_${Date.now()}`;
 
     // Log callback
-    writeMolpayLog(orderid, 'CALLBACK', returnData);
 
     // Verify signature
     const isValidSignature = verifyReturnSignature(returnData);
     const SUCCESS_STATUSES = ['00', '22'];
     const finalStatus = SUCCESS_STATUSES.includes(returnData.status) && isValidSignature ? 'PAID' : returnData.status;
 
+    let isSuccess = false;
+    
+    if (finalStatus === 'PAID' || SUCCESS_STATUSES.includes(returnData.status)) {
+      isSuccess = true;
+      
+    }
     // Save payment log
     await savePaymentLogDB({
       orderid,
@@ -56,8 +61,8 @@ async function handleCallback(request) {
       channel: returnData.channel || null,
       method: request.method,
       returnData,
-      isSuccess: finalStatus === 'PAID',
-      remarks: finalStatus === 'PAID' ? 'Payment successful (callback)' : 'Payment failed (callback)',
+      isSuccess: isSuccess,
+      remarks: isSuccess ? 'Payment successful (callback)' : 'Payment failed (callback)',
       request
     });
 
@@ -88,6 +93,7 @@ async function handleCallback(request) {
                 if (reserveResult.success) {
                     reserveSuccess = true;
                     updateData.reserve_ticket = true;
+                  updateData.cancel_ticket = false;
                 } else {
                    
                 }

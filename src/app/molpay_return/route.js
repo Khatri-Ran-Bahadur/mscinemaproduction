@@ -26,6 +26,10 @@ async function handleReturn(request) {
     let finalStatus = SUCCESS_STATUSES.includes(returnData.status) && isValidSignature ? 'PAID' : returnData.status;
 
     // Save payment log
+    let isSuccess=false;
+    if (finalStatus === 'PAID' || SUCCESS_STATUSES.includes(returnData.status)) {
+      isSuccess = true;
+    }
     await savePaymentLogDB({
       orderid,
       referenceNo: returnData.referenceNo || returnData.refno || null,
@@ -36,8 +40,8 @@ async function handleReturn(request) {
       channel: returnData.channel || null,
       method: request.method,
       returnData,
-      isSuccess: finalStatus==='PAID',
-      remarks: finalStatus==='PAID' ? 'Payment successful (return)' : 'Payment failed (return)',
+      isSuccess: isSuccess,
+      remarks: isSuccess ? 'Payment successful (return)' : 'Payment failed (return)',
       request
     });
 
@@ -63,6 +67,7 @@ async function handleReturn(request) {
         const reserveResult = await callReserveBooking(orderid, returnData.tranID, returnData.channel, returnData.appcode, returnData);
         if(reserveResult.success){
           updateData.reserve_ticket = true;
+          updateData.cancel_ticket = false;
           updated = true;
         } else {
              // Reserve failed case, maybe log it
