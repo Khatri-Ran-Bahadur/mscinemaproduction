@@ -83,31 +83,28 @@ async function handleCallback(request) {
         let reserveSuccess = order.reserve_ticket;
         let cancelSuccess = order.cancel_ticket;
 
-        if (finalStatus === 'PAID') {
+        if (finalStatus === 'PAID' || finalStatus==='00' || finalStatus==='22') {
             updateData.paymentStatus = 'PAID';
             updateData.status = 'CONFIRMED';
             
             // 1. Reserve Booking (Idempotent check)
-            if (!order.reserve_ticket) {
+            
                 const reserveResult = await callReserveBooking(orderid, returnData.tranID, returnData.channel, returnData.appcode, returnData);
                 if (reserveResult.success) {
                     reserveSuccess = true;
                     updateData.reserve_ticket = true;
                   updateData.cancel_ticket = false;
-                } else {
-                   
-                }
-            }
+                } 
 
             // 2. Cancel Booking (Idempotent check)
            
-            if (!order.cancel_ticket) {
+            // if (!order.cancel_ticket) {
                  
-                 const cancelResult = await callCancelBooking(orderid, returnData.tranID, returnData.channel, 'Callback Auto-Cancel', returnData);
-                 if (cancelResult.success || cancelResult.error?.includes('already')) {
-                     cancelSuccess = true;
-                 }
-            }
+            //      const cancelResult = await callCancelBooking(orderid, returnData.tranID, returnData.channel, 'Callback Auto-Cancel', returnData);
+            //      if (cancelResult.success || cancelResult.error?.includes('already')) {
+            //          cancelSuccess = true;
+            //      }
+            // }
            
         } else {
              // Payment Failed

@@ -34,18 +34,19 @@ export async function POST(request) {
     
     // Let's check if there is any CONFIRMED or PENDING order for this referenceNo
     const existingByRef = await prisma.order.findFirst({
-        where: { 
-            referenceNo: referenceNo,
-            status: { notIn: ['CANCELLED', 'FAILED'] }
-        }
+      where: {
+        referenceNo: referenceNo,
+        status: { notIn: ['CANCELLED', 'FAILED'] }
+      },
+      orderBy: { createdAt: 'desc' }
     });
+     
 
     if (existingByRef) {        
         try {
             const updatedOrder = await prisma.order.update({
                 where: { id: existingByRef.id },
                 data: {
-                    orderId: orderId, // Critical: Update to new Payment Request ID
                     paymentMethod: paymentMethod || existingByRef.paymentMethod,
                     token: token || existingByRef.token,
                     updatedAt: new Date()

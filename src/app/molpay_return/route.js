@@ -63,31 +63,23 @@ async function handleReturn(request) {
       let updated = false;
 
       // 1. Reserve Booking
-      if(!order.reserve_ticket){
         const reserveResult = await callReserveBooking(orderid, returnData.tranID, returnData.channel, returnData.appcode, returnData);
         if(reserveResult.success){
           updateData.reserve_ticket = true;
           updateData.cancel_ticket = false;
           updated = true;
-        } else {
-             // Reserve failed case, maybe log it
-             console.error('[Return] ReserveBooking failed:', reserveResult.error);
-             // If we want to strictly fail:
-             // finalStatus = 'FAILED'; 
-             // But for now keeping flow, proceed to cancel to ensure release if needed.
-        }
-      }
+        } 
 
-      // 2. Cancel Booking (Confirmation step)
-      // Only call if not already cancelled
-      if(!order.cancel_ticket){
-          const cancelResult = await callCancelBooking(orderid, returnData.tranID, returnData.channel, 'Automatic Post-Reserve Cancel (Return)', returnData);
-          // We mark cancel_ticket true if success or if it says "already"
-          if(cancelResult.success || cancelResult.error?.includes('already')){
-             updateData.cancel_ticket = true;
-             updated = true;
-          }
-      }
+      // // 2. Cancel Booking (Confirmation step)
+      // // Only call if not already cancelled
+      // if(!order.cancel_ticket){
+      //     const cancelResult = await callCancelBooking(orderid, returnData.tranID, returnData.channel, 'Automatic Post-Reserve Cancel (Return)', returnData);
+      //     // We mark cancel_ticket true if success or if it says "already"
+      //     if(cancelResult.success || cancelResult.error?.includes('already')){
+      //        updateData.cancel_ticket = true;
+      //        updated = true;
+      //     }
+      // }
 
       // Commit updates if any flags changed or if we need to confirm payment status
       if(updated || order.paymentStatus !== 'PAID'){
@@ -99,7 +91,7 @@ async function handleReturn(request) {
 
     } else {
         // Payment Failed Case
-        if(!order.cancel_ticket){
+        if(!order.cancel_ticket && order.paymentStatus!=='PAID'){
           let cancelData = await callCancelBooking(orderid, returnData.tranID, returnData.channel, returnData.error_desc || 'Payment failed', returnData);
           let iscancel = false;
           if (cancelData.success) {

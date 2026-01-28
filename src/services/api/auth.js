@@ -281,6 +281,7 @@ export const getMaintenanceModeAndAppVersionById = async (id = 1) => {
     return response;
   } catch (error) {
     console.error('Get maintenance mode by ID error:', error);
+    return { maintenanceMode: true };
     throw error;
   }
 };

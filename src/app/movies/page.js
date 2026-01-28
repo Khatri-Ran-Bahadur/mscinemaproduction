@@ -51,7 +51,7 @@ export default function MoviesPage() {
         } catch (err) {
             console.error('Error loading movies:', err);
             if (err instanceof APIError) {
-                setError(err.message || 'Failed to load movies');
+                setError('Failed to load movies');
             } else {
                 setError('An unexpected error occurred');
             }

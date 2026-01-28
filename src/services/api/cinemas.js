@@ -29,6 +29,7 @@ export const getCinemas = async () => {
     return response || [];
   } catch (error) {
     console.error('Get cinemas error:', error);
+    return [];
     throw error;
   }
 };

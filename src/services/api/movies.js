@@ -50,6 +50,7 @@ export const getMovies = async () => {
     return response || [];
   } catch (error) {
     console.error('Get movies error:', error);
+    return [];
     throw error;
   }
 };
