@@ -379,6 +379,11 @@ export default function PaymentPage() {
           throw new Error(data.error_desc || data.error || 'Failed to create payment request');
         }
 
+        let token2 = token;
+        if (!token2) {
+          token2 = localStorage.getItem('ms_cinema_public_token');
+        }
+
         // Create Order in Database using the ID returned from payment gateway
         const orderData = {
             orderId: data.mpsorderid, // Payment Gateway Order ID
@@ -399,7 +404,7 @@ export default function PaymentPage() {
             totalAmount: bookingData.priceInfo?.totalTicketPrice || '0.00',
             paymentStatus: 'PENDING',
             paymentMethod: method.name,
-            token:token
+            token:token2
         };
 
         return fetch('/api/orders', {
