@@ -26,33 +26,44 @@ import { get } from './client';
  * @property {string} remarks - Additional remarks
  */
 
+// Module-level cache for movies promise
+let moviesPromise = null;
+
 /**
  * Get all movies
  * @returns {Promise<Array<Movie>>} - Array of movies
  */
 export const getMovies = async () => {
-  try {
-    const response = await get('/MovieDetails/GetMovies');
-    
-    // Handle different response formats
-    if (Array.isArray(response)) {
-      return response;
-    }
-    
-    if (response && response.data) {
-      return response.data;
-    }
-    
-    if (response && response.movies) {
-      return response.movies;
-    }
-    
-    return response || [];
-  } catch (error) {
-    console.error('Get movies error:', error);
-    return [];
-    throw error;
+  // If a request is already in progress, return the existing promise
+  if (moviesPromise) {
+    return moviesPromise;
   }
+
+  moviesPromise = (async () => {
+    try {
+      const response = await get('/MovieDetails/GetMovies');
+      
+      // Handle different response formats
+      let data = [];
+      if (Array.isArray(response)) {
+        data = response;
+      } else if (response && response.data) {
+        data = response.data;
+      } else if (response && response.movies) {
+        data = response.movies;
+      } else {
+        data = response || [];
+      }
+      return data;
+    } catch (error) {
+      console.error('Get movies error:', error);
+      // Reset promise so next call can retry
+      moviesPromise = null;
+      return [];
+    }
+  })();
+
+  return moviesPromise;
 };
 
 export default {

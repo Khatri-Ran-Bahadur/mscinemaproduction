@@ -97,6 +97,61 @@ export default function TicketModal({ ticketData, isOpen, onClose }) {
 
   const totalPersons = ticketList.length || 0;
 
+  // Check if show is already screened (passed)
+  const isScreened = (showDate, showTime) => {
+    if (!showDate || !showTime) return false;
+    try {
+      const date = new Date(showDate);
+      if (isNaN(date.getTime())) {
+          // Try manual parse if needed
+          const parts = showDate.split(/[- :T\/]/).filter(p => p !== '');
+          if (parts.length >= 3) {
+              let d, m, y;
+              if (parts[0].length === 4) [y, m, d] = parts.map(Number);
+              else [d, m, y] = parts.map(Number);
+              date.setFullYear(y, m - 1, d);
+          } else return false;
+      }
+      
+      let hours = 0;
+      let minutes = 0;
+      const ampmMatch = showTime.match(/(\d+):(\d+)\s*(AM|PM)/i);
+      if (ampmMatch) {
+         hours = parseInt(ampmMatch[1]);
+         minutes = parseInt(ampmMatch[2]);
+         const ampm = ampmMatch[3].toUpperCase();
+         if (ampm === 'PM' && hours < 12) hours += 12;
+         if (ampm === 'AM' && hours === 12) hours = 0;
+      } else {
+         const timeParts = showTime.split(':');
+         if (timeParts.length >= 2) {
+            hours = parseInt(timeParts[0]);
+            minutes = parseInt(timeParts[1]);
+         }
+      }
+      
+      date.setHours(hours, minutes, 0, 0);
+      return date < new Date();
+    } catch {
+      return false;
+    }
+  };
+
+  const getStatusInfo = (status, showDate, showTime) => {
+    switch (Number(status || 2)) {
+      case 1: return { label: 'Processing', badgeBg: 'bg-yellow-600' };
+      case 2:
+        if (isScreened(showDate, showTime)) {
+          return { label: 'Screened', badgeBg: 'bg-gray-500' };
+        }
+        return { label: 'Confirmed', badgeBg: 'bg-green-600' };
+      case 3: return { label: 'Failed', badgeBg: 'bg-red-600' };
+      default: return { label: 'Unknown', badgeBg: 'bg-gray-600' };
+    }
+  };
+
+  const statusInfo = getStatusInfo(bookingDetails.status, bookingDetails.showDate, bookingDetails.showTime);
+
   return (
     <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4 overflow-y-auto">
       {/* Modal Overlay */}
@@ -113,7 +168,14 @@ export default function TicketModal({ ticketData, isOpen, onClose }) {
         </button>
 
         {/* Ticket Content */}
-        <div className="bg-[#2a2a2a] rounded-lg overflow-hidden flex flex-col">
+        <div className="bg-[#2a2a2a] rounded-lg overflow-hidden flex flex-col relative">
+          
+          {/* Status Ribbon */}
+          <div className="absolute top-0 left-0 w-24 h-24 overflow-hidden pointer-events-none z-10">
+            <div className={`absolute -left-8 top-4 w-32 -rotate-45 ${statusInfo.badgeBg} text-white text-[9px] font-bold py-1 text-center shadow-md uppercase tracking-wider`}>
+                {statusInfo.label}
+            </div>
+          </div>
           
           {/* Header Section (Movie Info) - NO IMAGE as requested */}
           <div className="px-8 py-8 border-b border-dashed border-[#4a4a4a] text-center bg-[#222]">

@@ -9,6 +9,7 @@ import Loader from '@/components/Loader';
 import { getUserData } from '@/utils/storage';
 import SeatIcon from '@/components/SeatIcon';
 import MovieIcon from '@/components/MovieIcon';
+import RatingIcon from '@/components/RatingIcon';
 import { encryptId, decryptId, encryptIds, decryptIds } from '@/utils/encryption';
 
 export default function SeatSelection() {
@@ -1865,6 +1866,7 @@ export default function SeatSelection() {
           <div className="absolute bottom-5 left-8">
             <h1 className="text-3xl font-bold mb-1.5">{movieTitle}</h1>
             <div className="flex items-center gap-3 text-xs text-white/70 mb-3">
+              <RatingIcon rating={movieDetails?.rating} className="w-5 h-5" />
               <span>{movieGenre}</span>
               <span>|</span>
               <span>{movieDuration}</span>

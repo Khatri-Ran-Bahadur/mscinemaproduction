@@ -7,6 +7,7 @@ import { shows, movies, cinemas } from '@/services/api';
 import { APIError } from '@/services/api';
 import Loader from '@/components/Loader';
 import { encryptId, decryptId, encryptIds, decryptIds } from '@/utils/encryption';
+import RatingIcon from '@/components/RatingIcon';
 import Header from '@/components/header';
 import Footer from '@/components/footer';
 
@@ -409,6 +410,7 @@ export default function TicketSelection() {
   const movieGenre = movieDetails?.genre || 'N/A';
   const movieDuration = movieDetails?.duration || 'N/A';
   const movieLanguage = movieDetails?.language || 'N/A';
+  const movieRating = movieDetails?.rating || '';
   const movieImage = movieDetails?.imageURL || 'img/banner.jpg';
   const hallName = ticketData?.hallDetails?.hallName || 'HALL - 1';
   const cinemaName = cinemaDetails?.displayName || cinemaDetails?.name || `Cinema ${cinemaId}`;
@@ -457,6 +459,7 @@ export default function TicketSelection() {
           <div className="absolute bottom-5 left-8">
             <h1 className="text-3xl font-bold mb-1.5">{movieTitle}</h1>
             <div className="flex items-center gap-3 text-xs text-white/70 mb-3">
+              <RatingIcon rating={movieRating} className="w-5 h-5" />
               <span>{movieGenre}</span>
               <span>|</span>
               <span>{movieDuration}</span>

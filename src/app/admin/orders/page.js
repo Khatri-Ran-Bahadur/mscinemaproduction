@@ -56,6 +56,11 @@ export default function AdminOrdersPage() {
     // Action Menu State
     const [openActionMenuId, setOpenActionMenuId] = useState(null);
 
+    // Reserve Modal State
+    const [showReserveModal, setShowReserveModal] = useState(false);
+    const [reserveOrder, setReserveOrder] = useState(null);
+    const [processingReserve, setProcessingReserve] = useState(false);
+
     useEffect(() => {
         const timeoutId = setTimeout(() => {
             fetchOrders();
@@ -348,6 +353,34 @@ export default function AdminOrdersPage() {
         }
     };
 
+    const handleReserve = (order) => {
+        setReserveOrder(order);
+        setShowReserveModal(true);
+    };
+
+    const confirmReserve = async () => {
+        if (!reserveOrder) return;
+        setProcessingReserve(true);
+        try {
+            const res = await fetch(`/api/admin/orders/${reserveOrder.id}/reserve`, {
+                method: 'POST'
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert("Reservation successful!");
+                fetchOrders(); // Refresh status
+                setShowReserveModal(false);
+            } else {
+                alert(data.error || "Reservation failed");
+            }
+        } catch(e) {
+            console.error(e);
+            alert("Error calling reserve API");
+        } finally {
+            setProcessingReserve(false);
+        }
+    };
+
     return (
         <div className="p-8 relative">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
@@ -599,6 +632,15 @@ export default function AdminOrdersPage() {
                                                                     >
                                                                         <Mail className="w-4 h-4" /> Resend Email
                                                                     </button>
+
+                                                                    {order.paymentStatus === 'PAID' && !order.reserve_ticket && (
+                                                                        <button 
+                                                                            onClick={() => { handleReserve(order); setOpenActionMenuId(null); }} 
+                                                                            className="text-left px-4 py-2.5 hover:bg-[#333] text-sm flex items-center gap-2 text-green-400 hover:text-green-300 transition"
+                                                                        >
+                                                                            <CheckCircle className="w-4 h-4" /> Reserve Ticket
+                                                                        </button>
+                                                                    )}
                                                                     
                                                                     <div className="border-t border-[#333] my-1"></div>
                                                                     
@@ -754,6 +796,44 @@ export default function AdminOrdersPage() {
                                 className="px-4 py-2 rounded bg-[#FFCA20] text-black font-bold hover:bg-[#FFCA20]/90 transition shadow-lg shadow-[#FFCA20]/20"
                             >
                                 Update Status
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Manual Reserve Confirmation Modal */}
+            {showReserveModal && (
+                <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+                    <div className="bg-[#2a2a2a] border border-[#3a3a3a] rounded-lg p-6 w-full max-w-sm shadow-2xl transform transition-all scale-100">
+                        <div className="flex items-center gap-3 mb-4 text-[#FFCA20]">
+                            <CheckCircle className="w-8 h-8" />
+                            <h3 className="text-xl font-bold text-white">Confirm Reservation?</h3>
+                        </div>
+                        <p className="text-sm text-gray-300 mb-4">
+                            You are about to manually trigger the <span className="font-bold text-white">ReserveBooking</span> API for order <span className="font-mono text-[#FFCA20]">{reserveOrder?.referenceNo}</span>.
+                        </p>
+                        <p className="text-xs text-gray-500 mb-6 bg-black/20 p-3 rounded border border-[#333]">
+                            This should only be done if the payment is successful but the ticket reservation failed to sync. This will lock the seats in the ticketing system.
+                        </p>
+                        
+                        <div className="flex justify-end gap-3">
+                            <button 
+                                onClick={() => setShowReserveModal(false)}
+                                className="px-4 py-2 rounded text-gray-400 hover:text-white hover:bg-[#333] transition font-medium"
+                            >
+                                Cancel
+                            </button>
+                            <button 
+                                onClick={confirmReserve}
+                                disabled={processingReserve}
+                                className="px-4 py-2 rounded bg-[#FFCA20] text-black font-bold hover:bg-[#FFCA20]/90 transition shadow-lg shadow-[#FFCA20]/20 disabled:opacity-50 flex items-center gap-2"
+                            >
+                                {processingReserve ? (
+                                    <>Processing...</>
+                                ) : (
+                                    <>Confirm Reserve</>
+                                )}
                             </button>
                         </div>
                     </div>

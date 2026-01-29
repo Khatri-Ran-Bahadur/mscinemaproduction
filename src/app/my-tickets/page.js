@@ -22,17 +22,59 @@ export default function MyTicketsPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState('');
 
+    // Check if show is already screened (passed)
+    const isScreened = (showDate, showTime) => {
+        if (!showDate || !showTime) return false;
+        try {
+            const parts = showDate.split(/[- :T\/]/).filter(p => p !== '');
+            if (parts.length < 3) return false;
+            
+            let d, m, y;
+            if (parts[0].length === 4) {
+                 [y, m, d] = parts.map(Number);
+            } else {
+                 [d, m, y] = parts.map(Number);
+            }
+
+            let hours = 0;
+            let minutes = 0;
+            const ampmMatch = showTime.match(/(\d+):(\d+)\s*(AM|PM)/i);
+            
+            if (ampmMatch) {
+                hours = parseInt(ampmMatch[1]);
+                minutes = parseInt(ampmMatch[2]);
+                const ampm = ampmMatch[3].toUpperCase();
+                if (ampm === 'PM' && hours < 12) hours += 12;
+                if (ampm === 'AM' && hours === 12) hours = 0;
+            } else {
+                const timeParts = showTime.split(':');
+                if (timeParts.length >= 2) {
+                    hours = parseInt(timeParts[0]);
+                    minutes = parseInt(timeParts[1]);
+                }
+            }
+
+            const showDateTime = new Date(y, m - 1, d, hours, minutes);
+            return showDateTime < new Date();
+        } catch (e) {
+            return false;
+        }
+    };
+
     // Get status label and color
-    const getStatusInfo = (status) => {
+    const getStatusInfo = (status, showDate, showTime) => {
         switch(status) {
             case 1:
-                return { label: 'Processing', color: 'text-yellow-400', bgColor: 'bg-yellow-400/10', borderColor: 'border-yellow-400/30', icon: Clock };
+                return { label: 'Processing', color: 'text-yellow-400', bgColor: 'bg-yellow-400/10', borderColor: 'border-yellow-400/30', badgeBg: 'bg-yellow-600', icon: Clock };
             case 2:
-                return { label: 'Success', color: 'text-green-400', bgColor: 'bg-green-400/10', borderColor: 'border-green-400/30', icon: CheckCircle };
+                if (isScreened(showDate, showTime)) {
+                    return { label: 'Screened', color: 'text-gray-400', bgColor: 'bg-gray-400/10', borderColor: 'border-gray-400/30', badgeBg: 'bg-gray-500', icon: CheckCircle };
+                }
+                return { label: 'Confirmed', color: 'text-green-400', bgColor: 'bg-green-400/10', borderColor: 'border-green-400/30', badgeBg: 'bg-green-600', icon: CheckCircle };
             case 3:
-                return { label: 'Failed', color: 'text-red-400', bgColor: 'bg-red-400/10', borderColor: 'border-red-400/30', icon: XCircle };
+                return { label: 'Failed', color: 'text-red-400', bgColor: 'bg-red-400/10', borderColor: 'border-red-400/30', badgeBg: 'bg-red-600', icon: XCircle };
             default:
-                return { label: 'Unknown', color: 'text-gray-400', bgColor: 'bg-gray-400/10', borderColor: 'border-gray-400/30', icon: Clock };
+                return { label: 'Unknown', color: 'text-gray-400', bgColor: 'bg-gray-400/10', borderColor: 'border-gray-400/30', badgeBg: 'bg-gray-600', icon: Clock };
         }
     };
 
@@ -176,7 +218,7 @@ export default function MyTicketsPage() {
             return bookings;
         } else if (activeTab === 'Processing') {
             return bookings.filter(b => b.status === 1);
-        } else if (activeTab === 'Success') {
+        } else if (activeTab === 'Confirmed') {
             return bookings.filter(b => b.status === 2);
         } else if (activeTab === 'Failed') {
             return bookings.filter(b => b.status === 3);
@@ -295,15 +337,15 @@ export default function MyTicketsPage() {
                                 )}
                             </button>
                             <button
-                                onClick={() => setActiveTab('Success')}
+                                onClick={() => setActiveTab('Confirmed')}
                                 className={`pb-4 px-2 text-sm font-medium transition relative whitespace-nowrap ${
-                                    activeTab === 'Success' 
+                                    activeTab === 'Confirmed' 
                                         ? 'text-[#FFCA20]' 
                                         : 'text-[#D3D3D3] hover:text-[#FAFAFA]'
                                 }`}
                             >
-                                Success
-                                {activeTab === 'Success' && (
+                                Confirmed
+                                {activeTab === 'Confirmed' && (
                                     <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#FFCA20]"></div>
                                 )}
                             </button>
@@ -328,14 +370,20 @@ export default function MyTicketsPage() {
                         <div className="space-y-4">
                             {filteredBookings.length > 0 ? (
                                 filteredBookings.map((booking) => {
-                                    const statusInfo = getStatusInfo(booking.status);
+                                    const statusInfo = getStatusInfo(booking.status, booking.showDate, booking.showTime);
                                     const StatusIcon = statusInfo.icon;
                                     
                                     return (
                                         <div
                                             key={booking.id || booking.bookingId}
-                                            className="bg-[#2a2a2a] border border-[#3a3a3a] rounded-lg p-6 hover:border-[#FFCA20]/50 transition"
+                                            className="bg-[#2a2a2a] border border-[#3a3a3a] rounded-lg p-6 hover:border-[#FFCA20]/50 transition relative overflow-hidden"
                                         >
+                                            {/* Status Ribbon */}
+                                            <div className="absolute top-0 left-0 w-24 h-24 overflow-hidden pointer-events-none z-10">
+                                                <div className={`absolute -left-8 top-4 w-32 -rotate-45 ${statusInfo.badgeBg} text-white text-[9px] font-bold py-1 text-center shadow-md uppercase tracking-wider`}>
+                                                    {statusInfo.label}
+                                                </div>
+                                            </div>
                                             <div className="flex flex-col md:flex-row gap-6">
                                                 {/* Movie Poster Placeholder Removed */}
 
@@ -541,8 +589,8 @@ export default function MyTicketsPage() {
                                     </div> */}
                                     <div className="flex justify-between">
                                         <span>Status</span>
-                                        <span className={`font-semibold ${selectedTicket.status === 2 ? 'text-green-500' : 'text-yellow-500'}`}>
-                                            {selectedTicket.status === 2 ? 'Confirmed' : selectedTicket.status === 1 ? 'Processing' : 'Failed'}
+                                        <span className={`font-semibold ${getStatusInfo(selectedTicket.status, selectedTicket.showDate, selectedTicket.showTime).color}`}>
+                                            {getStatusInfo(selectedTicket.status, selectedTicket.showDate, selectedTicket.showTime).label}
                                         </span>
                                     </div>
                                 </div>

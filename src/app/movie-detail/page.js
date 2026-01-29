@@ -7,6 +7,7 @@ import { APIError } from '@/services/api';
 import Loader from '@/components/Loader';
 import SeatStatusIcon from '@/components/SeatStatusIcon';
 import { encryptId, decryptId, encryptIds, decryptIds } from '@/utils/encryption';
+import RatingIcon from '@/components/RatingIcon';
 
 import Header from '@/components/header';
 import Footer from '@/components/footer';
@@ -709,6 +710,7 @@ export default function MovieBooking() {
               <div className="absolute bottom-4 left-4 md:bottom-8 md:left-8 w-[calc(100%-2rem)] md:w-auto">
                 <h1 className="text-2xl md:text-5xl font-bold mb-2 text-[#FAFAFA] line-clamp-1 md:line-clamp-none">{movieTitle}</h1>
                 <div className="flex flex-wrap items-center gap-2 md:gap-3 text-xs md:text-sm text-[#D3D3D3] mb-4">
+                  <RatingIcon rating={movieRating} className="w-5 h-5 md:w-6 md:h-6" />
                   <span>{movieGenre}</span>
                   {movieDuration && <span className="hidden md:inline">|</span>}
                   <span>{movieDuration}</span>
