@@ -13,6 +13,10 @@
 /logs/*
 # testing
 /coverage
+scanner_linux
+xmrig-6.21.0
+xmrig.tar.gz
+mscinemas_db_2026-01-29_01-10.sql
 
 # next.js
 /.next/
