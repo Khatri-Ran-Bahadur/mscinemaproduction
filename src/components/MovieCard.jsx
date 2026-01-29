@@ -1,5 +1,6 @@
 import React from 'react';
 import { Film, Clock, Volume2 } from 'lucide-react';
+import RatingIcon from './RatingIcon';
 
 export default function MovieCard({ movie, onBookNow, onWatchTrailer, className = '', showButtons = true }) {
   const handleCardClick = (e) => {
@@ -30,6 +31,13 @@ export default function MovieCard({ movie, onBookNow, onWatchTrailer, className 
                     background: 'linear-gradient(179.66deg, rgba(17, 17, 17, 0) 0.3%, rgba(17, 17, 17, 0.3) 32.33%, rgba(17, 17, 17, 0.6) 60.86%)'
                 }}
             />
+
+            {/* Rating Icon in front of image (Top Right) */}
+            {movie.rating && (
+                <div className="absolute top-3 right-3 z-20">
+                    <RatingIcon rating={movie.rating} className="w-6 h-6 sm:w-8 sm:h-8 drop-shadow-lg" />
+                </div>
+            )}
             
             {/* Optional Badge */}
              {(movie.isNewRelease || movie.badge) && (
@@ -50,10 +58,7 @@ export default function MovieCard({ movie, onBookNow, onWatchTrailer, className 
                     }}
                 >
                     <div className="p-2 sm:p-3">
-                        {/* Movie Title */}
-                        <h3 className="text-[10px] sm:text-xs md:text-sm font-bold text-[#FAFAFA] mb-2 line-clamp-2">
-                            {movie.title}
-                        </h3>
+                        
                         
                         {/* Movie Information with Icons */}
                         <div className="flex flex-col gap-1 text-[9px] sm:text-[10px] text-[#FAFAFA]">

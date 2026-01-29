@@ -5,32 +5,44 @@
 
 import { get } from './client';
 
+// Module-level cache for show dates promise
+let showDatesPromise = null;
+
 /**
  * Get show dates
  * @returns {Promise<Array>} - Array of show dates with movieID and cinemaID
  */
 export const getShowDates = async () => {
-  try {
-    const response = await get('/ShowDetails/GetShowDates');
-    
-    // Handle different response formats
-    if (Array.isArray(response)) {
-      return response;
-    }
-    
-    if (response && response.data) {
-      return response.data;
-    }
-    
-    if (response && response.showDates) {
-      return response.showDates;
-    }
-    
-    return response || [];
-  } catch (error) {
-    console.error('Get show dates error:', error);
-    throw error;
+  // If a request is already in progress, return the existing promise
+  if (showDatesPromise) {
+    return showDatesPromise;
   }
+
+  showDatesPromise = (async () => {
+    try {
+      const response = await get('/ShowDetails/GetShowDates');
+      
+      // Handle different response formats
+      let data = [];
+      if (Array.isArray(response)) {
+        data = response;
+      } else if (response && response.data) {
+        data = response.data;
+      } else if (response && response.showDates) {
+        data = response.showDates;
+      } else {
+        data = response || [];
+      }
+      return data;
+    } catch (error) {
+      console.error('Get show dates error:', error);
+      // Reset promise so next call can retry
+      showDatesPromise = null;
+      throw error;
+    }
+  })();
+
+  return showDatesPromise;
 };
 
 /**
