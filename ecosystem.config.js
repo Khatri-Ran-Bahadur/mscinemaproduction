@@ -1,9 +1,9 @@
 module.exports = {
   apps: [{
-    name: 'mscinemas-nextjs',
+    name: 'mscinemas-staging',
     script: 'npm',
     args: 'start',
-    cwd: '/var/www/mscinemas',
+    cwd: '/var/www/staging',
     instances: 1, // Single instance to prevent CPU spikes
     exec_mode: 'fork', // Use fork mode instead of cluster for better resource control
     autorestart: true,
@@ -24,8 +24,8 @@ module.exports = {
       // Next.js optimization
       NEXT_TELEMETRY_DISABLED: '1' // Disable telemetry to reduce CPU usage
     },
-    error_file: '/var/log/pm2/mscinemas-error.log',
-    out_file: '/var/log/pm2/mscinemas-out.log',
+    error_file: '/var/log/pm2/mscinemas-staging-error.log',
+    out_file: '/var/log/pm2/mscinemas-staging-out.log',
     log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
     merge_logs: true,
     // CPU throttling to prevent spikes
