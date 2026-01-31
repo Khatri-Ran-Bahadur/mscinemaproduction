@@ -11,7 +11,7 @@ import { sendActivationEmail } from '@/utils/email';
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { userId, email, name } = body;
+    const { userId, email, name, type } = body;
 
     if (!userId || !email) {
       return NextResponse.json(
@@ -20,12 +20,16 @@ export async function POST(request) {
       );
     }
 
-    // Encrypt the user ID for the activation link
-    const encryptedUserId = encryptId(userId);
+    // Encrypt the user ID for the activation link unless type is provided
+    const finalUserId = type ? userId : encryptId(userId);
 
     // Generate activation URL
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
-    const activationUrl = `${baseUrl}/activate?userId=${encryptedUserId}`;
+    let activationUrl = `${baseUrl}/activate?userId=${finalUserId}`;
+    
+    if (type) {
+      activationUrl += `&type=${encodeURIComponent(type)}`;
+    }
 
     // Send activation email
     const emailResult = await sendActivationEmail(email, name || 'User', activationUrl);

@@ -22,7 +22,9 @@ module.exports = {
       NODE_OPTIONS: '--max-old-space-size=1024',
       TZ: 'Asia/Kuala_Lumpur',
       // Next.js optimization
-      NEXT_TELEMETRY_DISABLED: '1' // Disable telemetry to reduce CPU usage
+      NEXT_TELEMETRY_DISABLED: '1', // Disable telemetry to reduce CPU usage
+      DATABASE_URL:
+          'postgres://USER:PASSWORD@db.prisma.io:5432/postgres?sslmode=require&connection_limit=1'
     },
     error_file: '/var/log/pm2/mscinemas-staging-error.log',
     out_file: '/var/log/pm2/mscinemas-staging-out.log',

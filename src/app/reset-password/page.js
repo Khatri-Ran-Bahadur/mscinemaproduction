@@ -24,6 +24,7 @@ export default function ResetPasswordPage() {
   useEffect(() => {
     // Get encrypted userId and token from URL parameters
     const encryptedUserId = searchParams?.get('userId') || searchParams?.get('userID') || searchParams?.get('id');
+    const type=searchParams?.get('type') || searchParams?.get('Type');
     const urlToken = searchParams?.get('token') || searchParams?.get('Token');
     
     // Fallback to localStorage if not in URL
@@ -80,13 +81,19 @@ export default function ResetPasswordPage() {
           }
         }
         
-        // Decrypt the user ID
-        const decryptedUserId = decryptId(finalEncryptedUserId);
-        if (decryptedUserId) {
-          setUserId(decryptedUserId);
+        // Decrypt the user ID unless a 'type' is specified (which implies direct use of ID)
+        if (type) {
+          // If type is present, use the ID as provided (likely from mobile app or legacy link)
+          setUserId(finalEncryptedUserId);
           setToken(finalToken);
         } else {
-          setError('Invalid reset link. Unable to decrypt user ID.');
+          const decryptedUserId = decryptId(finalEncryptedUserId);
+          if (decryptedUserId) {
+            setUserId(decryptedUserId);
+            setToken(finalToken);
+          } else {
+            setError('Invalid reset link. Unable to decrypt user ID.');
+          }
         }
       } catch (err) {
         console.error('Decryption error:', err);
