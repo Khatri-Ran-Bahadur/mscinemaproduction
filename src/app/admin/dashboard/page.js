@@ -17,6 +17,7 @@ import {
   Target
 } from 'lucide-react';
 import Link from 'next/link';
+import { adminFetch } from '@/utils/admin-api';
 
 export default function AdminDashboard() {
   const router = useRouter();
@@ -24,7 +25,7 @@ export default function AdminDashboard() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check admin authentication
+    // Initial check for UX
     const token = localStorage.getItem('adminToken');
     if (!token) {
       router.push('/admin/login');
@@ -36,8 +37,8 @@ export default function AdminDashboard() {
 
   const fetchDashboardData = async () => {
     try {
-      const res = await fetch('/api/admin/dashboard');
-      if (res.ok) {
+      const res = await adminFetch('/api/admin/dashboard');
+      if (res && res.ok) {
         const data = await res.json();
         if (data.success) {
           setDashboardData(data.stats);

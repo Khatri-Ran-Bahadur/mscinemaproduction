@@ -108,6 +108,7 @@ const ensurePublicToken = async () => {
 const getAuthHeaders = async () => {
   const headers = {
     'Content-Type': 'application/json',
+    'x-api-key': API_CONFIG.API_SECRET_KEY,
   };
   
   // Get token (user token if available, otherwise public token)
