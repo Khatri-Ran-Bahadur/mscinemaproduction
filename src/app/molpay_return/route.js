@@ -49,16 +49,10 @@ async function handleReturn(request) {
     let order = await prisma.order.findUnique({
       where: { orderId: orderid }
     });
-    
     if (!order && returnData.referenceNo) {
-<<<<<<< HEAD
-      order = await prisma.order.findUnique({
-        where: { referenceNo: returnData.referenceNo }
-=======
       order = await prisma.order.findFirst({
         where: { referenceNo: returnData.referenceNo },
         orderBy: { createdAt: 'desc' }
->>>>>>> 39430cbd261a83516427ac88ec6aaa0d15e87e01
       });
 
       if (order) {
@@ -71,7 +65,6 @@ async function handleReturn(request) {
       }
 
     }
-    
     if(!order) return createRedirectResponse(`${baseUrl}payment/failed?orderid=${encodeURIComponent(orderid)}&error=order_not_found`);
 
     // Inject order details for API calls
