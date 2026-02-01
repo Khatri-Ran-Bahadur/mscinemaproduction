@@ -66,13 +66,10 @@ export function middleware(request) {
     const apiKey = request.headers.get('x-api-key');
     const secretKey = process.env.API_SECRET_KEY;
 
-    // List of internal/protected general APIs
+    // List of internal/protected general APIs (Website flows)
     const internalApiRoutes = [
         '/api/orders',
-        '/api/admin/contacts',
-        '/api/auth/send-activation-email',
-        '/api/auth/send-forgot-password-email',
-        '/api/payment'
+        '/api/payment/create-request'
     ];
 
     if (internalApiRoutes.some(route => pathname.startsWith(route))) {

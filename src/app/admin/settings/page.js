@@ -3,6 +3,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { toast, Toaster } from 'react-hot-toast';
+import { adminFetch } from '@/utils/admin-api';
 
 export default function AdminSettings() {
   const [email, setEmail] = useState('');
@@ -15,7 +16,7 @@ export default function AdminSettings() {
 
   const fetchSettings = async () => {
     try {
-      const res = await fetch('/api/admin/settings');
+      const res = await adminFetch('/api/admin/settings');
       if (res.ok) {
         const data = await res.json();
         if (data.contact_recipient_email) {
@@ -35,7 +36,7 @@ export default function AdminSettings() {
     setSaving(true);
 
     try {
-      const res = await fetch('/api/admin/settings', {
+      const res = await adminFetch('/api/admin/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ contact_recipient_email: email }),

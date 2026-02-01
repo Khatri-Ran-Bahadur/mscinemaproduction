@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Image as ImageIcon, Plus, Edit, Trash2, X, Save, Link as LinkIcon } from 'lucide-react';
+import { adminFetch } from '@/utils/admin-api';
 
 export default function PromotionsPage() {
   const router = useRouter();
@@ -36,7 +37,7 @@ export default function PromotionsPage() {
   const fetchInitialData = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch('/api/admin/promotions');
+      const res = await adminFetch('/api/admin/promotions');
       const data = await res.json();
       if (data.success) {
         setPromotions(data.promotions);
@@ -92,7 +93,7 @@ export default function PromotionsPage() {
   const confirmDelete = async () => {
     if (!currentPromotion) return;
     try {
-      const res = await fetch(`/api/admin/promotions/${currentPromotion.id}`, {
+      const res = await adminFetch(`/api/admin/promotions/${currentPromotion.id}`, {
         method: 'DELETE',
       });
       const data = await res.json();
@@ -127,13 +128,13 @@ export default function PromotionsPage() {
       setIsSubmitting(true);
       let res;
       if (currentPromotion) {
-        res = await fetch(`/api/admin/promotions/${currentPromotion.id}`, {
+        res = await adminFetch(`/api/admin/promotions/${currentPromotion.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
       } else {
-        res = await fetch('/api/admin/promotions', {
+        res = await adminFetch('/api/admin/promotions', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
@@ -165,7 +166,7 @@ export default function PromotionsPage() {
 
     try {
       setIsUploading(true);
-      const res = await fetch('/api/upload', {
+      const res = await adminFetch('/api/upload', {
         method: 'POST',
         body: uploadData,
       });

@@ -59,10 +59,12 @@ export default function ForgotPasswordPage() {
       
       // Call API to send forgot password email
       try {
+        const { API_CONFIG } = await import('@/config/api');
         const emailResponse = await fetch('/api/auth/send-forgot-password-email', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            'x-api-key': API_CONFIG.API_SECRET_KEY,
           },
           body: JSON.stringify({
             userId: userId,

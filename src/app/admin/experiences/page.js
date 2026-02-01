@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Image as ImageIcon, Plus, Edit, Trash2, X, Save, Type, FileText } from 'lucide-react';
+import { adminFetch } from '@/utils/admin-api';
 
 export default function ExperiencesPage() {
   const router = useRouter();
@@ -41,7 +42,7 @@ export default function ExperiencesPage() {
   const fetchInitialData = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch('/api/admin/experiences');
+      const res = await adminFetch('/api/admin/experiences');
       const data = await res.json();
       
       if (data.success) {
@@ -99,7 +100,7 @@ export default function ExperiencesPage() {
     if (!currentExperience) return;
     
     try {
-      const res = await fetch(`/api/admin/experiences/${currentExperience.id}`, {
+      const res = await adminFetch(`/api/admin/experiences/${currentExperience.id}`, {
         method: 'DELETE',
       });
       const data = await res.json();
@@ -140,14 +141,14 @@ export default function ExperiencesPage() {
       let res;
       if (currentExperience) {
         // Update
-        res = await fetch(`/api/admin/experiences/${currentExperience.id}`, {
+        res = await adminFetch(`/api/admin/experiences/${currentExperience.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
       } else {
         // Create
-        res = await fetch('/api/admin/experiences', {
+        res = await adminFetch('/api/admin/experiences', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
@@ -181,7 +182,7 @@ export default function ExperiencesPage() {
 
     try {
       setIsUploading(true);
-      const res = await fetch('/api/upload', {
+      const res = await adminFetch('/api/upload', {
         method: 'POST',
         body: uploadData,
       });

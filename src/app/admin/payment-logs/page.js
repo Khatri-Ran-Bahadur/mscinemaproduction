@@ -13,6 +13,7 @@ import {
     Info
 } from 'lucide-react';
 import { timeAgo } from '@/utils/timeAgo';
+import { adminFetch } from '@/utils/admin-api';
 
 export default function PaymentLogsPage() {
     const [logs, setLogs] = useState([]);
@@ -49,7 +50,7 @@ export default function PaymentLogsPage() {
                 paymentStatus: filterPaymentStatus !== 'All' ? filterPaymentStatus : ''
             });
             
-            const res = await fetch(`/api/admin/payment-logs?${params.toString()}`);
+            const res = await adminFetch(`/api/admin/payment-logs?${params.toString()}`);
             const data = await res.json();
             if (data.success) {
                 setLogs(data.data);

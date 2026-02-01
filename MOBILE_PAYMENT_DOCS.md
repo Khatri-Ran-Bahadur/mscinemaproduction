@@ -29,13 +29,61 @@ To ensure data consistency and prevent double bookings, follow this exact sequen
 
 Call this when the user enters the payment phase. This endpoint is idempotent; if called multiple times with the same `referenceNo`, it will update the existing record rather than creating a duplicate.
 
-**Request Body Highlights**:
-*   `referenceNo`: The unique booking reference from the cinema system (e.g., `B1A...`).
-*   `amount`: The total price to charge.
-*   `seats`: Can be a string or JSON array of seat numbers.
+**Request Body Parameters**:
+
+| Parameter | Type | Required | Description |
+| :--- | :--- | :--- | :--- |
+| `amount` | Number/String | Yes | Total payment amount (e.g., `18.50`). |
+| `referenceNo` | String | Yes | The unique booking reference from cinema system (e.g., `B1A...`). |
+| `customerEmail` | String | Yes | Customer's email address for ticket delivery. |
+| `customerName` | String | No | Customer's full name. |
+| `customerPhone` | String | No | Customer's mobile number. |
+| `movieTitle` | String | No | Title of the movie. |
+| `movieId` | String/Int | No | Internal ID of the movie. |
+| `cinemaName` | String | No | Name of the cinema branch. |
+| `cinemaId` | String | No | Internal ID of the cinema. |
+| `hallName` | String | No | Name of the hall. |
+| `showId` | String | No | Internal ID of the showtime. |
+| `showTime` | String | No | ISO Date/Time of the show. |
+| `seats` | Array/String | No | Selection of seats (e.g., `["A1", "A2"]`). |
+| `ticketType` | String | No | Description of ticket categories. |
+| `currency` | String | No | Currency code (Default: `MYR`). |
+| `country` | String | No | Country code (Default: `MY`). |
+| `sandboxMode` | Boolean | No | Set `true` for testing/sandbox environment. |
+| `devMode` | Boolean | No | Set `true` for development logging. |
+
+**Example Request**:
+```json
+{
+  "amount": 25.00,
+  "referenceNo": "B1A66723",
+  "customerEmail": "user@example.com",
+  "customerName": "John Doe",
+  "movieTitle": "Gladiator II",
+  "seats": ["H10", "H11"],
+  "sandboxMode": true
+}
+```
 
 **Response**:
-Returns the `payload` object which should be passed directly to the Fiuu Mobile SDK initialization.
+Returns the `payload` object which must be passed to the Fiuu Mobile SDK.
+```json
+{
+  "status": true,
+  "orderId": "MOB173...456",
+  "payload": {
+    "mp_merchant_ID": "...",
+    "mp_app_name": "MSCinemas",
+    "mp_amount": "25.00",
+    "mp_order_ID": "MOB173...456",
+    "mp_verification_key": "...",
+    "mp_bill_name": "John Doe",
+    "mp_bill_email": "user@example.com",
+    "mp_sandbox_mode": true
+    // ... other SDK required fields
+  }
+}
+```
 
 ---
 

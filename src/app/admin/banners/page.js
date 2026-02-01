@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Image as ImageIcon, Plus, Edit, Trash2, X, Save, Film, Link as LinkIcon, Type } from 'lucide-react';
 import { getMovies } from '@/services/api/movies';
+import { adminFetch } from '@/utils/admin-api';
 
 export default function BannersPage() {
   const router = useRouter();
@@ -49,7 +50,7 @@ export default function BannersPage() {
     setIsLoading(true);
     try {
       // Fetch banners
-      const bannersRes = await fetch('/api/admin/banners');
+      const bannersRes = await adminFetch('/api/admin/banners');
       const bannersData = await bannersRes.json();
       
       if (bannersData.success) {
@@ -121,7 +122,7 @@ export default function BannersPage() {
     if (!currentBanner) return;
     
     try {
-      const res = await fetch(`/api/admin/banners/${currentBanner.id}`, {
+      const res = await adminFetch(`/api/admin/banners/${currentBanner.id}`, {
         method: 'DELETE',
       });
       const data = await res.json();
@@ -164,14 +165,14 @@ export default function BannersPage() {
       let res;
       if (currentBanner) {
         // Update
-        res = await fetch(`/api/admin/banners/${currentBanner.id}`, {
+        res = await adminFetch(`/api/admin/banners/${currentBanner.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
       } else {
         // Create
-        res = await fetch('/api/admin/banners', {
+        res = await adminFetch('/api/admin/banners', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
@@ -206,7 +207,7 @@ export default function BannersPage() {
 
     try {
       setIsUploading(true);
-      const res = await fetch('/api/upload', {
+      const res = await adminFetch('/api/upload', {
         method: 'POST',
         body: uploadData,
       });
