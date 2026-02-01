@@ -67,7 +67,26 @@ async function handleCallback(request) {
     });
 
     // Check existing order to get token and flags
-    const order = await prisma.order.findUnique({ where:{ orderId: orderid }});
+    let order = await prisma.order.findUnique({
+      where: { orderId: orderid }
+    });
+    
+    if (!order && returnData.referenceNo) {
+      order = await prisma.order.findUnique({
+        where: { referenceNo: returnData.referenceNo }
+      });
+
+      if (order) {
+        order = await prisma.order.update({
+          where: { id: order.id }, // use primary key
+          data: {
+            orderId: orderid
+          }
+        });
+      }
+      
+    }
+    
 
     if (order ) {
         // Inject order details for API calls if needed (fallback if returnData is missing them)
