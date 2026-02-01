@@ -6,8 +6,11 @@
 export const adminFetch = async (url, options = {}) => {
   const token = localStorage.getItem('adminToken');
   
+  // Don't set Content-Type if we're sending FormData (browser handles it with boundary)
+  const isFormData = options.body instanceof FormData;
+  
   const headers = {
-    'Content-Type': 'application/json',
+    ...(!isFormData ? { 'Content-Type': 'application/json' } : {}),
     ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
     ...options.headers,
   };

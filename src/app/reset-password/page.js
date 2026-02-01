@@ -35,6 +35,8 @@ export default function ResetPasswordPage() {
     const finalEncryptedUserId = encryptedUserId || storedUserId;
     const finalToken = urlToken || storedToken;
     const finalTimestamp = storedTimestamp; // Timestamp is only in localStorage, not URL
+
+  
     
     if (finalEncryptedUserId && finalToken) {
       try {
@@ -73,13 +75,7 @@ export default function ResetPasswordPage() {
             setError('This password reset link has expired. Please request a new password reset link.');
             return;
           }
-        } else {
-          // No timestamp found - for security, treat as expired if token is from URL
-          if (urlToken) {
-            setError('Invalid reset link. Please request a new password reset.');
-            return;
-          }
-        }
+        } 
         
         // Decrypt the user ID unless a 'type' is specified (which implies direct use of ID)
         if (type) {

@@ -301,7 +301,7 @@ export default function PaymentPage() {
   }, [isLoading]);
 
   // Handle payment method button click
-  const handlePaymentClick = (method, e) => {
+  const handlePaymentClick = async (method, e) => {
     e.preventDefault();
     
     if (!agreedToTerms) {
@@ -368,9 +368,13 @@ export default function PaymentPage() {
     // Don't set isProcessing to true here - allow multiple clicks
     setError('');
 
+    const { API_CONFIG } = await import('@/config/api');
     // Call API to get payment parameters FIRST to ensure we have the correct Order ID
     fetch('/api/payment/create-request', {
       method: 'POST',
+      headers: {
+        'x-api-key': API_CONFIG.API_SECRET_KEY,
+      },
       body: formDataToSend,
     })
       .then(response => response.json())
@@ -409,7 +413,10 @@ export default function PaymentPage() {
 
         return fetch('/api/orders', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+              'Content-Type': 'application/json',
+              'x-api-key': API_CONFIG.API_SECRET_KEY,
+            },
             body: JSON.stringify(orderData)
         }).then(res => res.json())
           .then(orderRes => {

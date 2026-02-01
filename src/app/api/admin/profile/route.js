@@ -6,10 +6,16 @@ import bcrypt from 'bcryptjs';
 export async function PUT(request) {
   try {
     const body = await request.json();
-    const { token, name, email, currentPassword, newPassword } = body;
+    const authHeader = request.headers.get('authorization');
+    const { name, email, currentPassword, newPassword } = body;
+    let token = body.token;
+
+    if (!token && authHeader && authHeader.startsWith('Bearer ')) {
+        token = authHeader.split(' ')[1];
+    }
 
     if (!token) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        return NextResponse.json({ error: 'Unauthorized', message: 'Token missing' }, { status: 401 });
     }
 
     // Decode token to get admin ID (format: id:timestamp)

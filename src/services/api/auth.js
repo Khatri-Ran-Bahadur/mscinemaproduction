@@ -192,10 +192,12 @@ export const activateUser = async (userId) => {
  */
 export const resendActivationEmail = async (userId, email, name = '') => {
   try {
+    const { API_CONFIG } = await import('@/config/api');
     const response = await fetch('/api/auth/send-activation-email', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'x-api-key': API_CONFIG.API_SECRET_KEY,
       },
       body: JSON.stringify({ userId, email, name }),
     });

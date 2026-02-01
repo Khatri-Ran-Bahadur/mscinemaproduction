@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Save, Phone, Mail, MapPin, Image as ImageIcon, Type, FileText } from 'lucide-react';
 import dynamic from 'next/dynamic';
+import { adminFetch } from '@/utils/admin-api';
 
 const ReactQuill = dynamic(() => import('react-quill-new'), { ssr: false });
 import 'react-quill-new/dist/quill.snow.css';
@@ -39,7 +40,7 @@ export default function AboutContentPage() {
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch('/api/admin/about/general');
+      const res = await adminFetch('/api/admin/about/general');
       const data = await res.json();
       if (data.success) {
         setFormData({
@@ -68,7 +69,7 @@ export default function AboutContentPage() {
 
     try {
       setIsUploading(true);
-      const res = await fetch('/api/upload', { method: 'POST', body: uploadData });
+      const res = await adminFetch('/api/upload', { method: 'POST', body: uploadData });
       const data = await res.json();
       if (data.success) {
         setFormData(prev => ({ ...prev, image: data.url }));
@@ -87,7 +88,7 @@ export default function AboutContentPage() {
     e.preventDefault();
     setIsSaving(true);
     try {
-      const res = await fetch('/api/admin/about/general', {
+      const res = await adminFetch('/api/admin/about/general', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)

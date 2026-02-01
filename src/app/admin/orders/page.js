@@ -26,6 +26,7 @@ import TicketModal from '@/components/TicketModal';
 import OrderDetailsModal from '@/components/admin/OrderDetailsModal';
 import { booking } from '@/services/api';
 import { timeAgo } from '@/utils/timeAgo';
+import { adminFetch } from '@/utils/admin-api';
 
 export default function AdminOrdersPage() {
     const [orders, setOrders] = useState([]);
@@ -80,7 +81,7 @@ export default function AdminOrdersPage() {
                 date: dateFilter
             });
             
-            const res = await fetch(`/api/admin/orders?${params.toString()}`);
+            const res = await adminFetch(`/api/admin/orders?${params.toString()}`);
             const data = await res.json();
             if (data.success) {
                 setOrders(data.orders);
@@ -151,7 +152,7 @@ export default function AdminOrdersPage() {
         
         setIsDeleting(true);
         try {
-            const res = await fetch('/api/admin/orders', {
+            const res = await adminFetch('/api/admin/orders', {
                 method: 'DELETE',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ ids: [orderId] })
@@ -183,7 +184,7 @@ export default function AdminOrdersPage() {
         
         setIsDeleting(true);
         try {
-            const res = await fetch('/api/admin/orders', {
+            const res = await adminFetch('/api/admin/orders', {
                 method: 'DELETE',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ ids: selectedOrders })
@@ -314,7 +315,7 @@ export default function AdminOrdersPage() {
         if (!statusOrder) return;
 
         try {
-            const res = await fetch(`/api/admin/orders/${statusOrder.id}/status`, {
+            const res = await adminFetch(`/api/admin/orders/${statusOrder.id}/status`, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({ status: newStatus })
@@ -338,7 +339,7 @@ export default function AdminOrdersPage() {
         if (!confirm(`Resend ticket email to ${order.customerEmail}?`)) return;
         
         try {
-            const res = await fetch(`/api/admin/orders/${order.id}/resend-email`, {
+            const res = await adminFetch(`/api/admin/orders/${order.id}/resend-email`, {
                 method: 'POST'
             });
             const data = await res.json();
@@ -362,7 +363,7 @@ export default function AdminOrdersPage() {
         if (!reserveOrder) return;
         setProcessingReserve(true);
         try {
-            const res = await fetch(`/api/admin/orders/${reserveOrder.id}/reserve`, {
+            const res = await adminFetch(`/api/admin/orders/${reserveOrder.id}/reserve`, {
                 method: 'POST'
             });
             const data = await res.json();

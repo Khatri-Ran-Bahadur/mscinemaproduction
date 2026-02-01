@@ -22,6 +22,7 @@ export async function POST(request) {
 
     // Encrypt the user ID for the reset link, unless type is provided (mismatch avoid)
     const finalUserId = type ? userId : encryptId(userId);
+    const encryptedUserId = encryptId(userId);
 
     // Generate reset password URL
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
@@ -38,7 +39,7 @@ export async function POST(request) {
       success: true,
       message: 'Password reset email sent successfully',
       resetUrl: resetUrl,
-      encryptedUserId: encryptedUserId,
+      encryptedUserId:encryptedUserId,
       messageId: emailResult.messageId,
     });
   } catch (error) {

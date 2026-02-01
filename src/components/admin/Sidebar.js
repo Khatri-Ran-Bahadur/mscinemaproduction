@@ -123,12 +123,18 @@ export default function AdminSidebar() {
       {/* Footer / User Info */}
       <div className="p-4 border-t border-[#3a3a3a] bg-[#252525]">
         <Link href="/admin/profile" className="flex items-center gap-3 mb-4 px-2 hover:bg-[#3a3a3a] p-2 rounded transition cursor-pointer group">
-          <div className="w-10 h-10 rounded-full bg-[#3a3a3a] flex items-center justify-center border border-[#4a4a4a] group-hover:border-[#FFCA20] transition">
-             <span className="text-[#FFCA20] font-bold">A</span>
+          <div className="w-10 h-10 rounded-full bg-[#3a3a3a] border border-[#FFCA20]/30 flex items-center justify-center group-hover:border-[#FFCA20] transition">
+             <span className="text-[#FFCA20] font-bold">
+               {typeof window !== 'undefined' ? (JSON.parse(localStorage.getItem('adminData') || '{}').name?.charAt(0) || 'A') : 'A'}
+             </span>
           </div>
           <div className="overflow-hidden">
-            <p className="text-sm font-medium text-white truncate group-hover:text-[#FFCA20] transition">Administrator</p>
-            <p className="text-xs text-[#888] truncate">admin@mscinema.com</p>
+            <p className="text-sm font-medium text-white truncate group-hover:text-[#FFCA20] transition">
+              {typeof window !== 'undefined' ? (JSON.parse(localStorage.getItem('adminData') || '{}').name || 'Administrator') : 'Administrator'}
+            </p>
+            <p className="text-xs text-[#888] truncate">
+              {typeof window !== 'undefined' ? (JSON.parse(localStorage.getItem('adminData') || '{}').email || 'admin@mscinema.com') : 'admin@mscinema.com'}
+            </p>
           </div>
         </Link>
         

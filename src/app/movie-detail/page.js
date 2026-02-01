@@ -541,7 +541,10 @@ export default function MovieBooking() {
       
       // Check if age is already confirmed in localStorage
       const ageConfirmed = localStorage.getItem('age_confirmed');
-      if (!ageConfirmed) {
+      // Only show age restriction modal if rating is 18 and not yet confirmed
+      const isRestricted = movieRating && movieRating.toString().includes('18');
+
+      if (isRestricted && !ageConfirmed) {
         setShowAgeConfirmationModal(true);
       } else {
         proceedToTicketType(idx);
@@ -1075,7 +1078,7 @@ export default function MovieBooking() {
       {/* Age Confirmation Modal */}
       {showAgeConfirmationModal && (
         <AgeConfirmationModal
-          moviesList={moviesList}
+          rating={movieRating}
           onConfirm={() => {
             localStorage.setItem('age_confirmed', 'true');
             setShowAgeConfirmationModal(false);
@@ -1096,7 +1099,11 @@ export default function MovieBooking() {
 }
 
 // Age Confirmation Modal Component
-function AgeConfirmationModal({ onConfirm, onClose }) {
+function AgeConfirmationModal({ rating, onConfirm, onClose }) {
+  // Extract number from rating (e.g., "18")
+  const ratingMatch = rating ? rating.toString().match(/\d+/) : null;
+  const ratingNumber = ratingMatch ? ratingMatch[0] : "18";
+
   return (
     <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={onClose}>
       <div 
@@ -1105,7 +1112,7 @@ function AgeConfirmationModal({ onConfirm, onClose }) {
       >
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-[#2a2a2a]">
-          <h2 className="text-xl font-bold text-[#FAFAFA]">Confirmation</h2>
+          <h2 className="text-xl font-bold text-[#FAFAFA]">Age Confirmation</h2>
           <button
             onClick={onClose}
             className="text-[#FAFAFA] hover:text-[#FFCA20] transition"
@@ -1116,20 +1123,19 @@ function AgeConfirmationModal({ onConfirm, onClose }) {
 
         {/* Content */}
         <div className="p-6">
-          {/* Icon Circle */}
+          {/* Icon Section */}
           <div className="flex justify-center mb-6">
-            <div >
-             <img src="/img/ageimages.png" alt="Age Confirmation" />
+            <div className="bg-[#1a1a1a] p-1 rounded-lg">
+              <RatingIcon rating={rating} className="w-24 h-24" />
             </div>
           </div>
 
           {/* Age Confirmation Text */}
           <div className="text-center mb-6">
-            <p className="text-[#FAFAFA] text-sm leading-relaxed">
-              Please confirm you are above <span className="font-bold text-[#FFCA20]">"18"</span> age, Verification will be done at the checkout.
+            <p className="text-[#FAFAFA] text-base leading-relaxed">
+              Please confirm you are above <span className="font-bold text-[#FFCA20]">"{ratingNumber}"</span> years old. Verification will be carried out at the ticket counter.
             </p>
           </div>
-
 
           {/* Confirm Button */}
           <button
