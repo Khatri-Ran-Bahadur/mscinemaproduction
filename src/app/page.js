@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Play, Star, ChevronLeft, ChevronRight, ArrowRight, Film, Clock, Volume2, X } from 'lucide-react';
 import Header from '@/components/header';
 import Footer from '@/components/footer';
-import { movies as moviesAPI } from '@/services/api';
+import { movies as moviesAPI, home } from '@/services/api';
 import { APIError } from '@/services/api';
 import { ExperienceOurHall } from '@/components/Homepage/ExperienceOurHall';
 import { Promotions } from '@/components/Homepage/Promotions';
@@ -106,12 +106,11 @@ export default function MovieStreamingSite() {
     setError('');
     try {
       // Fetch Movies and Banners in parallel
-      const [moviesData, bannersRes] = await Promise.all([
+      const [moviesData, bannersData] = await Promise.all([
         moviesAPI.getMovies(),
-        fetch('/api/banners')
+        home.getBanners()
       ]);
       
-      const bannersData = await bannersRes.json();
       const activeBanners = bannersData.success ? bannersData.banners : [];
 
       if (!Array.isArray(moviesData) || moviesData.length === 0) {

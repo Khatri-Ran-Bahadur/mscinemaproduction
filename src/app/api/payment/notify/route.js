@@ -138,9 +138,9 @@ export async function POST(request) {
             where: { 
                 OR: [
                     { orderId: orderid },
-                    // Make sure we handle potential prefix nuances if any
                 ]
-            }
+            },
+            orderBy: { createdAt: 'desc' }
         });
 
         if (order) {

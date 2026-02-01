@@ -4,6 +4,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Header from '@/components/header';
 import Footer from '@/components/footer';
+import { home } from '@/services/api';
 import { Mail, Phone, MapPin, Send, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import ReCAPTCHA from "react-google-recaptcha";
 
@@ -79,12 +80,9 @@ export default function ContactPage() {
 
   const fetchContactInfo = async () => {
     try {
-      const res = await fetch('/api/contact-info');
-      if (res.ok) {
-        const data = await res.json();
-        if (data && data.length > 0) {
-          setContactInfos(data);
-        }
+      const data = await home.getContactInfo();
+      if (data && data.length > 0) {
+        setContactInfos(data);
       }
     } catch (error) {
       console.error('Failed to fetch contact info:', error);

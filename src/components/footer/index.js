@@ -2,19 +2,13 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { home } from '@/services/api';
 
 export default function Footer() {
-    const [serverTime, setServerTime] = useState('');
     const [contactInfo, setContactInfo] = useState({ email: '', address: '' });
 
     useEffect(() => {
-        fetch('/api/time')
-            .then(res => res.json())
-            .then(data => setServerTime(data.malaysiaTime))
-            .catch(err => console.error('Time fetch error:', err));
-            
-        fetch('/api/contact-info')
-            .then(res => res.json())
+        home.getContactInfo()
             .then(data => {
                 if (Array.isArray(data)) {
                     const emailInfo = data.find(info => info.type === 'email');

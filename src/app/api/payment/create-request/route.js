@@ -88,11 +88,10 @@ export async function POST(request) {
     let orderId = paymentData.orderId;
     const existingByRef = await prisma.order.findFirst({
       where: {
-      referenceNo: referenceNo,
-      status: { notIn: ['CANCELLED', 'FAILED'] }
+        referenceNo: referenceNo
       },
       orderBy: { createdAt: 'desc' }
-      });
+    });
       
       
     if (existingByRef) {

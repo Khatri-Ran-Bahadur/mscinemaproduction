@@ -119,7 +119,7 @@ model ContactInfo {
 model Order {
   id            Int      @id @default(autoincrement())
   orderId       String?  @unique // Payment Gateway Order ID (MS...)
-  referenceNo   String   // Booking Reference Number (B1A...) - Ticket Ref
+  referenceNo   String  @unique // Booking Reference Number (B1A...) - Ticket Ref
   transactionNo String?  // Payment Transaction ID
   customerName  String?
   customerEmail String?
