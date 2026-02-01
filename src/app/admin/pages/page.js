@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { FileText, Plus, Edit, Trash2, X, Save, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
+import { adminFetch } from '@/utils/admin-api';
 const ReactQuill = dynamic(() => import('react-quill-new'), { ssr: false });
 import 'react-quill-new/dist/quill.snow.css';
 
@@ -35,7 +36,7 @@ export default function PagesManagementPage() {
   const fetchPages = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch('/api/admin/pages');
+      const res = await adminFetch('/api/admin/pages');
       const data = await res.json();
       if (data.success) {
         setPages(data.pages || []);
@@ -81,7 +82,7 @@ export default function PagesManagementPage() {
   const confirmDelete = async () => {
     if (!currentPage) return;
     try {
-      const res = await fetch(`/api/admin/pages/${currentPage.id}`, { method: 'DELETE' });
+      const res = await adminFetch(`/api/admin/pages/${currentPage.id}`, { method: 'DELETE' });
       const data = await res.json();
       if (data.success) {
         setPages(pages.filter(p => p.id !== currentPage.id));
@@ -101,7 +102,7 @@ export default function PagesManagementPage() {
       const url = currentPage ? `/api/admin/pages/${currentPage.id}` : '/api/admin/pages';
       const method = currentPage ? 'PUT' : 'POST';
       
-      const res = await fetch(url, {
+      const res = await adminFetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)

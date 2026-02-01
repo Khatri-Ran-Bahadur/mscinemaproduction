@@ -60,6 +60,7 @@ export default function MovieBooking() {
   const [availableDates, setAvailableDates] = useState([]);
   const [moviesList, setMoviesList] = useState([]);
   const [showTimeRestrictionModal, setShowTimeRestrictionModal] = useState(false);
+  const [isShowTimesLoading, setIsShowTimesLoading] = useState(false);
   
   // Refs to prevent duplicate API calls
   const hasLoadedMovies = useRef(false);
@@ -68,77 +69,74 @@ export default function MovieBooking() {
   const hasLoadedShowTimes = useRef(false);
   const hasLoadedShowDates = useRef(false);
   const lastMovieId = useRef(null);
+    const isLoadingData = useRef(false);
 
-  useEffect(() => {
-    // Reset refs when movieId actually changes
-    if (movieId && lastMovieId.current !== movieId) {
-      hasLoadedMovieDetails.current = false;
-      hasLoadedCinemas.current = false;
-      hasLoadedShowTimes.current = false;
-      hasLoadedShowDates.current = false;
-      lastMovieId.current = movieId;
-    }
-    
-    // Load all data in sequence to prevent duplicate calls
-    const loadData = async () => {
-      // Step 1: Load movies list first (only once per session)
-      let allMoviesData = [];
-      if (!hasLoadedMovies.current) {
-        hasLoadedMovies.current = true; // Set immediately to prevent duplicate calls
-        allMoviesData = await loadMoviesList();
-      } else {
-        // If already loaded, use existing moviesList state
-        // Wait a bit for state to update if needed
-        if (moviesList.length === 0) {
-          // Wait up to 500ms for state to update
-          for (let i = 0; i < 10; i++) {
-            await new Promise(resolve => setTimeout(resolve, 50));
-            if (moviesList.length > 0) {
-              allMoviesData = moviesList;
-              break;
-            }
-          }
-          // If still empty, fetch fresh (shouldn't happen but safety net)
-          if (allMoviesData.length === 0) {
-            allMoviesData = await loadMoviesList();
-          }
-        } else {
-          allMoviesData = moviesList;
+    useEffect(() => {
+        if (!movieId || !cinemaId) return;
+
+        // Reset refs when movieId actually changes
+        if (lastMovieId.current !== movieId) {
+            hasLoadedMovieDetails.current = false;
+            hasLoadedCinemas.current = false;
+            hasLoadedShowTimes.current = false;
+            hasLoadedShowDates.current = false;
+            lastMovieId.current = movieId;
         }
-      }
-      
-      // Step 2: Load movie details (uses movies data from step 1 - no additional API call)
-      if (movieId && !hasLoadedMovieDetails.current) {
-        hasLoadedMovieDetails.current = true; // Set immediately to prevent duplicate calls
-        await loadMovieDetails(allMoviesData);
-      }
-      
-      // Step 3: Load show dates for the movie (if not already loaded)
-      if (movieId && cinemaId && !hasLoadedShowDates.current) {
-        await loadShowDatesForMovie();
-      }
-      
-      // Step 4: Load cinemas and show times (only once per movieId)
-      if (movieId && (!hasLoadedCinemas.current || !hasLoadedShowTimes.current)) {
-        hasLoadedCinemas.current = true; // Set immediately to prevent duplicate calls
-        hasLoadedShowTimes.current = true; // Set immediately to prevent duplicate calls
-        await loadCinemasAndShowTimes();
-      }
-      
-      // All data loaded, hide main loader
-      setIsLoading(false);
-    };
-    
-    loadData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [movieId, cinemaId]);
+
+        const loadData = async () => {
+            if (isLoadingData.current) return;
+            isLoadingData.current = true;
+            
+            console.log('[MovieDetail] Starting data load for movie:', movieId);
+            
+            try {
+                // Step 1: Load movies list (highly cached in service)
+                const allMoviesData = await loadMoviesList();
+                
+                // Step 2: Set movie details from the list
+                if (!hasLoadedMovieDetails.current) {
+                    await loadMovieDetails(allMoviesData);
+                    hasLoadedMovieDetails.current = true;
+                }
+                
+                // Once movie info is ready, hide the main full-screen loader immediately
+                // This lets the user see the movie title, image, etc.
+                setIsLoading(false);
+                
+                // Step 3: Load cinemas and show times in the background
+                if (!hasLoadedCinemas.current || !hasLoadedShowTimes.current) {
+                    setIsShowTimesLoading(true);
+                    const result = await loadCinemasAndShowTimes();
+                    hasLoadedCinemas.current = true;
+                    hasLoadedShowTimes.current = true;
+                    hasLoadedShowDates.current = true; // Mark as loaded since we derive them
+                    
+                    // After loading showtimes and dates, we need to ensure the first date is filtered
+                    if (result && result.firstDateObj && result.allShowTimes) {
+                      const hasLastSelectedShowTime = localStorage.getItem('lastSelectedShowTime');
+                      filterShowTimesByDateAndMovie(result.firstDateObj, !!hasLastSelectedShowTime, result.allShowTimes);
+                    }
+                }
+                
+                console.log('[MovieDetail] All data loaded successfully');
+            } catch (err) {
+                console.error('[MovieDetail] Error in loadData:', err);
+                setError(err.message || 'Failed to load movie data');
+                setIsLoading(false); // Hide full page loader on error
+            } finally {
+                setIsShowTimesLoading(false);
+                isLoadingData.current = false;
+            }
+        };
+        
+        loadData();
+    }, [movieId, cinemaId]);
 
   // Auto-select experience when movie details are loaded
   useEffect(() => {
     if (movieDetails?.type && !selectedExperience) {
       setSelectedExperience(movieDetails.type);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [movieDetails]);
 
   // Filter show times when date, movie, or experience changes
@@ -148,7 +146,6 @@ export default function MovieBooking() {
       const hasLastSelectedShowTime = localStorage.getItem('lastSelectedShowTime');
       filterShowTimesByDateAndMovie(selectedDateObj, !!hasLastSelectedShowTime);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDateObj, allShowTimes, movieId, selectedExperience]);
 
   const loadMoviesList = async () => {
@@ -167,94 +164,12 @@ export default function MovieBooking() {
 
   // This useEffect is now handled by the one below that includes movieId and selectedExperience
 
-  // Load show dates from API and filter by movie and cinema
-  const loadShowDatesForMovie = async () => {
-    if (!movieId || !cinemaId || hasLoadedShowDates.current) return;
-    
-    try {
-      hasLoadedShowDates.current = true;
-      setError('');
-      
-      // Fetch all show dates from API
-      const allShowDates = await shows.getShowDates();
-      
-      if (!Array.isArray(allShowDates) || allShowDates.length === 0) {
-        setAvailableDates([]);
-        return;
-      }
 
-      // Filter show dates for current movie and cinema
-      const movieIdNum = parseInt(movieId);
-      const cinemaIdNum = parseInt(cinemaId);
-      
-      const filteredShowDates = allShowDates.filter(item => {
-        const itemMovieId = parseInt(item.movieID || item.movieId || 0);
-        const itemCinemaId = parseInt(item.cinemaID || item.cinemaId || 0);
-        
-        return itemMovieId === movieIdNum && itemCinemaId === cinemaIdNum;
-      });
-
-      // Process show dates and convert to display format
-      const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-      const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
-      
-      // Extract unique dates and convert format
-      const uniqueDatesMap = new Map();
-      
-      filteredShowDates.forEach(item => {
-        const showDateStr = item.showDate || item.ShowDate || item.date;
-        if (!showDateStr) return;
-        
-        // Parse DD-MM-YYYY format to Date object
-        const dateParts = showDateStr.split('-');
-        if (dateParts.length === 3) {
-          const day = parseInt(dateParts[0], 10);
-          const month = parseInt(dateParts[1], 10) - 1; // Month is 0-indexed
-          const year = parseInt(dateParts[2], 10);
-          
-          const dateObj = new Date(year, month, day);
-          dateObj.setHours(0, 0, 0, 0);
-          
-          // Use YYYY-MM-DD as key for uniqueness
-          const fullDate = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-          
-          if (!uniqueDatesMap.has(fullDate)) {
-            uniqueDatesMap.set(fullDate, {
-              day: day.toString(),
-              date: days[dateObj.getDay()],
-              month: months[dateObj.getMonth()],
-              fullDate: fullDate,
-              dateObj: dateObj,
-              showDate: showDateStr // Keep original format
-            });
-          }
-        }
-      });
-      
-      // Convert map to array and sort chronologically
-      const dates = Array.from(uniqueDatesMap.values()).sort((a, b) => a.dateObj - b.dateObj);
-      
-      setAvailableDates(dates);
-      
-      // Auto-select first available date if no date is selected
-      if (!selectedDate && dates.length > 0) {
-        setSelectedDate(dates[0].day);
-        setSelectedDateObj(dates[0].dateObj);
-      }
-      
-      
-    } catch (err) {
-      console.error('Error loading show dates:', err);
-      hasLoadedShowDates.current = false; // Reset on error to allow retry
-      setError('Failed to load show dates. Please try again.');
-      // Fallback to empty dates array
-      setAvailableDates([]);
-    }
-  };
 
   // Filter show times by selected date, movieID, and experience type
-  const filterShowTimesByDateAndMovie = (dateObj, restoreShowTime = false) => {
-    if (!dateObj || allShowTimes.length === 0 || !movieId) {
+  const filterShowTimesByDateAndMovie = (dateObj, restoreShowTime = false, showTimesOverride = null) => {
+    const sourceShowTimes = showTimesOverride || allShowTimes;
+    if (!dateObj || sourceShowTimes.length === 0 || !movieId) {
       setFilteredShowTimes([]);
       return;
     }
@@ -313,11 +228,6 @@ export default function MovieBooking() {
       return timeA - timeB;
     });
 
-    console.log('Filtered show times for date', selectedDateStr, 'movie', movieId, ':', filtered.length, filtered);
-    console.log('All show times:', allShowTimes.length);
-    console.log('Selected date string:', selectedDateStr);
-    console.log('Movie ID:', movieId, 'Type:', typeof movieId);
-    console.log('Sample show time:', allShowTimes[0]);
     setFilteredShowTimes(filtered);
     
     // Restore show time selection if coming back from ticket-type page
@@ -395,7 +305,6 @@ export default function MovieBooking() {
   };
 
   const loadCinemasAndShowTimes = async () => {
-    setError('');
     try {
       // Load cinemas
       const cinemasData = await cinemas.getCinemas();
@@ -434,24 +343,74 @@ export default function MovieBooking() {
           : [];
         
         console.log('Loaded show times:', transformedShowTimes.length, 'for cinema:', cinemaId);
-        console.log('Show times for movie', movieId, ':', transformedShowTimes.filter(s => (s.movieID || s.movieId) == movieId));
         
         setAllShowTimes(transformedShowTimes);
         
-        // Note: Available dates are now loaded from getShowDates() API
-        // They are not updated based on show times anymore
+        // Derive available dates for this specific movie at this cinema
+        const movieIdNum = parseInt(movieId);
+        const movieShowTimes = transformedShowTimes.filter(s => {
+          const sMovieId = parseInt(s.movieID || s.movieId || 0);
+          return sMovieId === movieIdNum;
+        });
+
+        const uniqueDatesMap = new Map();
+        const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+
+        movieShowTimes.forEach(item => {
+          const showDateStr = item.showDate;
+          if (!showDateStr) return;
+          
+          // showDate format is usually YYYY-MM-DD from the transformation above
+          const dateParts = showDateStr.split('T')[0].split(' ')[0].split('-');
+          if (dateParts.length === 3) {
+            const year = parseInt(dateParts[0], 10);
+            const month = parseInt(dateParts[1], 10) - 1;
+            const day = parseInt(dateParts[2], 10);
+            
+            const dateObj = new Date(year, month, day);
+            dateObj.setHours(0, 0, 0, 0);
+            
+            const fullDate = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            
+            if (!uniqueDatesMap.has(fullDate)) {
+              uniqueDatesMap.set(fullDate, {
+                day: day.toString(),
+                date: days[dateObj.getDay()],
+                month: months[dateObj.getMonth()],
+                fullDate: fullDate,
+                dateObj: dateObj,
+                showDate: fullDate
+              });
+            }
+          }
+        });
+
+        const dates = Array.from(uniqueDatesMap.values()).sort((a, b) => a.dateObj - b.dateObj);
+        setAvailableDates(dates);
         
-        // Filter will be applied by useEffect when date is selected
+        let firstDateObj = null;
+        // Auto-select first available date if no date is selected
+        if (!selectedDate && dates.length > 0) {
+          setSelectedDate(dates[0].day);
+          setSelectedDateObj(dates[0].dateObj);
+          firstDateObj = dates[0].dateObj;
+        }
+        
+        hasLoadedShowDates.current = true;
+        
+        return {
+          allShowTimes: transformedShowTimes,
+          dates,
+          firstDateObj
+        };
       }
+      return null;
     } catch (err) {
       console.error('Error loading data:', err);
       hasLoadedCinemas.current = false; // Reset on error to allow retry
       hasLoadedShowTimes.current = false; // Reset on error to allow retry
-      if (err instanceof APIError) {
-        setError(err.message || 'Failed to load show times');
-      } else {
-        setError('An unexpected error occurred');
-      }
+      throw err;
     }
   };
   
@@ -541,7 +500,10 @@ export default function MovieBooking() {
       
       // Check if age is already confirmed in localStorage
       const ageConfirmed = localStorage.getItem('age_confirmed');
-      if (!ageConfirmed) {
+      // Only show age restriction modal if rating is 18 and not yet confirmed
+      const isRestricted = movieRating && movieRating.toString().includes('18');
+
+      if (isRestricted && !ageConfirmed) {
         setShowAgeConfirmationModal(true);
       } else {
         proceedToTicketType(idx);
@@ -740,7 +702,7 @@ export default function MovieBooking() {
         </div>
       </div>
 
-      {movieDetails && availableDates.length > 0 ? (
+      {movieDetails ? (
         <div className="mt-8">
         {/* Select Date */}
         <div className="mb-8 px-6 md:px-8">
@@ -780,6 +742,16 @@ export default function MovieBooking() {
                   </button>
                 );
               })
+            ) : isShowTimesLoading ? (
+              <div className="flex gap-3">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="min-w-[70px] h-[90px] rounded-lg bg-[#1a1a1a] border border-[#2a2a2a] animate-pulse flex flex-col items-center justify-center">
+                    <div className="w-8 h-2 bg-[#2a2a2a] mb-2 rounded"></div>
+                    <div className="w-10 h-6 bg-[#2a2a2a] mb-2 rounded"></div>
+                    <div className="w-8 h-2 bg-[#2a2a2a] rounded"></div>
+                  </div>
+                ))}
+              </div>
             ) : (
               <div className="text-sm text-gray-400 py-4">
                 No show dates available for this movie
@@ -794,32 +766,40 @@ export default function MovieBooking() {
         <div className="mb-8 px-6 md:px-8">
           <h2 className="text-sm font-semibold mb-4 text-[#FAFAFA]">Select Experience</h2>
           <div className="flex gap-3 overflow-x-auto pb-2">
-            {experiences.map((exp) => {
-              const isMovieType = exp === movieType;
-              const isSelected = selectedExperience === exp;
-              const isDisabled = !isMovieType;
-              
-              return (
-                <button
-                  key={exp}
-                  onClick={() => {
-                    if (!isDisabled) {
-                      setSelectedExperience(exp);
-                    }
-                  }}
-                  disabled={isDisabled}
-                  className={`px-6 md:px-8 py-2.5 rounded-lg text-sm font-medium transition shrink-0 whitespace-nowrap ${
-                    isSelected
-                      ? 'bg-[#FFCA20] text-black'
-                      : isDisabled
-                      ? 'bg-[#1a1a1a] text-[#666] border border-[#2a2a2a] cursor-not-allowed opacity-50'
-                      : 'bg-[#1a1a1a] text-[#FAFAFA] hover:bg-[#252525] border border-[#2a2a2a]'
-                  }`}
-                >
-                  {exp}
-                </button>
-              );
-            })}
+            {isShowTimesLoading && !selectedExperience ? (
+              <div className="flex gap-3">
+                {[1, 2].map((i) => (
+                  <div key={i} className="px-8 py-5 rounded-lg bg-[#1a1a1a] border border-[#2a2a2a] animate-pulse w-24"></div>
+                ))}
+              </div>
+            ) : (
+              experiences.map((exp) => {
+                const isMovieType = exp === movieType;
+                const isSelected = selectedExperience === exp;
+                const isDisabled = !isMovieType;
+                
+                return (
+                  <button
+                    key={exp}
+                    onClick={() => {
+                      if (!isDisabled) {
+                        setSelectedExperience(exp);
+                      }
+                    }}
+                    disabled={isDisabled}
+                    className={`px-6 md:px-8 py-2.5 rounded-lg text-sm font-medium transition shrink-0 whitespace-nowrap ${
+                      isSelected
+                        ? 'bg-[#FFCA20] text-black'
+                        : isDisabled
+                        ? 'bg-[#1a1a1a] text-[#666] border border-[#2a2a2a] cursor-not-allowed opacity-50'
+                        : 'bg-[#1a1a1a] text-[#FAFAFA] hover:bg-[#252525] border border-[#2a2a2a]'
+                    }`}
+                  >
+                    {exp}
+                  </button>
+                );
+              })
+            )}
           </div>
           {/* Separator Line */}
           <div className="border-b border-[#2a2a2a] mt-4"></div>
@@ -860,10 +840,16 @@ export default function MovieBooking() {
 
           {/* Cinema Location Card */}
           {
-          <div className="bg-[#1a1a1a] rounded-lg p-6 border border-[#2a2a2a]">
+          <div className="bg-[#1a1a1a] rounded-lg p-6 border border-[#2a2a2a] relative min-h-[150px]">
             {/* Showtimes Grid */}
+              {isShowTimesLoading ? (
+                <div className="absolute inset-0 flex items-center justify-center bg-[#1a1a1a]/80 z-10 rounded-lg">
+                  <Loader size="medium" />
+                </div>
+              ) : null}
+              
               {filteredShowTimes.length > 0 ? (
-                <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3 mb-6">
+                <div className={`grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3 mb-6 transition-opacity ${isShowTimesLoading ? 'opacity-30' : 'opacity-100'}`}>
                   {filteredShowTimes.map((show, idx) => {
                     // Determine if show is available for selection
                     // Only available if: sellingStatus = 0 AND allowOnlineSales = true
@@ -1075,7 +1061,7 @@ export default function MovieBooking() {
       {/* Age Confirmation Modal */}
       {showAgeConfirmationModal && (
         <AgeConfirmationModal
-          moviesList={moviesList}
+          rating={movieRating}
           onConfirm={() => {
             localStorage.setItem('age_confirmed', 'true');
             setShowAgeConfirmationModal(false);
@@ -1096,7 +1082,11 @@ export default function MovieBooking() {
 }
 
 // Age Confirmation Modal Component
-function AgeConfirmationModal({ onConfirm, onClose }) {
+function AgeConfirmationModal({ rating, onConfirm, onClose }) {
+  // Extract number from rating (e.g., "18")
+  const ratingMatch = rating ? rating.toString().match(/\d+/) : null;
+  const ratingNumber = ratingMatch ? ratingMatch[0] : "18";
+
   return (
     <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={onClose}>
       <div 
@@ -1105,7 +1095,7 @@ function AgeConfirmationModal({ onConfirm, onClose }) {
       >
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-[#2a2a2a]">
-          <h2 className="text-xl font-bold text-[#FAFAFA]">Confirmation</h2>
+          <h2 className="text-xl font-bold text-[#FAFAFA]">Age Confirmation</h2>
           <button
             onClick={onClose}
             className="text-[#FAFAFA] hover:text-[#FFCA20] transition"
@@ -1116,20 +1106,19 @@ function AgeConfirmationModal({ onConfirm, onClose }) {
 
         {/* Content */}
         <div className="p-6">
-          {/* Icon Circle */}
+          {/* Icon Section */}
           <div className="flex justify-center mb-6">
-            <div >
-             <img src="/img/ageimages.png" alt="Age Confirmation" />
+            <div className="bg-[#1a1a1a] p-1 rounded-lg">
+              <RatingIcon rating={rating} className="w-24 h-24" />
             </div>
           </div>
 
           {/* Age Confirmation Text */}
           <div className="text-center mb-6">
-            <p className="text-[#FAFAFA] text-sm leading-relaxed">
-              Please confirm you are above <span className="font-bold text-[#FFCA20]">"18"</span> age, Verification will be done at the checkout.
+            <p className="text-[#FAFAFA] text-base leading-relaxed">
+              Please confirm you are above <span className="font-bold text-[#FFCA20]">"{ratingNumber}"</span> years old. Verification will be carried out at the ticket counter.
             </p>
           </div>
-
 
           {/* Confirm Button */}
           <button

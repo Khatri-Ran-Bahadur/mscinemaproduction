@@ -1,9 +1,9 @@
 module.exports = {
   apps: [{
-    name: 'mscinemas-nextjs',
+    name: 'mscinemas-staging',
     script: 'npm',
     args: 'start',
-    cwd: '/var/www/mscinemas',
+    cwd: '/var/www/staging',
     instances: 1, // Single instance to prevent CPU spikes
     exec_mode: 'fork', // Use fork mode instead of cluster for better resource control
     autorestart: true,
@@ -18,14 +18,16 @@ module.exports = {
     node_args: '--max-old-space-size=1024', // Optimize Node.js memory
     env: {
       NODE_ENV: 'production',
-      PORT: 3000,
+      PORT: 3001,
       NODE_OPTIONS: '--max-old-space-size=1024',
       TZ: 'Asia/Kuala_Lumpur',
       // Next.js optimization
-      NEXT_TELEMETRY_DISABLED: '1' // Disable telemetry to reduce CPU usage
+      NEXT_TELEMETRY_DISABLED: '1', // Disable telemetry to reduce CPU usage
+      DATABASE_URL:
+          'postgres://USER:PASSWORD@db.prisma.io:5432/postgres?sslmode=require&connection_limit=1'
     },
-    error_file: '/var/log/pm2/mscinemas-error.log',
-    out_file: '/var/log/pm2/mscinemas-out.log',
+    error_file: '/var/log/pm2/mscinemas-staging-error.log',
+    out_file: '/var/log/pm2/mscinemas-staging-out.log',
     log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
     merge_logs: true,
     // CPU throttling to prevent spikes

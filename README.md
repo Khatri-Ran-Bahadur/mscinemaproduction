@@ -13,6 +13,7 @@ pnpm dev
 # or
 bun dev
 ```
+test
 sudo systemctl reload nginx
 pm2 restart mscinemas-nextjs
 

@@ -2,6 +2,7 @@
 
 import React from 'react'
 import { ExperiencesGrid } from '@/components/Experiences/ExperiencesGrid'
+import { home } from '@/services/api'
 
 export const ExperienceOurHall = () => {
   const [experiences, setExperiences] = React.useState([]);
@@ -10,8 +11,7 @@ export const ExperienceOurHall = () => {
   React.useEffect(() => {
     const fetchExperiences = async () => {
       try {
-        const response = await fetch('/api/admin/experiences');
-        const data = await response.json();
+        const data = await home.getExperiences();
         if (data.success) {
           setExperiences(data.experiences);
         }

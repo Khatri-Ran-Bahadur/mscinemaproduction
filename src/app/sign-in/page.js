@@ -18,6 +18,9 @@ export default function SignInPage() {
     email: '',
     password: ''
   });
+  const [resendStatus, setResendStatus] = useState({ type: '', message: '' });
+  const [isResending, setIsResending] = useState(false);
+  const [unactivatedUser, setUnactivatedUser] = useState(null);
 
   useEffect(() => {
     // Check if password reset was successful
@@ -35,6 +38,33 @@ export default function SignInPage() {
     });
     // Clear error when user types
     if (error) setError('');
+    if (resendStatus.message) setResendStatus({ type: '', message: '' });
+  };
+
+  const handleResendActivation = async () => {
+    if (!unactivatedUser) return;
+    
+    setIsResending(true);
+    setResendStatus({ type: '', message: '' });
+    
+    try {
+      await auth.resendActivationEmail(
+        unactivatedUser.userID,
+        unactivatedUser.email,
+        unactivatedUser.name || ''
+      );
+      setResendStatus({ 
+        type: 'success', 
+        message: 'Activation link has been resent to your email.' 
+      });
+    } catch (err) {
+      setResendStatus({ 
+        type: 'error', 
+        message: err.message || 'Failed to resend activation link. Please try again.' 
+      });
+    } finally {
+      setIsResending(false);
+    }
   };
 
   const handleSubmit = async () => {
@@ -51,6 +81,8 @@ export default function SignInPage() {
 
     setIsLoading(true);
     setError('');
+    setResendStatus({ type: '', message: '' });
+    setUnactivatedUser(null);
 
     try {
       await auth.login(formData.email, formData.password);
@@ -58,7 +90,20 @@ export default function SignInPage() {
       router.push('/');
     } catch (err) {
       if (err instanceof APIError) {
-        setError(err.message || 'Login failed. Please check your credentials.');
+        if (err.status === 3) {
+          // User not activated
+          setError(err.message);
+          // Extract user info from error data if available
+          if (err.data) {
+            setUnactivatedUser({
+              userID: err.data.userID || err.data.userId || err.data.UserID,
+              email: formData.email, // Use email from form
+              name: err.data.name || err.data.Name || ''
+            });
+          }
+        } else {
+          setError(err.message || 'Login failed. Please check your credentials.');
+        }
       } else {
         setError('An unexpected error occurred. Please try again.');
       }
@@ -141,6 +186,29 @@ export default function SignInPage() {
             {error && (
               <div className="p-3 bg-red-500/10 border border-red-500/50 rounded text-sm text-red-400">
                 {error}
+                {unactivatedUser && (
+                  <div className="mt-2 text-xs">
+                    Didn't receive the email?{' '}
+                    <button
+                      onClick={handleResendActivation}
+                      disabled={isResending}
+                      className="text-[#FFCA20] hover:underline font-medium disabled:opacity-50"
+                    >
+                      {isResending ? 'Sending...' : 'Resend activation link'}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Resend Status Message */}
+            {resendStatus.message && (
+              <div className={`p-3 border rounded text-sm ${
+                resendStatus.type === 'success' 
+                  ? 'bg-green-500/10 border-green-500/50 text-green-400' 
+                  : 'bg-red-500/10 border-red-500/50 text-red-400'
+              }`}>
+                {resendStatus.message}
               </div>
             )}
 

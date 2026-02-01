@@ -12,6 +12,7 @@ export default function ActivatePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const encryptedUserId = searchParams?.get('userId') || searchParams?.get('userID') || searchParams?.get('id');
+  const type = searchParams?.get('type') || searchParams?.get('Type');
   
   const [isActivating, setIsActivating] = useState(false);
   const [isActivated, setIsActivated] = useState(false);
@@ -29,8 +30,13 @@ export default function ActivatePage() {
     setError('');
 
     try {
-      // Decrypt the user ID from the URL
-      const userId = decryptId(encryptedUserId);
+      // Decrypt the user ID from the URL unless type is present
+      let userId;
+      if (type) {
+        userId = encryptedUserId;
+      } else {
+        userId = decryptId(encryptedUserId);
+      }
       
       if (!userId) {
         throw new Error('Invalid activation link. Unable to decrypt user ID.');

@@ -184,6 +184,37 @@ export const activateUser = async (userId) => {
 };
 
 /**
+ * Resend activation email
+ * @param {string} userId - User ID
+ * @param {string} email - User email
+ * @param {string} name - User name
+ * @returns {Promise<object>} - API response
+ */
+export const resendActivationEmail = async (userId, email, name = '') => {
+  try {
+    const { API_CONFIG } = await import('@/config/api');
+    const response = await fetch('/api/auth/send-activation-email', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': API_CONFIG.API_SECRET_KEY,
+      },
+      body: JSON.stringify({ userId, email, name }),
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to resend activation email');
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Resend activation email error:', error);
+    throw error;
+  }
+};
+
+/**
  * Check if user email is valid
  * @param {string} email - User email
  * @returns {Promise<object>} - Validation response (should contain userID if valid)
@@ -399,6 +430,7 @@ export default {
   login,
   registerUser,
   activateUser,
+  resendActivationEmail,
   isValidUser,
   forgotPassword,
   logout,

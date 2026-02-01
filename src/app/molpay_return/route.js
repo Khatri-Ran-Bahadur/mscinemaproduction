@@ -51,8 +51,14 @@ async function handleReturn(request) {
     });
     
     if (!order && returnData.referenceNo) {
+<<<<<<< HEAD
       order = await prisma.order.findUnique({
         where: { referenceNo: returnData.referenceNo }
+=======
+      order = await prisma.order.findFirst({
+        where: { referenceNo: returnData.referenceNo },
+        orderBy: { createdAt: 'desc' }
+>>>>>>> 39430cbd261a83516427ac88ec6aaa0d15e87e01
       });
 
       if (order) {

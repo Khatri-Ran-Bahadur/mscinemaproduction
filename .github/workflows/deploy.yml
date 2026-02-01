@@ -1,58 +1,77 @@
-name: Deploy Next.js Application to Production Server
+name: Deploy Next.js Staging to EC2
 
 on:
   push:
     branches:
-      - main
+      - dev
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Checkout repository
-      - uses: actions/checkout@v3
+      # 1️⃣ Checkout code
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-      # 2. Setup Node.js
-      - uses: actions/setup-node@v5
+      # 2️⃣ Setup Node.js
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
         with:
-          node-version: '20'  # Or the version your Next.js project uses
+          node-version: '20'
 
-      # 3. Install dependencies
-      - name: Install NPM Dependencies
+      # 3️⃣ Install dependencies
+      - name: Install dependencies
         run: npm ci
 
-      # 4. Build the Next.js project
-      - name: Build Next.js
+      # 4️⃣ Create build-time env file (NEXT_PUBLIC_ only)
+      - name: Create env file for build
+        run: |
+          echo "${{ secrets.STAGING_ENV_FILE }}" > .env.production
+
+      # 5️⃣ Build Next.js app (BUILD HAPPENS HERE)
+      - name: Build Next.js app
         run: npm run build
 
-      # 5. Setup SSH key for rsync
-      - name: Setup SSH Key
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_KEY }}" > ~/.ssh/id_ed25519
-          chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -t ed25519 -p ${{ secrets.SSH_PORT }} ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
 
-      # 6. Deploy built files to server using rsync
-      - name: Copy Next.js Build to Server
+      # 7️⃣ Archive build output
+      - name: Archive build
         run: |
-          rsync -az --delete \
-            -e "ssh -p ${{ secrets.SSH_PORT }} -i ~/.ssh/id_ed25519" \
-            .next/ public/ package.json package-lock.json node_modules next.config.mjs ecosystem.config.js scripts/ \
-            ${{ secrets.SSH_USERNAME }}@${{ secrets.SSH_HOST }}:/var/www/mscinemas
-        env:
-          SSH_KEY: ${{ secrets.SSH_KEY }}
+          tar --exclude='./public/uploads' \
+              --exclude='.git' \
+              -czf next-app.tar.gz \
+              package.json package-lock.json node_modules .next public
 
-      # 7. Run server-side commands (optional)
-      - name: Run Server Commands
-        uses: appleboy/ssh-action@master
+      # 8️⃣ Copy build to EC2
+      - name: Copy build to EC2
+        uses: appleboy/scp-action@v0.1.5
         with:
-          host: ${{ secrets.SSH_HOST }}
-          username: ${{ secrets.SSH_USERNAME }}
-          key: ${{ secrets.SSH_KEY }}
-          port: ${{ secrets.SSH_PORT }}
+          host: ${{ secrets.EC2_HOST }}
+          username: root
+          key: ${{ secrets.EC2_SSH_KEY }}
+          port: 22
+          source: next-app.tar.gz
+          target: /var/www/staging
+
+      # 9️⃣ Deploy & restart with PM2 (NO BUILD ON SERVER)
+      - name: Deploy on EC2
+        uses: appleboy/ssh-action@v0.1.9
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: root
+          key: ${{ secrets.EC2_SSH_KEY }}
+          port: 22
           script: |
-            cd /var/www/mscinemas
-            # Example: restart your Next.js app with pm2
-            pm2 restart nextjs || pm2 start npm --name "nextjs" -- start
+            cd /var/www/staging
+            rm -rf .next node_modules public
+            tar -xzf next-app.tar.gz
+            rm next-app.tar.gz
+            pm2 describe mscinemas-staging > /dev/null
+            if [ $? -eq 0 ]; then
+                PORT=3001 pm2 reload mscinemas-staging
+            else
+                PORT=3001 pm2 start npm --name "mscinemas-staging" -- start
+            fi
+
+            # Save PM2 list
+            pm2 save

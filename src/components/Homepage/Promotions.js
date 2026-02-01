@@ -1,6 +1,7 @@
 "use client"
 import React from 'react'
 import Link from 'next/link'
+import { home } from '@/services/api'
 
 export const Promotions = () => {
   const [promotions, setPromotions] = React.useState([]);
@@ -9,8 +10,7 @@ export const Promotions = () => {
   React.useEffect(() => {
     const fetchPromotions = async () => {
       try {
-        const response = await fetch('/api/admin/promotions');
-        const data = await response.json();
+        const data = await home.getPromotions();
         if (data.success) {
           setPromotions(data.promotions);
         }

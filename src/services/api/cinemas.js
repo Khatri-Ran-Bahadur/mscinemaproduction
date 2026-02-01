@@ -5,20 +5,25 @@
 
 import { get } from './client';
 
-// Module-level cache for cinemas promise
-let cinemasPromise = null;
+// Access or initialize global storage to share across module instances
+const globalScope = typeof window !== 'undefined' ? window : global;
+if (!globalScope._ms_api_cache) {
+  globalScope._ms_api_cache = {};
+}
 
 /**
  * Get all cinemas
  * @returns {Promise<Array>} - Array of cinema locations
  */
 export const getCinemas = async () => {
+  const cache = globalScope._ms_api_cache;
+  
   // If a request is already in progress, return the existing promise
-  if (cinemasPromise) {
-    return cinemasPromise;
+  if (cache.cinemasPromise) {
+    return cache.cinemasPromise;
   }
 
-  cinemasPromise = (async () => {
+  cache.cinemasPromise = (async () => {
     try {
       const response = await get('/CinemaLocation/GetCinemas');
       
@@ -37,12 +42,14 @@ export const getCinemas = async () => {
     } catch (error) {
       console.error('Get cinemas error:', error);
       // Reset promise so next call can retry
-      cinemasPromise = null;
+      setTimeout(() => {
+        cache.cinemasPromise = null;
+      }, 5000);
       return [];
     }
   })();
 
-  return cinemasPromise;
+  return cache.cinemasPromise;
 };
 
 /**

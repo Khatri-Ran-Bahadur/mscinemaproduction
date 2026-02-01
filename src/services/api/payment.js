@@ -30,10 +30,12 @@ const FIUU_CONFIG = {
  */
 export const createPaymentRequest = async (paymentData) => {
   try {
+    const { API_CONFIG } = await import('@/config/api');
     const response = await fetch('/api/payment/create-request', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'x-api-key': API_CONFIG.API_SECRET_KEY,
       },
       body: JSON.stringify(paymentData),
     });

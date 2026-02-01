@@ -1,9 +1,15 @@
-/**
- * API Client - Centralized HTTP client for all API requests
- * Handles authentication, error handling, and request/response interceptors
- */
-
-import { getToken, isTokenExpired, removeToken, getPublicToken, isTokenExpired as isPublicTokenExpired, setPublicToken, removePublicToken, setToken } from '@/utils/storage';
+import { 
+  getToken, 
+  isTokenExpired, 
+  removeToken, 
+  getPublicToken, 
+  isTokenExpired as isPublicTokenExpired, 
+  setPublicToken, 
+  removePublicToken, 
+  setToken,
+  getStorageItem,
+  STORAGE_KEYS
+} from '@/utils/storage';
 import { API_CONFIG } from '@/config/api';
 
 // API Configuration from centralized config
@@ -15,8 +21,19 @@ const {
   PROXY_URL,
 } = API_CONFIG;
 
-// Cache for public token promise to avoid multiple simultaneous requests
-let publicTokenPromise = null;
+// Access or initialize global storage to share across module instances
+const globalScope = typeof window !== 'undefined' ? window : global;
+if (!globalScope._ms_api_cache) {
+  globalScope._ms_api_cache = {};
+}
+
+// Ensure the specific keys exist for token management
+const cache = globalScope._ms_api_cache;
+if (cache.publicTokenPromise === undefined) cache.publicTokenPromise = null;
+if (cache.memoizedPublicToken === undefined) cache.memoizedPublicToken = null;
+if (cache.memoizedTokenExpiration === undefined) cache.memoizedTokenExpiration = null;
+
+const getCache = () => globalScope._ms_api_cache;
 
 /**
  * Custom API Error class
@@ -35,68 +52,90 @@ export class APIError extends Error {
  * @returns {Promise<string|null>} - Public token or null
  */
 const ensurePublicToken = async () => {
-  // Check if user token exists and is valid
+  const cache = getCache();
+
+  // 1. Check user token (stored in localStorage)
   const userToken = getToken();
   if (userToken && !isTokenExpired()) {
     return userToken;
   }
 
-  // Check if public token exists and is valid
+  // 2. Check in-memory memoization (shared globally)
+  if (cache.memoizedPublicToken && cache.memoizedTokenExpiration) {
+    const expirationDate = new Date(cache.memoizedTokenExpiration);
+    // Add 30s buffer for safety
+    if (expirationDate > new Date(Date.now() + 30000)) {
+      return cache.memoizedPublicToken;
+    }
+  }
+
+  // 3. Check localStorage fallback (in case of page refresh)
   let publicToken = getPublicToken();
   if (publicToken && !isPublicTokenExpired(true)) {
+    cache.memoizedPublicToken = publicToken;
+    cache.memoizedTokenExpiration = getStorageItem(STORAGE_KEYS.PUBLIC_TOKEN_EXPIRATION);
     return publicToken;
   }
 
-  // Fetch new public token (using guest credentials)
+  // 4. Fetch new public token
   try {
-    // Prevent multiple simultaneous requests
-    if (!publicTokenPromise) {
+    // Only fetch if a promise is not already in progress
+    if (!cache.publicTokenPromise) {
       const tokenUrl = USE_PROXY 
         ? `${PROXY_URL}?endpoint=/APIUser/GetToken`
         : `${BASE_URL}/APIUser/GetToken`;
       
-      publicTokenPromise = fetch(tokenUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(GUEST_CREDENTIALS),
-      })
-        .then(async (response) => {
+      console.log('[API Client] Requesting fresh public token...');
+      
+      cache.publicTokenPromise = (async () => {
+        try {
+          const response = await fetch(tokenUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(GUEST_CREDENTIALS),
+          });
+
           if (!response.ok) {
             const errorText = await response.text();
             throw new Error(`Failed to get public token: ${response.status} ${errorText}`);
           }
+
           const data = await response.json();
-          // Handle different response formats
           const token = data?.token || data?.Token || data?.accessToken || data?.access_token;
           const expiration = data?.expiration || data?.Expiration || data?.expiresIn || data?.expires_in;
           
           if (token) {
-            // If no expiration provided, set to 1 hour from now (default token expiry)
             let tokenExpiration = expiration;
             if (!tokenExpiration) {
               const oneHourFromNow = new Date();
               oneHourFromNow.setHours(oneHourFromNow.getHours() + 1);
               tokenExpiration = oneHourFromNow.toISOString();
             }
-            // Store as public token (guest token)
+            // Update global cache and localStorage
             setPublicToken(token, tokenExpiration);
+            cache.memoizedPublicToken = token;
+            cache.memoizedTokenExpiration = tokenExpiration;
             return token;
           }
           throw new Error('Token not found in response');
-        })
-        .finally(() => {
-          // Clear promise after completion
-          publicTokenPromise = null;
-        });
+        } catch (err) {
+          console.error('[API Client] Token fetch error:', err);
+          throw err;
+        } finally {
+          // Keep promise for a bit to deduplicate near-simultaneous calls
+          setTimeout(() => {
+            cache.publicTokenPromise = null;
+          }, 2000);
+        }
+      })();
+    } else {
+        console.log('[API Client] Awaiting existing token promise...');
     }
     
-    publicToken = await publicTokenPromise;
-    return publicToken;
+    return await cache.publicTokenPromise;
   } catch (error) {
-    console.error('Error fetching public token:', error);
-    publicTokenPromise = null;
+    console.error('[API Client] Error in ensurePublicToken:', error);
+    cache.publicTokenPromise = null;
     return null;
   }
 };
@@ -108,6 +147,7 @@ const ensurePublicToken = async () => {
 const getAuthHeaders = async () => {
   const headers = {
     'Content-Type': 'application/json',
+    'x-api-key': API_CONFIG.API_SECRET_KEY,
   };
   
   // Get token (user token if available, otherwise public token)
@@ -266,6 +306,12 @@ const handleError = (error) => {
   );
 };
 
+// Keep track of all pending API requests by their full URL and options
+// Initialize pendingRequests map if it doesn't exist in the cache
+if (cache.pendingRequests === undefined) {
+  cache.pendingRequests = new Map();
+}
+
 /**
  * Make API request
  * @param {string} endpoint - API endpoint (without base URL)
@@ -273,120 +319,93 @@ const handleError = (error) => {
  * @returns {Promise} - API response data
  */
 export const apiRequest = async (endpoint, options = {}) => {
+  const currentCache = getCache();
+
   // Choose between proxy or direct API call based on configuration
   const fullEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
   const url = USE_PROXY
     ? `${PROXY_URL}?endpoint=${encodeURIComponent(fullEndpoint)}`
     : `${BASE_URL}${fullEndpoint}`;
   
-  // Get auth headers (will ensure token exists)
-  const authHeaders = await getAuthHeaders();
+  const method = options.method || 'GET';
+  // Stringify body for consistent key generation, especially for objects
+  const body = options.body ? (typeof options.body === 'object' ? JSON.stringify(options.body) : options.body) : '';
   
-  const config = {
-    method: options.method || 'GET',
-    headers: {
-      ...authHeaders,
-      ...options.headers,
-    },
-  };
-
-  // Add body for POST/PUT requests
-  if (options.body) {
-    config.body = options.body;
+  // Create a unique key for this request based on URL, method and body
+  const requestKey = `${method}:${url}:${body}`;
+  
+  // If an identical request is already pending, return its promise (Deduplication)
+  if (currentCache.pendingRequests.has(requestKey)) {
+    console.log(`[API Client] Deduplicating pending request: ${method} ${fullEndpoint}`);
+    return currentCache.pendingRequests.get(requestKey);
   }
 
-  // Handle user token expiration (public token will be auto-refreshed)
-  if (isTokenExpired() && getToken()) {
-    removeToken();
-  }
+  const requestPromise = (async () => {
+    try {
+      // Get auth headers (will ensure token exists)
+      const authHeaders = await getAuthHeaders();
+      
+      const config = {
+        method,
+        headers: {
+          ...authHeaders,
+          ...options.headers,
+        },
+      };
 
-  try {
-    const response = await fetch(url, config);
-    
-    // Handle 401 Unauthorized - token expired or invalid
-    if (response.status === 401) {
-      // Clear user token if it exists (automatically switch to guest mode)
-      removeToken();
-      // Clear public token to force refresh from GetToken API
-      removePublicToken();
-      // Clear the promise cache to allow new token fetch
-      publicTokenPromise = null;
-      
-      // Automatically get fresh guest token from GetToken API and retry
-      // This ensures seamless transition to guest mode without showing error to user
-      try {
-      const freshToken = await ensurePublicToken();
-      if (freshToken) {
-          // Retry the original request with fresh guest token
-        const retryConfig = {
-          method: options.method || 'GET',
-          headers: {
-              'Content-Type': 'application/json',
-            'Authorization': `Bearer ${freshToken}`,
-            ...options.headers,
-          },
-        };
-        if (options.body) {
-          retryConfig.body = options.body;
-        }
-          
-        const retryResponse = await fetch(url, retryConfig);
-          
-          // If retry succeeds (even if it's a different error, not 401), return it
-          // This allows the app to continue in guest mode
-          if (retryResponse.status !== 401) {
-            return await handleResponse(retryResponse);
-          }
-          
-          // If we still get 401, the endpoint might require authentication
-          // In this case, we'll let handleResponse process it (it might be a valid error)
-          // But we've already switched to guest mode, so user can continue
-        return await handleResponse(retryResponse);
+      // Add body for POST/PUT requests
+      if (options.body) {
+        config.body = options.body;
       }
-      } catch (tokenError) {
-        console.error('Error refreshing guest token:', tokenError);
-        // If token refresh fails, try to continue anyway
-        // The ensurePublicToken should have logged the error
+
+      // Handle user token expiration (public token will be auto-refreshed)
+      if (isTokenExpired() && getToken()) {
+        removeToken();
       }
+
+      const response = await fetch(url, config);
       
-      // If we couldn't get a fresh token, try one final retry
-      // This handles edge cases where token refresh had issues
-      try {
-        publicTokenPromise = null; // Clear cache again
-        const finalToken = await ensurePublicToken();
-        if (finalToken) {
-          const finalRetryConfig = {
-            method: options.method || 'GET',
+      // Handle 401 Unauthorized - token expired or invalid
+      if (response.status === 401) {
+        console.warn(`[API Client] 401 Unauthorized for ${fullEndpoint}. Refreshing token and retrying...`);
+        // Clear tokens to force refresh
+        removeToken();
+        removePublicToken();
+        currentCache.publicTokenPromise = null;
+        currentCache.memoizedPublicToken = null;
+        
+        // Automatically get fresh guest token and retry
+        const freshToken = await ensurePublicToken();
+        if (freshToken) {
+          const retryConfig = {
+            method,
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${finalToken}`,
+              'Authorization': `Bearer ${freshToken}`,
               ...options.headers,
             },
           };
-          if (options.body) {
-            finalRetryConfig.body = options.body;
-          }
-          const finalRetryResponse = await fetch(url, finalRetryConfig);
-          return await handleResponse(finalRetryResponse);
+          if (options.body) retryConfig.body = options.body;
+          
+          const retryResponse = await fetch(url, retryConfig);
+          return await handleResponse(retryResponse);
         }
-      } catch (finalError) {
-        console.error('Final token refresh attempt failed:', finalError);
       }
       
-      // If all retries fail, the API might be down or there's a real issue
-      // But we've already switched to guest mode, so throw a generic error
-      // The calling code can handle this appropriately
-      throw new APIError(
-        'Unable to complete request. Please try again.',
-        401
-      );
+      return await handleResponse(response);
+    } catch (error) {
+      // handleError throws APIError
+      return handleError(error);
+    } finally {
+      // Clear from pending requests after a small buffer to handle rapid sequential calls
+      setTimeout(() => {
+        currentCache.pendingRequests.delete(requestKey);
+      }, 500);
     }
-    
-    return await handleResponse(response);
-  } catch (error) {
-    handleError(error);
-    throw error;
-  }
+  })();
+
+  currentCache.pendingRequests.set(requestKey, requestPromise);
+  return requestPromise;
 };
 
 /**

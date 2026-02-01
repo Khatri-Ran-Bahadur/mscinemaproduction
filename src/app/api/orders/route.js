@@ -35,8 +35,7 @@ export async function POST(request) {
     // Let's check if there is any CONFIRMED or PENDING order for this referenceNo
     const existingByRef = await prisma.order.findFirst({
       where: {
-        referenceNo: referenceNo,
-        status: { notIn: ['CANCELLED', 'FAILED'] }
+        referenceNo: referenceNo
       },
       orderBy: { createdAt: 'desc' }
     });
@@ -47,12 +46,15 @@ export async function POST(request) {
             const updatedOrder = await prisma.order.update({
                 where: { id: existingByRef.id },
                 data: {
+                    orderId: orderId, // Update with new MS order ID if necessary
                     paymentMethod: paymentMethod || existingByRef.paymentMethod,
+                    paymentStatus: paymentStatus || 'PENDING',
+                    status: 'PENDING', // Reset to PENDING for retry
                     token: token || existingByRef.token,
                     updatedAt: new Date()
                 }
             });
-            return NextResponse.json({ success: true, order: updatedOrder, message: 'Order updated with new Payment ID' });
+            return NextResponse.json({ success: true, order: updatedOrder, message: 'Order updated for retry' });
         } catch(e) {
             console.error('[Order API] Failed to update existing order:', e);
             throw e;

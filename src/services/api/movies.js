@@ -26,20 +26,25 @@ import { get } from './client';
  * @property {string} remarks - Additional remarks
  */
 
-// Module-level cache for movies promise
-let moviesPromise = null;
+// Access or initialize global storage to share across module instances
+const globalScope = typeof window !== 'undefined' ? window : global;
+if (!globalScope._ms_api_cache) {
+  globalScope._ms_api_cache = {};
+}
 
 /**
  * Get all movies
  * @returns {Promise<Array<Movie>>} - Array of movies
  */
 export const getMovies = async () => {
+  const cache = globalScope._ms_api_cache;
+  
   // If a request is already in progress, return the existing promise
-  if (moviesPromise) {
-    return moviesPromise;
+  if (cache.moviesPromise) {
+    return cache.moviesPromise;
   }
 
-  moviesPromise = (async () => {
+  cache.moviesPromise = (async () => {
     try {
       const response = await get('/MovieDetails/GetMovies');
       
@@ -57,13 +62,15 @@ export const getMovies = async () => {
       return data;
     } catch (error) {
       console.error('Get movies error:', error);
-      // Reset promise so next call can retry
-      moviesPromise = null;
+      // Reset promise after a bit so next call can retry
+      setTimeout(() => {
+        cache.moviesPromise = null;
+      }, 5000);
       return [];
     }
   })();
 
-  return moviesPromise;
+  return cache.moviesPromise;
 };
 
 export default {

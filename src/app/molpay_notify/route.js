@@ -64,20 +64,39 @@ async function handleCallback(request) {
       request
     });
 
-    // Update order status
-    if (finalStatus === 'PAID') {
-      await prisma.order.update({
-        where: { orderId: orderid },
-        data: { paymentStatus: 'PAID', status: 'CONFIRMED', transactionNo: returnData.tranID }
+    // Check existing order
+    let order = await prisma.order.findUnique({
+      where: { orderId: orderid }
+    });
+    
+    if (!order && returnData.referenceNo) {
+      order = await prisma.order.findFirst({
+        where: { referenceNo: returnData.referenceNo },
+        orderBy: { createdAt: 'desc' }
       });
-        
-        
-        
+
+      if (order) {
+        order = await prisma.order.update({
+          where: { id: order.id },
+          data: { orderId: orderid }
+        });
+      }
+    }
+
+    if (order) {
+        if (finalStatus === 'PAID') {
+          await prisma.order.update({
+            where: { id: order.id },
+            data: { paymentStatus: 'PAID', status: 'CONFIRMED', transactionNo: returnData.tranID }
+          });
+        } else {
+          await prisma.order.update({
+            where: { id: order.id },
+            data: { paymentStatus: 'FAILED', status: 'CANCELLED', transactionNo: returnData.tranID }
+          });
+        }
     } else {
-      await prisma.order.update({
-        where: { orderId: orderid },
-        data: { paymentStatus: 'FAILED', status: 'CANCELLED', transactionNo: returnData.tranID }
-      });
+        console.warn(`[Notify] Order not found for OrderID: ${orderid}`);
     }
 
     // Always return RECEIVEOK for MOLPay callbacks

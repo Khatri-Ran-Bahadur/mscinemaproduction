@@ -145,11 +145,13 @@ export default function SignupPage() {
       // Registration successful - send activation email
       if (userID) {
         try {
+          const { API_CONFIG } = await import('@/config/api');
           // Call API to send activation email
           const emailResponse = await fetch('/api/auth/send-activation-email', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
+              'x-api-key': API_CONFIG.API_SECRET_KEY,
             },
             body: JSON.stringify({
               userId: userID,

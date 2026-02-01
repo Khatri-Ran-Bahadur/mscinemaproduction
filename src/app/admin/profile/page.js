@@ -3,10 +3,12 @@
 import React, { useState, useEffect } from 'react';
 import { User, Lock, Save, AlertCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { adminFetch } from '@/utils/admin-api';
 
 export default function AdminProfilePage() {
   const router = useRouter();
-  const [loading, setLoading] = useState(false);
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [passwordLoading, setPasswordLoading] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
 
@@ -39,7 +41,7 @@ export default function AdminProfilePage() {
 
   const handleProfileUpdate = async (e) => {
     e.preventDefault();
-    setLoading(true);
+    setProfileLoading(true);
     setSuccessMsg('');
     setErrorMsg('');
 
@@ -50,11 +52,10 @@ export default function AdminProfilePage() {
             return;
         }
 
-        const res = await fetch('/api/admin/profile', {
+        const res = await adminFetch('/api/admin/profile', {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                token,
                 name: formData.name,
                 email: formData.email
                 // No password needed for profile update as per new logic
@@ -74,19 +75,19 @@ export default function AdminProfilePage() {
         setErrorMsg('An unexpected error occurred');
         console.error(err);
     } finally {
-        setLoading(false);
+        setProfileLoading(false);
     }
   };
 
   const handlePasswordUpdate = async (e) => {
     e.preventDefault();
-    setLoading(true);
+    setPasswordLoading(true);
     setSuccessMsg('');
     setErrorMsg('');
 
     if (formData.newPassword !== formData.confirmPassword) {
         setErrorMsg("New passwords don't match");
-        setLoading(false);
+        setPasswordLoading(false);
         return;
     }
 
@@ -97,11 +98,10 @@ export default function AdminProfilePage() {
             return;
         }
 
-        const res = await fetch('/api/admin/profile', {
+        const res = await adminFetch('/api/admin/profile', {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                token,
                 currentPassword: formData.currentPassword,
                 newPassword: formData.newPassword
             })
@@ -125,7 +125,7 @@ export default function AdminProfilePage() {
         setErrorMsg('An unexpected error occurred');
         console.error(err);
     } finally {
-        setLoading(false);
+        setPasswordLoading(false);
     }
   };
 
@@ -183,10 +183,10 @@ export default function AdminProfilePage() {
 
                     <button 
                         type="submit" 
-                        disabled={loading}
-                        className={`bg-[#FFCA20] text-black font-bold px-6 py-2 rounded hover:bg-[#FFCA20]/90 transition ${loading ? 'opacity-50' : ''}`}
+                        disabled={profileLoading}
+                        className={`bg-[#FFCA20] text-black font-bold px-6 py-2 rounded hover:bg-[#FFCA20]/90 transition ${profileLoading ? 'opacity-50' : ''}`}
                     >
-                        {loading ? 'Saving...' : 'Update Details'}
+                        {profileLoading ? 'Saving...' : 'Update Details'}
                     </button>
                 </form>
 
@@ -238,10 +238,10 @@ export default function AdminProfilePage() {
 
                     <button 
                         type="submit" 
-                        disabled={loading}
-                        className={`bg-white text-black font-bold px-6 py-2 rounded hover:bg-gray-200 transition ${loading ? 'opacity-50' : ''}`}
+                        disabled={passwordLoading}
+                        className={`bg-white text-black font-bold px-6 py-2 rounded hover:bg-gray-200 transition ${passwordLoading ? 'opacity-50' : ''}`}
                     >
-                        {loading ? 'Updating...' : 'Update Password'}
+                        {passwordLoading ? 'Updating...' : 'Update Password'}
                     </button>
                 </form>
             </div>

@@ -11,7 +11,7 @@ import { sendForgotPasswordEmail } from '@/utils/email';
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { userId, email, token } = body;
+    const { userId, email, token, type } = body;
 
     if (!userId || !email || !token) {
       return NextResponse.json(
@@ -20,12 +20,17 @@ export async function POST(request) {
       );
     }
 
-    // Encrypt the user ID for the reset link
+    // Encrypt the user ID for the reset link, unless type is provided (mismatch avoid)
+    const finalUserId = type ? userId : encryptId(userId);
     const encryptedUserId = encryptId(userId);
 
     // Generate reset password URL
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
-    const resetUrl = `${baseUrl}/reset-password?userId=${encryptedUserId}&token=${encodeURIComponent(token)}`;
+    let resetUrl = `${baseUrl}/reset-password?userId=${finalUserId}&token=${encodeURIComponent(token)}`;
+    
+    if (type) {
+      resetUrl += `&type=${encodeURIComponent(type)}`;
+    }
 
     // Send forgot password email
     const emailResult = await sendForgotPasswordEmail(email, resetUrl);
@@ -34,7 +39,7 @@ export async function POST(request) {
       success: true,
       message: 'Password reset email sent successfully',
       resetUrl: resetUrl,
-      encryptedUserId: encryptedUserId,
+      encryptedUserId:encryptedUserId,
       messageId: emailResult.messageId,
     });
   } catch (error) {

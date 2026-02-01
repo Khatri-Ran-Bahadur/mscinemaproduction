@@ -32,7 +32,7 @@ export default function Loader({
             <div className="absolute inset-0 rounded-full bg-[#FFCA20]/10 animate-pulse"></div>
             
             {/* Logo with rotation animation */}
-            <div className="relative w-full h-full animate-spin-slow">
+            <div className="relative w-full h-full">
               <Image
                 src="/img/logo.png"
                 alt="MS Cinemas Logo"

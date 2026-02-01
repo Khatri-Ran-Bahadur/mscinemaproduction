@@ -103,34 +103,42 @@ export default function HalfWayBookingsPage() {
 
     // Pagination Logic
     const totalPages = Math.ceil(filteredBookings.length / limit);
-    const paginatedBookings = filteredBookings.slice((page - 1) * limit, page * limit);
+    const paginatedBookings = React.useMemo(() => {
+        return filteredBookings.slice((page - 1) * limit, page * limit);
+    }, [filteredBookings, page, limit]);
 
     // Fetch Details for Visible Page
     useEffect(() => {
-        // Fetch details for items on current page that don't have details yet
         const fetchDetails = async () => {
+            const newDetails = {};
+            let hasNew = false;
+
             for (const b of paginatedBookings) {
                 if (!enrichedDetails[b.referenceNo]) {
                     try {
                         const data = await booking.getTickets(b.cinemaID, b.showID, b.referenceNo);
-                        const details = {
+                        newDetails[b.referenceNo] = {
                             movieName: data?.bookingDetails?.movieName || data?.bookingDetails?.MovieName || '-',
                             showTime: data?.bookingDetails?.showTime || '-',
                             seatCount: data?.ticketDetails?.length || 0,
                             seats: data?.ticketDetails?.map(t => t.SeatNo || t.Seat).join(', ') || ''
                         };
-                        setEnrichedDetails(prev => ({ ...prev, [b.referenceNo]: details }));
+                        hasNew = true;
                     } catch (e) {
-                         // Ignore error, maybe incomplete booking
+                         // Ignore error
                     }
                 }
+            }
+            
+            if (hasNew) {
+                setEnrichedDetails(prev => ({ ...prev, ...newDetails }));
             }
         };
         
         if (paginatedBookings.length > 0) {
             fetchDetails();
         }
-    }, [paginatedBookings]); // Depend on paginated list changes
+    }, [paginatedBookings, enrichedDetails]); // enrichedDetails is needed to check if we already have them
 
     // Selection Handlers
     const handleSelectAll = (e) => {

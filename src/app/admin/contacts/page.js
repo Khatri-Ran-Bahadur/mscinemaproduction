@@ -3,6 +3,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Mail, Phone, Calendar, Search, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { adminFetch } from '@/utils/admin-api';
 
 export default function AdminContactsPage() {
   const [messages, setMessages] = useState([]);
@@ -30,7 +31,7 @@ export default function AdminContactsPage() {
         limit: limit.toString(),
         search: searchTerm
       });
-      const res = await fetch(`/api/admin/contacts?${params.toString()}`);
+      const res = await adminFetch(`/api/admin/contacts?${params.toString()}`);
       if (res.ok) {
         const data = await res.json();
         if (data.success) {
