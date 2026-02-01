@@ -72,8 +72,9 @@ async function handleCallback(request) {
     });
     
     if (!order && returnData.referenceNo) {
-      order = await prisma.order.findUnique({
-        where: { referenceNo: returnData.referenceNo }
+      order = await prisma.order.findFirst({
+        where: { referenceNo: returnData.referenceNo },
+        orderBy: { createdAt: 'desc' }
       });
 
       if (order) {

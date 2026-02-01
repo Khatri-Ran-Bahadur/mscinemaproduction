@@ -18,6 +18,7 @@ const Header = () => {
     const [showMobileMoreDropdown, setShowMobileMoreDropdown] = useState(false);
     const [userData, setUserData] = useState(null);
     const [menuMovies, setMenuMovies] = useState([]);
+    const lastUserStrRef = useRef(null);
     const mobileMenuRef = useRef(null);
     const scrollPositionRef = useRef(0);
 
@@ -43,10 +44,14 @@ const Header = () => {
     useEffect(() => {
         // Check if user is logged in
         const checkAuth = () => {
-            const user = getUserData();
-            // User is logged in if user data exists
-            setIsLoggedIn(!!user);
-            setUserData(user);
+            const rawUser = localStorage.getItem('ms_cinema_user_data');
+            
+            if (rawUser !== lastUserStrRef.current) {
+                lastUserStrRef.current = rawUser;
+                const user = getUserData();
+                setIsLoggedIn(!!user);
+                setUserData(user);
+            }
         };
 
         checkAuth();

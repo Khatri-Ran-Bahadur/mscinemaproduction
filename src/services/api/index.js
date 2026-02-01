@@ -9,6 +9,7 @@ import * as cinemas from './cinemas';
 import * as shows from './shows';
 import * as booking from './booking';
 import * as payment from './payment';
+import * as home from './home';
 import { APIError } from './client';
 
 export {
@@ -18,6 +19,7 @@ export {
   shows,
   booking,
   payment,
+  home,
   APIError,
 };
 
@@ -28,5 +30,6 @@ export default {
   shows,
   booking,
   payment,
+  home,
 };
 

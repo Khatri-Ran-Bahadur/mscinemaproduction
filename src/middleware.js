@@ -22,8 +22,33 @@ export function middleware(request) {
       return NextResponse.next();
     }
 
-    // 2. Protect Admin APIs
+    // 2. Protect Internal APIs (Orders & Create Request) with API Key
+    const internalApiRoutes = [
+      '/api/orders',
+      '/api/payment/create-request'
+    ];
+
+    if (internalApiRoutes.some(route => pathname.startsWith(route))) {
+      const apiKey = request.headers.get('x-api-key');
+      const secretKey = process.env.API_SECRET_KEY;
+
+      if (!apiKey || apiKey !== secretKey) {
+        return NextResponse.json(
+          { error: 'Unauthorized', message: 'Invalid or missing API Key' },
+          { status: 401 }
+        );
+      }
+      return NextResponse.next();
+    }
+
+    // 3. Admin APIs Protection
     if (pathname.startsWith('/api/admin')) {
+      // Allow all GET requests to admin APIs to be public (Promotions, Experiences, etc.)
+      if (request.method === 'GET') {
+        return NextResponse.next();
+      }
+
+      // Protect POST, PUT, DELETE for Admin APIs
       const authHeader = request.headers.get('authorization');
       
       if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -35,21 +60,19 @@ export function middleware(request) {
       
       const token = authHeader.split(' ')[1];
       try {
-        // Basic verification: Try to decode and check format (id:timestamp)
         const decoded = Buffer.from(token, 'base64').toString('utf-8');
         const [adminId, timestamp] = decoded.split(':');
         
         if (!adminId || isNaN(parseInt(timestamp))) {
-            throw new Error('Invalid token format');
+          throw new Error('Invalid token format');
         }
 
-        // Optional: Check if token is older than 24 hours
         const twentyFourHours = 24 * 60 * 60 * 1000;
         if (Date.now() - parseInt(timestamp) > twentyFourHours) {
-            return NextResponse.json(
-                { error: 'Unauthorized', message: 'Session expired' },
-                { status: 401 }
-            );
+          return NextResponse.json(
+            { error: 'Unauthorized', message: 'Session expired' },
+            { status: 401 }
+          );
         }
       } catch (e) {
         return NextResponse.json(
@@ -57,28 +80,6 @@ export function middleware(request) {
           { status: 401 }
         );
       }
-      
-      return NextResponse.next();
-    }
-
-    // 3. Protect general APIs (Mobile/Web integration)
-    // Most general APIs should require an API key
-    const apiKey = request.headers.get('x-api-key');
-    const secretKey = process.env.API_SECRET_KEY;
-
-    // List of internal/protected general APIs (Website flows)
-    const internalApiRoutes = [
-        '/api/orders',
-        '/api/payment/create-request'
-    ];
-
-    if (internalApiRoutes.some(route => pathname.startsWith(route))) {
-        if (!apiKey || apiKey !== secretKey) {
-            return NextResponse.json(
-                { error: 'Unauthorized', message: 'Invalid or missing API Key' },
-                { status: 401 }
-            );
-        }
     }
   }
 

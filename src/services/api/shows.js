@@ -5,20 +5,29 @@
 
 import { get } from './client';
 
-// Module-level cache for show dates promise
-let showDatesPromise = null;
+// Access or initialize global storage to share across module instances
+const globalScope = typeof window !== 'undefined' ? window : global;
+if (!globalScope._ms_api_cache) {
+  globalScope._ms_api_cache = {};
+}
+if (!globalScope._ms_api_cache.showTimesPromises) {
+  globalScope._ms_api_cache.showTimesPromises = new Map();
+}
+
+const getCache = () => globalScope._ms_api_cache;
 
 /**
  * Get show dates
  * @returns {Promise<Array>} - Array of show dates with movieID and cinemaID
  */
 export const getShowDates = async () => {
+  const cache = getCache();
   // If a request is already in progress, return the existing promise
-  if (showDatesPromise) {
-    return showDatesPromise;
+  if (cache.showDatesPromise) {
+    return cache.showDatesPromise;
   }
 
-  showDatesPromise = (async () => {
+  cache.showDatesPromise = (async () => {
     try {
       const response = await get('/ShowDetails/GetShowDates');
       
@@ -37,12 +46,14 @@ export const getShowDates = async () => {
     } catch (error) {
       console.error('Get show dates error:', error);
       // Reset promise so next call can retry
-      showDatesPromise = null;
+      setTimeout(() => {
+        cache.showDatesPromise = null;
+      }, 5000);
       throw error;
     }
   })();
 
-  return showDatesPromise;
+  return cache.showDatesPromise;
 };
 
 /**
@@ -51,27 +62,52 @@ export const getShowDates = async () => {
  * @returns {Promise<Array>} - Array of show times
  */
 export const getShowTimes = async (cinemaId) => {
-  try {
-    const response = await get(`/ShowDetails/GetShowTimes/${cinemaId}`);
-    
-    // Handle different response formats
-    if (Array.isArray(response)) {
-      return response;
-    }
-    
-    if (response && response.data) {
-      return response.data;
-    }
-    
-    if (response && response.showTimes) {
-      return response.showTimes;
-    }
-    
-    return response || [];
-  } catch (error) {
-    console.error('Get show times error:', error);
-    throw error;
+  // 1. Validate cinemaId - prevent calls to /undefined or /null (including string versions)
+  if (!cinemaId || cinemaId === 'undefined' || cinemaId === 'null') {
+    console.warn('[Shows Service] getShowTimes blocked an invalid call without a proper cinemaId:', cinemaId);
+    return [];
   }
+
+  // 2. Normalize to string for Map key consistency
+  const cid = String(cinemaId);
+  const cache = getCache();
+
+  // 3. Return existing promise if available (Deduplication)
+  if (cache.showTimesPromises.has(cid)) {
+    console.log(`[Shows Service] Returning cached promise for cinema: ${cid}`);
+    return cache.showTimesPromises.get(cid);
+  }
+
+  const promise = (async () => {
+    try {
+      console.log(`[Shows Service] Fetching show times for cinema: ${cid}`);
+      const response = await get(`/ShowDetails/GetShowTimes/${cid}`);
+      
+      // Handle different response formats
+      let data = [];
+      if (Array.isArray(response)) {
+        data = response;
+      } else if (response && response.data) {
+        data = response.data;
+      } else if (response && response.showTimes) {
+        data = response.showTimes;
+      } else {
+        data = response || [];
+      }
+      return data;
+    } catch (error) {
+      console.error(`[Shows Service] Error fetching show times for ${cid}:`, error);
+      // Reset promise after a bit so next call can retry
+      setTimeout(() => {
+        cache.showTimesPromises.delete(cid);
+      }, 5000);
+      throw error;
+    }
+  })();
+
+  // SET IMMEDIATELY to prevent race conditions from simultaneous calls
+  cache.showTimesPromises.set(cid, promise);
+  return promise;
 };
 
 /**
