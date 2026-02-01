@@ -1,9 +1,9 @@
 module.exports = {
   apps: [{
-    name: 'mscinemas-staging',
+    name: 'mscinemas-nextjs',
     script: 'npm',
     args: 'start',
-    cwd: '/var/www/staging',
+    cwd: '/var/www/mscinemas',
     instances: 1, // Single instance to prevent CPU spikes
     exec_mode: 'fork', // Use fork mode instead of cluster for better resource control
     autorestart: true,
