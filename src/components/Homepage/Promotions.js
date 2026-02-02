@@ -42,7 +42,7 @@ export const Promotions = () => {
                {promo.link ? (
                  <Link href={promo.link} target="_blank" className="block w-full h-full relative">
                     <img 
-                      src={promo.image} 
+                      src={promo.image || "img/banner.jpg"} 
                       alt={promo.title || "Promotion"} 
                       className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
                     />
@@ -69,7 +69,7 @@ export const Promotions = () => {
                ) : (
                   <div className="block w-full h-full relative">
                     <img 
-                      src={promo.image} 
+                      src={promo.image || "img/banner.jpg"} 
                       alt={promo.title || "Promotion"} 
                       className="w-full h-full object-cover group-hover:scale-105 transition duration-500"
                     />

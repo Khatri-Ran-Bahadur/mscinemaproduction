@@ -50,12 +50,13 @@ const EXPERIENCES_DATA = [
 
 const ExperienceCard = ({ experience, showFullDescription }) => {
     const [imageError, setImageError] = useState(false);
-    const currentImage = imageError ? experience.fallbackImage : experience.image;
+    // Ensure we never have a 'null' or 'undefined' string in the URL
+    const currentImage = (imageError ? experience.fallbackImage : experience.image) || 'img/our_hall.jpg';
     
     return (
         <div 
             className="group cursor-pointer rounded-lg overflow-hidden transition-all duration-300 relative h-[300px] sm:h-[350px] md:h-[400px] lg:h-[450px] bg-cover bg-center bg-no-repeat"
-            style={{ backgroundImage: `url(${currentImage})` }}
+            style={{ backgroundImage: currentImage ? `url(${currentImage})` : 'none' }}
         >
             <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/60 to-transparent"></div>
             <div className="absolute bottom-0 left-0 right-0 p-4 md:p-5">

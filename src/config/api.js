@@ -33,23 +33,23 @@ export const USE_PROXY = useProxyEnv === 'true';
 export const PROXY_URL = process.env.NEXT_PUBLIC_PROXY_URL || process.env.PROXY_URL || '/api/proxy';
 
 // Debug logging (only in development)
-if (process.env.NODE_ENV === 'development') {
-  const isServer = typeof window === 'undefined';
-  const logPrefix = isServer ? '[API Config - Server]' : '[API Config - Client]';
-  console.log(logPrefix, {
-    USE_LIVE_API,
-    API_BASE_URL,
-    USE_PROXY,
-    PROXY_URL,
-    'Using Proxy?': USE_PROXY,
-    'Direct Calls?': !USE_PROXY,
-    env: {
-      NEXT_PUBLIC_USE_PROXY: process.env.NEXT_PUBLIC_USE_PROXY,
-      USE_PROXY: process.env.USE_PROXY,
-      'Raw Value': useProxyEnv,
-    }
-  });
-}
+// if (process.env.NODE_ENV === 'development') {
+//   const isServer = typeof window === 'undefined';
+//   const logPrefix = isServer ? '[API Config - Server]' : '[API Config - Client]';
+//   console.log(logPrefix, {
+//     USE_LIVE_API,
+//     API_BASE_URL,
+//     USE_PROXY,
+//     PROXY_URL,
+//     'Using Proxy?': USE_PROXY,
+//     'Direct Calls?': !USE_PROXY,
+//     env: {
+//       NEXT_PUBLIC_USE_PROXY: process.env.NEXT_PUBLIC_USE_PROXY,
+//       USE_PROXY: process.env.USE_PROXY,
+//       'Raw Value': useProxyEnv,
+//     }
+//   });
+// }
 
 // Export configuration object for easy access
 export const API_CONFIG = {
