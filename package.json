@@ -20,8 +20,8 @@
     "bcryptjs": "^2.4.3",
     "dotenv": "^16.6.1",
     "lucide-react": "^0.554.0",
-    "next": "16.0.6",
-    "nodemailer": "^6.10.1",
+    "next": "^16.1.6",
+    "nodemailer": "^7.0.13",
     "qrcode": "^1.5.4",
     "react": "19.2.1",
     "react-dom": "19.2.1",
@@ -40,5 +40,8 @@
     "eslint-config-next": "16.0.6",
     "prisma": "^5.20.0",
     "tailwindcss": "^4"
+  },
+  "overrides": {
+    "quill": "2.0.2"
   }
 }
