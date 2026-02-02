@@ -21,18 +21,25 @@ export default function ReadMoreContent({ content, maxHeightPercentage = 50 }) {
     }
   }, [content, maxHeightPercentage]);
 
+  // Clean content of excessive non-breaking spaces that prevent wrapping
+  const cleanContent = React.useMemo(() => {
+    if (!content) return "";
+    // Replace &nbsp; with regular space so browser can wrap lines naturally
+    return content.replace(/&nbsp;/g, " ");
+  }, [content]);
+
   return (
     <div className="relative w-full">
       <div
         ref={contentRef}
         className="prose prose-invert max-w-none text-[#D3D3D3] leading-relaxed text-lg 
                    prose-p:mb-4 prose-headings:text-[#FFCA20] transition-all duration-500 ease-in-out 
-                   [&>img]:max-w-full [&>img]:h-auto break-words hyphens-auto"
+                   [&>img]:max-w-full [&>img]:h-auto custom-prose"
         style={{
           maxHeight: isExpanded ? "none" : `${collapsedHeight}px`,
           overflow: "hidden",
         }}
-        dangerouslySetInnerHTML={{ __html: content }}
+        dangerouslySetInnerHTML={{ __html: cleanContent }}
       />
 
       {showButton && (

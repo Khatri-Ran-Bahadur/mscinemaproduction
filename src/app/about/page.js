@@ -146,9 +146,9 @@ export default async function AboutUsPage() {
                     <div className="container mx-auto px-6">
                         {/* Modified Layout: Image Left, Content Right for 'main' section */}
                         <div className="flex flex-col lg:flex-row gap-12 items-start">
-                             {/* Image - 40% width on Desktop */}
-                             <div className="w-full lg:w-2/5">
-                                <div className="rounded-xl overflow-hidden aspect-[4/3] relative shadow-2xl border border-[#3a3a3a]">
+                             {/* Image - 40% width on Desktop, Sticky for balanced layout */}
+                             <div className="w-full lg:w-2/5 lg:sticky lg:top-32">
+                                <div className="rounded-xl overflow-hidden h-[400px] lg:h-[calc(100vh-200px)] relative shadow-2xl border border-[#3a3a3a]">
                                     <img 
                                         src={getValidUrl(main.image)} 
                                         alt="Cinema Interior" 
