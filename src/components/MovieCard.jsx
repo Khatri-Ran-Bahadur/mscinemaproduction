@@ -40,13 +40,7 @@ export default function MovieCard({ movie, onBookNow, onWatchTrailer, className 
             )}
             
             {/* Optional Badge */}
-             {(movie.isNewRelease || movie.badge) && (
-                <div className="absolute top-3 left-3 z-20">
-                    <span className="bg-[#FFCA20] text-black px-2 py-1 text-[10px] sm:text-xs font-bold rounded shadow-sm">
-                        {movie.badge || 'New releases'}
-                    </span>
-                </div>
-            )}
+            
 
             {/* Glass Background with Movie Information */}
             <div className="absolute bottom-0 left-0 right-0 z-10">
