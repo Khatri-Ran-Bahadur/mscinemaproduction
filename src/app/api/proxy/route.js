@@ -102,13 +102,7 @@ async function handleRequest(request, method) {
     // In that case, we should use it as-is and not add additional query parameters
     let url = `${EXTERNAL_API_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
     
-    // Log for debugging (only in development)
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[Proxy] Decoded endpoint:', endpoint);
-      console.log('[Proxy] Full URL:', url);
-      console.log('[Proxy] API Base URL:', EXTERNAL_API_URL);
-      console.log('[Proxy] Method:', method);
-    }
+    // URL already logged if needed in development
     
     // Only add additional query parameters if endpoint doesn't already have them
     // and if there are any additional query params in the request (besides 'endpoint')
@@ -137,14 +131,7 @@ async function handleRequest(request, method) {
       options.headers['Authorization'] = authHeader;
     }
     
-    // Log for debugging (only in development)
-    if (process.env.NODE_ENV === 'development') {
-      console.log(`[Proxy] ${method} ${url}`);
-      console.log(`[Proxy] Has Authorization: ${!!authHeader}`);
-      if (authHeader) {
-        console.log(`[Proxy] Authorization header: ${authHeader.substring(0, 20)}...`);
-      }
-    }
+    // Auth status logged if needed
 
     // Add body for POST/PUT requests
     if (method === 'POST' || method === 'PUT') {
@@ -230,13 +217,7 @@ async function handleRequest(request, method) {
       );
     }
     
-    // Log response status for debugging (only in development)
-    if (process.env.NODE_ENV === 'development') {
-      console.log(`[Proxy] Response Status: ${response.status} ${response.statusText}`);
-      if (response.status === 404) {
-        console.log(`[Proxy] 404 Error - URL that failed: ${url}`);
-      }
-    }
+    // Status monitoring
     
     // Get response data
     const contentType = response.headers.get('content-type') || '';

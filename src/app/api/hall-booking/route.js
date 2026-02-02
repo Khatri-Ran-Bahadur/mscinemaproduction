@@ -1,10 +1,8 @@
 
 import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
 import { sendEmail } from '@/utils/email';
 import { verifyRecaptcha } from '@/utils/recaptcha';
-
-const prisma = new PrismaClient();
 
 export async function POST(request) {
   try {

@@ -121,29 +121,6 @@ export const confirmLockedSeats = async (
     }
     
     const response = await post(endpoint, {});
-
-    // Log response details to server
-    try {
-      if (typeof window !== 'undefined') {
-        const { API_CONFIG } = await import('@/config/api');
-        fetch('/api/payment/save-log', {
-            method: 'POST',
-            headers: { 
-              'Content-Type': 'application/json',
-              'x-api-key': API_CONFIG.API_SECRET_KEY
-            },
-            body: JSON.stringify({
-              type: 'CONFIRM_LOCKED_SEATS_RESPONSE',
-              referenceNo,
-              response,
-              timestamp: new Date().toISOString()
-            })
-        }).catch(err => console.warn('Logging response failed', err));
-      }
-    } catch (e) {
-      // Ignore
-    }
-
     return response;
   } catch (error) {
     console.error('Confirm locked seats error:', error);

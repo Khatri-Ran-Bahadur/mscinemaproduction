@@ -158,6 +158,11 @@ model Order {
   updatedAt     DateTime @updatedAt
 
 
+  @@index([customerName])
+  @@index([customerEmail])
+  @@index([status])
+  @@index([paymentStatus])
+  @@index([createdAt])
   @@map("orders")
 }
 

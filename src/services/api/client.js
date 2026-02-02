@@ -85,7 +85,7 @@ const ensurePublicToken = async () => {
         ? `${PROXY_URL}?endpoint=/APIUser/GetToken`
         : `${BASE_URL}/APIUser/GetToken`;
       
-      console.log('[API Client] Requesting fresh public token...');
+      // Requesting fresh public token...
       
       cache.publicTokenPromise = (async () => {
         try {
@@ -129,7 +129,7 @@ const ensurePublicToken = async () => {
         }
       })();
     } else {
-        console.log('[API Client] Awaiting existing token promise...');
+        // Awaiting existing token promise...
     }
     
     return await cache.publicTokenPromise;
@@ -336,7 +336,7 @@ export const apiRequest = async (endpoint, options = {}) => {
   
   // If an identical request is already pending, return its promise (Deduplication)
   if (currentCache.pendingRequests.has(requestKey)) {
-    console.log(`[API Client] Deduplicating pending request: ${method} ${fullEndpoint}`);
+    // console.log(`[API Client] Deduplicating pending request: ${method} ${fullEndpoint}`);
     return currentCache.pendingRequests.get(requestKey);
   }
 

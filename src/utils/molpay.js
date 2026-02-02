@@ -8,27 +8,9 @@ import { API_CONFIG } from '@/config/api';
 
 export function writeMolpayLog(referenceNo, type, payload) {
   try {
-    /*
-    const logsDir = path.join(process.cwd(), 'logs');
-    if (!fs.existsSync(logsDir)) fs.mkdirSync(logsDir, { recursive: true });
-
-    const safeRef = (referenceNo || 'unknown').toString().replace(/[^a-zA-Z0-9_-]/g, '');
-    const logPath = path.join(logsDir, `payment_api_${safeRef}.log`);
-    const entry = [
-      '========================================',
-      `TIMESTAMP: ${new Date().toISOString()}`,
-      `TYPE: ${type}`,
-      'payload:',
-      typeof payload === 'string' ? payload : JSON.stringify(payload, null, 2),
-      '========================================',
-      ''
-    ].join('\n');
-    */
-
-    // fs.appendFileSync(logPath, entry);
-    console.log(`[MOLPay API Log] ${type} -> ${logPath}`);
+    // console.log(`[MOLPay API Log] ${type}`);
   } catch (err) {
-    console.error('[MOLPay API Log] Failed:', err);
+    // console.error('[MOLPay API Log] Failed:', err);
   }
 }
 
@@ -60,7 +42,6 @@ export async function savePaymentLogDB({ orderid, referenceNo, transactionNo, st
         remarks: remarks || '',
       }
     });
-    console.log(`[Payment DB Log] Saved payment log for orderId: ${orderid || 'unknown'}`);
   } catch (err) {
     console.error('[Payment DB Log] Failed:', err);
   }
