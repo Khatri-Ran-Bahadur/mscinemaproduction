@@ -499,6 +499,8 @@ export default function MovieBooking() {
     if (isAvailable) {
       setSelectedTime(idx);
       
+      const isRestricted = movieRating && movieRating.toString().includes('18');
+
       if (isRestricted && !isAgeConfirmed) {
         setShowAgeConfirmationModal(true);
       } else {
