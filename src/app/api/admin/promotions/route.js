@@ -7,15 +7,25 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-// Get all promotions
-export async function GET(request) {
-  try {
-    const promotions = await prisma.promotion.findMany({
+import { unstable_cache } from 'next/cache';
+
+const getCachedPromotions = unstable_cache(
+  async () => {
+    return await prisma.promotion.findMany({
       orderBy: [
         { order: 'asc' },
         { createdAt: 'desc' }
       ]
     });
+  },
+  ['public-promotions'],
+  { revalidate: 300, tags: ['promotions'] }
+);
+
+// Get all promotions
+export async function GET(request) {
+  try {
+    const promotions = await getCachedPromotions();
 
     return NextResponse.json({
       success: true,

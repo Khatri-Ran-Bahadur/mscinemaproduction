@@ -3,12 +3,14 @@ const nextConfig = {
   /* config options here */
   output: 'standalone', 
   reactCompiler: false, // Disabling this can significantly reduce CPU usage during build
-  eslint: {
-    ignoreDuringBuilds: true, // Disables linting during build to save CPU and time
-  },
   typescript: {
     ignoreBuildErrors: true, // Disables type checking during build
   },
+  turbopack: {
+    root: process.cwd(),
+  },
+  compress: true, // Enables gzip compression to reduce CPU/Bandwidth
+  poweredByHeader: false, // Security and slight performance gain
   images: {
     remotePatterns: [
       {

@@ -4,7 +4,7 @@ import { NextResponse } from 'next/server';
  * Next.js Middleware
  * Used for API protection and session management
  */
-export function middleware(request) {
+export function proxy(request) {
   const { pathname } = request.nextUrl;
 
   // Protect all API routes
@@ -90,3 +90,5 @@ export function middleware(request) {
 export const config = {
   matcher: '/api/:path*',
 };
+
+export default proxy;

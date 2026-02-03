@@ -20,7 +20,11 @@
     "bcryptjs": "^2.4.3",
     "dotenv": "^16.6.1",
     "lucide-react": "^0.554.0",
+<<<<<<< HEAD
     "next": "^16.1.6",
+=======
+    "next": "16.1.6",
+>>>>>>> 0d42df50ffd6612a007692b07d11a3e5b3ba4afcpackage-lock.json
     "nodemailer": "^7.0.13",
     "qrcode": "^1.5.4",
     "react": "19.2.1",

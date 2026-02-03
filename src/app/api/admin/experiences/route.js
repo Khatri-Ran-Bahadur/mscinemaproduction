@@ -7,15 +7,25 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-// Get all experiences
-export async function GET(request) {
-  try {
-    const experiences = await prisma.experience.findMany({
+import { unstable_cache } from 'next/cache';
+
+const getCachedExperiences = unstable_cache(
+  async () => {
+    return await prisma.experience.findMany({
       orderBy: [
         { order: 'asc' },
         { createdAt: 'desc' }
       ]
     });
+  },
+  ['public-experiences'],
+  { revalidate: 300, tags: ['experiences'] }
+);
+
+// Get all experiences
+export async function GET(request) {
+  try {
+    const experiences = await getCachedExperiences();
 
     return NextResponse.json({
       success: true,

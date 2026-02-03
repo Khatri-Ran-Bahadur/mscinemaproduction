@@ -351,6 +351,8 @@ export const apiRequest = async (endpoint, options = {}) => {
           ...authHeaders,
           ...options.headers,
         },
+        // Cache GET requests for 60 seconds to reduce CPU and network overhead
+        ...(method === 'GET' ? { next: { revalidate: 60 } } : {}),
       };
 
       // Add body for POST/PUT requests

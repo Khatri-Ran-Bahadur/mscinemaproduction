@@ -26,8 +26,8 @@ module.exports = {
       DATABASE_URL:
           'postgres://USER:PASSWORD@db.prisma.io:5432/postgres?sslmode=require&connection_limit=1'
     },
-    error_file: '/var/log/pm2/mscinemas-staging-error.log',
-    out_file: '/var/log/pm2/mscinemas-staging-out.log',
+    error_file: '/var/log/pm2/mscinemas-error.log',
+    out_file: '/var/log/pm2/mscinemas-out.log',
     log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
     merge_logs: true,
     // CPU throttling to prevent spikes

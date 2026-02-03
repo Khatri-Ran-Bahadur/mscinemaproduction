@@ -1,14 +1,23 @@
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { unstable_cache } from 'next/cache';
 import { sendEmail } from '@/utils/email';
 
-export async function GET() {
-  try {
-    const contactInfos = await prisma.contactInfo.findMany({
+const getCachedContactInfo = unstable_cache(
+  async () => {
+    return await prisma.contactInfo.findMany({
       where: { isActive: true },
       orderBy: { order: 'asc' },
     });
+  },
+  ['public-contact-info'],
+  { revalidate: 300, tags: ['contact-info'] }
+);
+
+export async function GET() {
+  try {
+    const contactInfos = await getCachedContactInfo();
     return NextResponse.json(contactInfos);
   } catch (error) {
     console.error('Contact Info API Error:', error);

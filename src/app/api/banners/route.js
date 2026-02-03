@@ -5,11 +5,12 @@
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { unstable_cache } from 'next/cache';
 
-export async function GET(request) {
-  try {
+const getCachedBanners = unstable_cache(
+  async () => {
     const now = new Date();
-    const banners = await prisma.banner.findMany({
+    return await prisma.banner.findMany({
       where: {
         isActive: true,
         AND: [
@@ -32,6 +33,14 @@ export async function GET(request) {
         { createdAt: 'desc' }
       ]
     });
+  },
+  ['public-banners'],
+  { revalidate: 300, tags: ['banners'] }
+);
+
+export async function GET(request) {
+  try {
+    const banners = await getCachedBanners();
 
     return NextResponse.json({
       success: true,
