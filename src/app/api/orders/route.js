@@ -32,7 +32,8 @@ export async function POST(request) {
         return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
     
-    // Let's check if there is any CONFIRMED or PENDING order for this referenceNo
+    // Let's check if there is any order for this referenceNo
+    // Use findFirst to get the most recent one if multiple exist (though referenceNo should be unique)
     const existingByRef = await prisma.order.findFirst({
       where: {
         referenceNo: referenceNo
@@ -43,6 +44,7 @@ export async function POST(request) {
 
     if (existingByRef) {        
         try {
+            console.log(`[Order API] Updating existing order ${existingByRef.id} for reference: ${referenceNo}`);
             const updatedOrder = await prisma.order.update({
                 where: { id: existingByRef.id },
                 data: {
@@ -51,7 +53,11 @@ export async function POST(request) {
                     paymentStatus: paymentStatus || 'PENDING',
                     status: 'PENDING', // Reset to PENDING for retry
                     token: token || existingByRef.token,
-                    updatedAt: new Date()
+                    updatedAt: new Date(),
+                    // Update customer details in case they changed during retry
+                    customerName: customerName || existingByRef.customerName,
+                    customerEmail: customerEmail || existingByRef.customerEmail,
+                    customerPhone: customerPhone || existingByRef.customerPhone,
                 }
             });
             return NextResponse.json({ success: true, order: updatedOrder, message: 'Order updated for retry' });
@@ -61,11 +67,13 @@ export async function POST(request) {
         }
     }
 
+    // If no existing order, create a new one
+    // Ensure default status is PENDING, not PAID
     const order = await prisma.order.create({
       data: {
         orderId,
         referenceNo,
-        transactionNo,
+        transactionNo: transactionNo || null,
         customerName,
         customerEmail,
         customerPhone,
@@ -79,9 +87,9 @@ export async function POST(request) {
         seats: typeof seats === 'object' ? JSON.stringify(seats) : seats,
         ticketType,
         totalAmount: parseFloat(totalAmount),
-        paymentStatus: paymentStatus || 'PAID',
+        paymentStatus: paymentStatus || 'PENDING',
         paymentMethod: paymentMethod || 'Online',
-        status: 'CONFIRMED',
+        status: 'PENDING',
         token
       }
     });
