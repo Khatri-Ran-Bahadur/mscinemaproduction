@@ -499,7 +499,7 @@ export default function MovieBooking() {
     if (isAvailable) {
       setSelectedTime(idx);
       
-      const isRestricted = movieRating && movieRating.toString().includes('18');
+      const isRestricted = movieRating && movieRating.toString().trim() !== '';
 
       if (isRestricted && !isAgeConfirmed) {
         setShowAgeConfirmationModal(true);
@@ -1083,7 +1083,7 @@ export default function MovieBooking() {
 function AgeConfirmationModal({ rating, onConfirm, onClose }) {
   // Extract number from rating (e.g., "18")
   const ratingMatch = rating ? rating.toString().match(/\d+/) : null;
-  const ratingNumber = ratingMatch ? ratingMatch[0] : "18";
+  const ratingNumber = ratingMatch ? ratingMatch[0] : rating; // Use the rating itself (like "U") if no number is found
 
   return (
     <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={onClose}>
