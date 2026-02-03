@@ -7,13 +7,14 @@ export default function MaintenancePage() {
   
   // Static maintenance message
   const maintenanceMessage = "";
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL;
 
   return (
     <div className="min-h-screen bg-[#1a1a1a] flex flex-col items-center justify-center p-6">
       {/* Illustration Section */}
       <div className="relative mb-12 w-full max-w-lg flex justify-center">
         <img 
-          src="/img/maintainacne.png" 
+          src={baseUrl + "/img/maintainacne.png"} 
           alt="Maintenance illustration" 
           className="max-w-full h-auto"
         />
