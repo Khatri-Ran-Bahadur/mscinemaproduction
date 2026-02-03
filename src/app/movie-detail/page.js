@@ -61,6 +61,7 @@ export default function MovieBooking() {
   const [moviesList, setMoviesList] = useState([]);
   const [showTimeRestrictionModal, setShowTimeRestrictionModal] = useState(false);
   const [isShowTimesLoading, setIsShowTimesLoading] = useState(false);
+  const [isAgeConfirmed, setIsAgeConfirmed] = useState(false);
   
   // Refs to prevent duplicate API calls
   const hasLoadedMovies = useRef(false);
@@ -498,12 +499,7 @@ export default function MovieBooking() {
     if (isAvailable) {
       setSelectedTime(idx);
       
-      // Check if age is already confirmed in localStorage
-      const ageConfirmed = localStorage.getItem('age_confirmed');
-      // Only show age restriction modal if rating is 18 and not yet confirmed
-      const isRestricted = movieRating && movieRating.toString().includes('18');
-
-      if (isRestricted && !ageConfirmed) {
+      if (isRestricted && !isAgeConfirmed) {
         setShowAgeConfirmationModal(true);
       } else {
         proceedToTicketType(idx);
@@ -1063,7 +1059,7 @@ export default function MovieBooking() {
         <AgeConfirmationModal
           rating={movieRating}
           onConfirm={() => {
-            localStorage.setItem('age_confirmed', 'true');
+            setIsAgeConfirmed(true);
             setShowAgeConfirmationModal(false);
             proceedToTicketType();
           }}
