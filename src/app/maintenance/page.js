@@ -6,7 +6,7 @@ export default function MaintenancePage() {
   const router = useRouter();
   
   // Static maintenance message
-  const maintenanceMessage = "";
+  const maintenanceMessage = "We are currently performing scheduled maintenance to improve our services and bring you a better experience. We'll be back online shortly. Thank you for your patience!";
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL;
 
   return (
