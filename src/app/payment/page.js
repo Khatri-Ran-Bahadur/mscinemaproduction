@@ -303,11 +303,15 @@ export default function PaymentPage() {
   // Handle payment method button click
   const handlePaymentClick = async (method, e) => {
     e.preventDefault();
+
+    if (isProcessing) return; // Prevent double clicks
     
     if (!agreedToTerms) {
       alert('Please indicate that you have read and agree to the Terms and Conditions and Privacy Policy');
       return false;
     }
+
+    setIsProcessing(true); // Start processing
 
     if (!isReady) {
       setError('Payment gateway is still loading. Please wait a moment and try again.');
@@ -495,6 +499,7 @@ export default function PaymentPage() {
       })
       .catch(err => {
         console.error('Payment error:', err);
+        setIsProcessing(false);
         setError(err.message || 'Failed to initialize payment. Please try again.');
       });
   };

@@ -1,6 +1,6 @@
-# MS Cinema Mobile Payment Integration Guide (Final Version)
+# MS Cinema Mobile Payment Integration Guide
 
-This document provides the definitive guide for integrating the MS Cinema mobile application payment flow using Fiuu (formerly Razer Merchant Services) Mobile SDK.
+This document provides the definitive guide for integrating the MS Cinema mobile application payment flow using the **Fiuu (formerly Razer Merchant Services) Mobile XDK**.
 
 ## 🔐 Security Requirement
 All API calls from the mobile application MUST include the static API key in the request headers. Requests without this key or with an invalid key will return a `401 Unauthorized` error.
@@ -14,11 +14,11 @@ All API calls from the mobile application MUST include the static API key in the
 
 To ensure data consistency and prevent double bookings, follow this exact sequence:
 
-1.  **Server Initialization**: Call `/mobile-request` to create a local record.
-2.  **Take Payment**: Launch the Fiuu Mobile SDK using the payload from step 1.
-3.  **Local Status Sync**: Call `/mobile-update` to record the payment result in our database.
+1.  **Server Initialization**: Call `/api/payment/mobile-request` to create a local record and get the XDK payload.
+2.  **Take Payment**: Launch the Fiuu Mobile XDK using the returned `payload` object.
+3.  **Local Status Sync**: Call `/api/payment/mobile-update` to record the payment result in our database.
 4.  **Cinema System Sync**: Call the **Upstream Cinema API** (`ReserveBooking`) directly from the mobile app.
-5.  **Ticket Delivery**: Call `/mobile-send-ticket` to trigger the QR code email to the customer.
+5.  **Ticket Delivery**: Call `/api/payment/mobile-send-ticket` to trigger the QR code email to the customer.
 
 ---
 
@@ -27,7 +27,7 @@ To ensure data consistency and prevent double bookings, follow this exact sequen
 ### 1. Create/Sync Payment Request
 **Endpoint**: `POST /api/payment/mobile-request`
 
-Call this when the user enters the payment phase. This endpoint is idempotent; if called multiple times with the same `referenceNo`, it will update the existing record rather than creating a duplicate.
+Call this when the user enters the payment phase. This endpoint is idempotent; if called multiple times with the same `referenceNo`, it will update the existing record.
 
 **Request Body Parameters**:
 
@@ -49,38 +49,42 @@ Call this when the user enters the payment phase. This endpoint is idempotent; i
 | `ticketType` | String | No | Description of ticket categories. |
 | `currency` | String | No | Currency code (Default: `MYR`). |
 | `country` | String | No | Country code (Default: `MY`). |
-| `sandboxMode` | Boolean | No | Set `true` for testing/sandbox environment. |
-| `devMode` | Boolean | No | Set `true` for development logging. |
-
-**Example Request**:
-```json
-{
-  "amount": 25.00,
-  "referenceNo": "B1A66723",
-  "customerEmail": "user@example.com",
-  "customerName": "John Doe",
-  "movieTitle": "Gladiator II",
-  "seats": ["H10", "H11"],
-  "sandboxMode": true
-}
-```
+| `sandboxMode` | Boolean | No | Set `true` for sandbox (test) mode. |
+| `devMode` | Boolean | No | Set `true` to enable developer mode in the SDK. |
 
 **Response**:
-Returns the `payload` object which must be passed to the Fiuu Mobile SDK.
+Returns the `payload` object which must be passed directly to the Fiuu Mobile SDK.
+
 ```json
 {
   "status": true,
-  "orderId": "MOB173...456",
+  "message": "Mobile payment request created",
+  "orderId": "MOB1738615456789",
   "payload": {
+    "mp_dev_mode": true,
+    "mp_username": "...",
+    "mp_password": "...",
     "mp_merchant_ID": "...",
     "mp_app_name": "MSCinemas",
-    "mp_amount": "25.00",
-    "mp_order_ID": "MOB173...456",
     "mp_verification_key": "...",
+    "mp_amount": "18.50",
+    "mp_order_ID": "MOB1738615456789",
+    "mp_currency": "MYR",
+    "mp_country": "MY",
+    "mp_channel": "multi",
+    "mp_bill_description": "Booking for Gladiator II",
     "mp_bill_name": "John Doe",
     "mp_bill_email": "user@example.com",
-    "mp_sandbox_mode": true
-    // ... other SDK required fields
+    "mp_bill_mobile": "0123456789",
+    "mp_bill_name_edit_disabled": true,
+    "mp_bill_email_edit_disabled": true,
+    "mp_bill_mobile_edit_disabled": true,
+    "mp_bill_description_edit_disabled": true,
+    "mp_language": "EN",
+    "mp_sandbox_mode": true,
+    "mp_advanced_email_validation_enabled": true,
+    "mp_advanced_phone_validation_enabled": true
+    // ... other optional fields
   }
 }
 ```
@@ -90,7 +94,7 @@ Returns the `payload` object which must be passed to the Fiuu Mobile SDK.
 ### 2. Update Payment Status (Local Database)
 **Endpoint**: `POST /api/payment/mobile-update`
 
-Call this immediately after the SDK returns a transaction status. This ensures our local dashboard reflects the correct payment state.
+Call this immediately after the SDK returns a transaction status.
 
 **Request Body**:
 ```json
@@ -108,7 +112,7 @@ Call this immediately after the SDK returns a transaction status. This ensures o
 ### 3. Send Ticket Email
 **Endpoint**: `POST /api/payment/mobile-send-ticket`
 
-Call this **only after** your app has successfully called the Upstream Cinema `ReserveBooking` API. This API fetches the final confirmed details and sends the premium HTML ticket with the QR code.
+Call this **only after** your app has successfully called the Upstream Cinema `ReserveBooking` API.
 
 **Request Body**:
 ```json
@@ -120,7 +124,21 @@ Call this **only after** your app has successfully called the Upstream Cinema `R
 
 ---
 
-## 📝 Important Notes
-*   **Reference Uniqueness**: We use the Cinema `referenceNo` to track uniqueness. If a user starts a payment, closes it, and tries again for the same seats, our system gracefully reuses the existing order.
-*   **Logging**: Every request made to these APIs is logged in the `PaymentLog` table for auditing and troubleshooting.
-*   **Web Payment Isolation**: This flow is isolated from the website's `molpay_return` and `molpay_callback` logic, ensuring zero side effects on web booking.
+## 🔐 Environment Variables (Server Side)
+The following keys must be configured in the `.env` file for the backend:
+
+- `FIUU_MERCHANT_ID`: Your Merchant ID.
+- `FIUU_VERIFY_KEY`: Your Verification Key.
+- `FIUU_SECRET_KEY`: Your Secret Key.
+- `FIUU_USERNAME`: SDK Username.
+- `FIUU_PASSWORD`: SDK Password.
+- `RMS_APP_NAME`: App name for SDK (e.g., `MSCinemas`).
+
+---
+
+## 📝 Integration Notes
+1. **Payload Reuse**: The `payload` returned by `/mobile-request` is pre-configured according to the Fiuu Mobile SDK requirements. You can directly pass this object to the SDK initialization method.
+2. **Idempotency**: Using the `referenceNo` (e.g., `B1A...`) ensures that even if a user retries a payment, it is tracked under the same booking reference.
+3. **Field Locking**: By default, billing fields are locked (`mp_*_edit_disabled: true`) to ensure they match the booking data.
+4. **Language**: The default language is set to `EN`, but can be changed by passing `mp_language` in the request body to `/mobile-request`.
+5. **Logging**: Every request made to these APIs is logged in the `PaymentLog` table for auditing and troubleshooting.

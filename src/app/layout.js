@@ -11,10 +11,14 @@ const poppins = Poppins({
 });
 
 export const metadata = {
-  title: "MS Cinemas",
-  description: "MS Cinemas, Malasiya",
+  title: {
+    default: "MScinemas | Premium Movie Experience",
+    template: "%s | MScinemas",
+  },
+  description: "Experience the ultimate cinematic journey at MScinemas. Book movie tickets online, explore showtimes, and enjoy the latest blockbusters with premium comfort.",
+  keywords: "MScinemas, Movie Tickets, Online Booking, Cinema Malaysia, Latest Movies, Movie Showtimes",
   icons: {
-    icon: '/img/logo.png',
+    icon: "/img/logo.png",
   },
 };
 
