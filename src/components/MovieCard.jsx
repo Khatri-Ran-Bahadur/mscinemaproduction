@@ -32,16 +32,6 @@ export default function MovieCard({ movie, onBookNow, onWatchTrailer, className 
                 }}
             />
 
-            {/* Rating Icon in front of image (Top Right) */}
-            {movie.rating && (
-                <div className="absolute top-3 right-3 z-20">
-                    <RatingIcon rating={movie.rating} className="w-6 h-6 sm:w-8 sm:h-8 drop-shadow-lg" />
-                </div>
-            )}
-            
-            {/* Optional Badge */}
-            
-
             {/* Glass Background with Movie Information */}
             <div className="absolute bottom-0 left-0 right-0 z-10">
                 {/* Glassmorphism Background */}
@@ -52,7 +42,15 @@ export default function MovieCard({ movie, onBookNow, onWatchTrailer, className 
                     }}
                 >
                     <div className="p-2 sm:p-3">
-                        
+                        {/* Movie title and Rating Icon */}
+                        <div className="flex items-center justify-between gap-2 mb-2">
+                            <h3 className="text-[#FAFAFA] text-xs sm:text-sm font-bold truncate tracking-wide">
+                                {movie.title}
+                            </h3>
+                            {movie.rating && (
+                                <RatingIcon rating={movie.rating} className="w-5 h-5 sm:w-6 sm:h-6 drop-shadow-lg" />
+                            )}
+                        </div>
                         
                         {/* Movie Information with Icons */}
                         <div className="flex flex-col gap-1 text-[9px] sm:text-[10px] text-[#FAFAFA]">

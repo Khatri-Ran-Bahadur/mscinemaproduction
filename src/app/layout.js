@@ -11,14 +11,63 @@ const poppins = Poppins({
 });
 
 export const metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_BASE_URL || 'https://mscinemas.com.my'),
   title: {
     default: "MScinemas | Premium Movie Experience",
     template: "%s | MScinemas",
   },
   description: "Experience the ultimate cinematic journey at MScinemas. Book movie tickets online, explore showtimes, and enjoy the latest blockbusters with premium comfort.",
-  keywords: "MScinemas, Movie Tickets, Online Booking, Cinema Malaysia, Latest Movies, Movie Showtimes",
+  keywords: "MScinemas, Movie Tickets, Online Booking, Cinema Malaysia, Latest Movies, Movie Showtimes, Kampar Cinema, Perak Cinema",
+  authors: [{ name: "MS Cinemas" }],
+  creator: "MS Cinemas",
+  publisher: "MS Cinemas Sdn Bhd",
+  formatDetection: {
+    email: false,
+    address: false,
+    telephone: false,
+  },
   icons: {
     icon: "/img/logo.png",
+    shortcut: "/img/logo.png",
+    apple: "/img/logo.png",
+  },
+  openGraph: {
+    type: "website",
+    locale: "en_MY",
+    url: process.env.NEXT_PUBLIC_BASE_URL || 'https://mscinemas.com.my',
+    siteName: "MScinemas",
+    title: "MScinemas | Premium Movie Experience",
+    description: "Experience the ultimate cinematic journey at MScinemas. Book movie tickets online, explore showtimes, and enjoy the latest blockbusters with premium comfort.",
+    images: [
+      {
+        url: "/img/logo.png",
+        width: 1200,
+        height: 630,
+        alt: "MScinemas - Premium Movie Experience",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "MScinemas | Premium Movie Experience",
+    description: "Experience the ultimate cinematic journey at MScinemas. Book movie tickets online, explore showtimes, and enjoy the latest blockbusters with premium comfort.",
+    images: ["/img/logo.png"],
+    creator: "@mscinemas",
+    site: "@mscinemas",
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-video-preview': -1,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+    },
+  },
+  verification: {
+    google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION || '',
   },
 };
 
@@ -28,6 +77,32 @@ export default function RootLayout({ children }) {
       <body
         className={`${poppins.variable} antialiased`}
       >
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "Organization",
+              "name": "MS Cinemas",
+              "url": "https://mscinemas.com.my",
+              "logo": "https://mscinemas.com.my/img/logo.png",
+              "description": "Experience the ultimate cinematic journey at MScinemas. Book movie tickets online, explore showtimes, and enjoy the latest blockbusters.",
+              "address": {
+                "@type": "PostalAddress",
+                "streetAddress": "TK1 7-01, Terminal Kampar Putra",
+                "addressLocality": "Kampar",
+                "addressRegion": "Perak",
+                "postalCode": "31900",
+                "addressCountry": "MY"
+              },
+              "contactPoint": {
+                "@type": "ContactPoint",
+                "contactType": "customer support",
+                "email": "admin@mscinemas.my"
+              }
+            })
+          }}
+        />
         <MaintenanceCheck>
           <RecaptchaProvider>
             {children}

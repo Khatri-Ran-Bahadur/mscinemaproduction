@@ -882,7 +882,7 @@ export default function MovieBooking() {
                             : 'Available'}
                         >
                           <div className="text-md font-semibold">{show.time}</div>
-                          <div className="text-sm mt-1 opacity-70">{show.hallName || 'HALL - 1'}</div>
+                          <div className="text-sm mt-1 opacity-70">{show.hallName || 'HALL - 1'} {show.hallName=='HALL - 6'?" (KIDS & FAMILY BED)" : ""}</div>
                         </button>
                       );
                   })}

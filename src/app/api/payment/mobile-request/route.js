@@ -26,8 +26,16 @@ function generateInternalOrderId() {
   return `MOB${timestamp}${random}`;
 }
 
+const API_SECRET_KEY = process.env.API_SECRET_KEY;
+
 export async function POST(request) {
   try {
+    // 0. Security Check
+    const apiKey = request.headers.get('x-api-key');
+    if (!apiKey || apiKey !== API_SECRET_KEY) {
+      return NextResponse.json({ status: false, error: 'Unauthorized: Invalid API Key' }, { status: 401 });
+    }
+
     const body = await request.json();
     
     // Extract payment and booking fields
@@ -87,7 +95,7 @@ export async function POST(request) {
                 seats: typeof seats === 'object' ? JSON.stringify(seats) : seats,
                 ticketType,
                 totalAmount: parseFloat(amount),
-                paymentStatus: 'PENDING', // Reset status in case they are retrying
+                paymentStatus: 'CONFIRMED', // Reset status in case they are retrying
                 status: 'PENDING',
             }
         });
@@ -111,7 +119,7 @@ export async function POST(request) {
                 ticketType,
                 totalAmount: parseFloat(amount),
                 paymentStatus: 'PENDING',
-                status: 'PENDING',
+                status: 'CONFIRMED',
                 paymentMethod: 'Mobile App',
             }
         });

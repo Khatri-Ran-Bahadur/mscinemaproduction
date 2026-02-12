@@ -49,6 +49,13 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
+.custom-prose img {
+  border-radius: 0.75rem;
+  margin: 2rem 0;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
 .scrollbar-hide {
   -ms-overflow-style: none;
   scrollbar-width: none;

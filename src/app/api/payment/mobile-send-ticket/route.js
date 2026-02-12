@@ -8,8 +8,16 @@
 import { NextResponse } from 'next/server';
 import { sendTicketEmailForOrder } from '@/utils/order-email';
 
+const API_SECRET_KEY = process.env.API_SECRET_KEY;
+
 export async function POST(request) {
   try {
+    // 0. Security Check
+    const apiKey = request.headers.get('x-api-key');
+    if (!apiKey || apiKey !== API_SECRET_KEY) {
+      return NextResponse.json({ status: false, error: 'Unauthorized: Invalid API Key' }, { status: 401 });
+    }
+
     const body = await request.json();
     const { orderId, transactionId } = body;
 

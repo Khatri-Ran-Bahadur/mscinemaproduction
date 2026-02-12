@@ -8,6 +8,11 @@ import { prisma } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
 
+export const metadata = {
+  title: 'About Us',
+  description: 'Learn more about MS Cinemas, your ultimate destination for an immersive cinematic experience in Kampar, Perak. Featuring state-of-the-art screens, Dolby Atmos sound, and premium comfort.',
+};
+
 async function getAboutContent() {
   try {
     const content = await prisma.aboutContent.findMany({
