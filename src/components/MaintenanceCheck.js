@@ -16,6 +16,13 @@ export default function MaintenanceCheck({ children }) {
   }, [pathname]);
 
   const checkMaintenanceMode = async () => {
+    // Skip maintenance check for admin routes
+    if (pathname?.startsWith('/admin')) {
+      setIsChecking(false);
+      setIsMaintenance(false);
+      return;
+    }
+
     setIsChecking(true);
     
     try {
@@ -68,8 +75,8 @@ export default function MaintenanceCheck({ children }) {
     }
   };
 
-  // Show loading state while checking (only if not on maintenance page)
-  if (isChecking && pathname !== '/maintenance') {
+  // Show loading state while checking (only if not on maintenance page and not admin)
+  if (isChecking && pathname !== '/maintenance' && !pathname?.startsWith('/admin')) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-center">

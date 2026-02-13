@@ -4,7 +4,7 @@
  */
 
 import { get, post, APIError } from './client';
-import { setToken, removeToken, setUserData, removeUserData } from '@/utils/storage';
+import { setToken, removeToken, setUserData, removeUserData, getStorageItem, setStorageItem } from '@/utils/storage';
 
 /**
  * Get user token (Login)
@@ -308,12 +308,65 @@ export const getMaintenanceModeAndAppVersion = async () => {
  */
 export const getMaintenanceModeAndAppVersionById = async (id = 1) => {
   try {
+    const CACHE_KEY = `maintenance_mode_${id}`;
+    const CACHE_DURATION = 3 * 60 * 1000; // 3 minutes
+    
+    // Check localStorage cache
+    const cachedItem = getStorageItem(CACHE_KEY);
+    if (cachedItem) {
+      try {
+        const { data, timestamp } = JSON.parse(cachedItem);
+        const now = Date.now();
+        
+        // Return cached data if valid (less than 3 minutes old)
+        if (now - timestamp < CACHE_DURATION) {
+          return data;
+        }
+      } catch (e) {
+        // Invalid cache format, ignore
+        console.warn('Invalid maintenance cache', e);
+      }
+    }
+
+    // Call API
     const response = await get(`/WebSettings/GetMaintenanceModeAndAppVersion/${id}`);
+    
+    // Cache successful response
+    const cacheData = {
+      data: response,
+      timestamp: Date.now()
+    };
+    setStorageItem(CACHE_KEY, JSON.stringify(cacheData));
+
     return response;
   } catch (error) {
     console.error('Get maintenance mode by ID error:', error);
-    return { maintenanceMode: true };
-    throw error;
+    
+    const CACHE_KEY = `maintenance_mode_${id}`;
+    let dataToReturn = { maintenanceMode: true }; // Default fallback
+
+    // Check for stale cache
+    const cachedItem = getStorageItem(CACHE_KEY);
+    if (cachedItem) {
+      try {
+        const parsed = JSON.parse(cachedItem);
+        if (parsed && parsed.data) {
+            dataToReturn = parsed.data;
+        }
+      } catch (e) {
+        console.warn('Failed to parse stale cache', e);
+      }
+    }
+    
+    // Update cache timestamp to prevent immediate retry
+    // This respects the user's request to ensure 3 minute difference between calls
+    const cacheData = {
+      data: dataToReturn,
+      timestamp: Date.now()
+    };
+    setStorageItem(CACHE_KEY, JSON.stringify(cacheData));
+    
+    return dataToReturn;
   }
 };
 
