@@ -18,7 +18,7 @@ module.exports = {
     node_args: '--max-old-space-size=1024', // Optimize Node.js memory
     env: {
       NODE_ENV: 'production',
-      PORT: 3001,
+      PORT: 3000,
       NODE_OPTIONS: '--max-old-space-size=1024',
       TZ: 'Asia/Kuala_Lumpur',
       // Next.js optimization

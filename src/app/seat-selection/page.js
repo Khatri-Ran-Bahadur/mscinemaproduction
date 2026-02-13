@@ -522,6 +522,14 @@ export default function SeatSelection() {
   // Previous code: Object.keys(seatGrid).sort().reverse();
   const rowLetters = Object.keys(seatGrid).sort().reverse();
   
+  // Calculate the maximum number of columns across all rows for consistent grid alignment
+  const globalMaxColumn = rowLetters.reduce((max, rowLetter) => {
+    const rowSeats = seatGrid[rowLetter];
+    if (!rowSeats) return max;
+    const rowMax = Math.max(...Object.keys(rowSeats).map(k => parseInt(k) || 0), 0);
+    return Math.max(max, rowMax);
+  }, 0);
+  
   // Calculate total seats across all rows for dynamic gap calculation
   const calculateTotalSeats = () => {
     let total = 0;
@@ -1817,7 +1825,38 @@ export default function SeatSelection() {
   };
 
   return (
-    <div className="min-h-screen bg-[#1c1c1c] text-white pb-10">
+    <>
+      <style jsx>{`
+        .seat-grid-responsive {
+          grid-template-columns: repeat(${globalMaxColumn}, 38px) !important;
+          gap: 0.05rem !important;
+        }
+        @media (min-width: 640px) {
+          .seat-grid-responsive {
+            grid-template-columns: repeat(${globalMaxColumn}, 36px) !important;
+            gap: 0.08rem !important;
+          }
+        }
+        @media (min-width: 768px) {
+          .seat-grid-responsive {
+            grid-template-columns: repeat(${globalMaxColumn}, 34px) !important;
+            gap: 0.1rem !important;
+          }
+        }
+        @media (min-width: 1024px) {
+          .seat-grid-responsive {
+            grid-template-columns: repeat(${globalMaxColumn}, 40px) !important;
+            gap: 0.25rem !important;
+          }
+        }
+        @media (min-width: 1280px) {
+          .seat-grid-responsive {
+            grid-template-columns: repeat(${globalMaxColumn}, minmax(44px, 1fr)) !important;
+            gap: 0.5rem !important;
+          }
+        }
+      `}</style>
+      <div className="min-h-screen bg-[#1c1c1c] text-white pb-10">
       {/* Countdown Timer */}
       {/* {timerActive && lockReferenceNo && (
         <div className="bg-[#FFCA20] text-black px-4 py-2 text-center font-bold text-sm">
@@ -1965,13 +2004,35 @@ export default function SeatSelection() {
           </svg>
         </div>
 
-        {/* Seat Map Box (Dark Background) - Fixed Wrapper */}
-        <div className="bg-[#1a1a1a] rounded-lg p-2 sm:p-3 md:p-4 lg:p-5 xl:p-6 mb-6 w-full max-w-full mt-8">
+        {/* Seat Map Box (Dark Background) - Fixed Wrapper with Fixed Labels */}
+        <div className="bg-[#1a1a1a] rounded-lg p-2 sm:p-2 md:p-3 lg:p-4 xl:p-6 mb-6 w-full max-w-full mt-8 relative">
           
-          {/* Scrollable Container - Scrolls INSIDE the dark box */}
-          <div className="w-full overflow-x-auto no-scrollbar relative pb-4" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-            <div className="w-full flex flex-col items-stretch">
-              <div className="flex flex-col gap-3 sm:gap-4 md:gap-5 lg:gap-6 w-full">
+          {/* Fixed Left Labels Column */}
+          <div className="absolute left-2 sm:left-2 md:left-3 lg:left-4 xl:left-6 top-2 sm:top-2 md:top-3 lg:top-4 xl:top-6 z-30 pointer-events-none">
+            <div className="flex flex-col gap-2 sm:gap-2.5 md:gap-3 lg:gap-4 xl:gap-6">
+              {rowLetters.map((rowLetter) => (
+                <div key={`left-${rowLetter}`} className="text-[9px] sm:text-[10px] md:text-[10px] lg:text-xs text-white/40 w-5 sm:w-6 md:w-6 lg:w-8 xl:w-10 text-center font-medium flex items-center justify-center" style={{ height: '42px' }}>
+                  {rowLetter}
+                </div>
+              ))}
+            </div>
+          </div>
+          
+          {/* Fixed Right Labels Column */}
+          <div className="absolute right-2 sm:right-2 md:right-3 lg:right-4 xl:right-6 top-2 sm:top-2 md:top-3 lg:top-4 xl:top-6 z-30 pointer-events-none">
+            <div className="flex flex-col gap-2 sm:gap-2.5 md:gap-3 lg:gap-4 xl:gap-6">
+              {rowLetters.map((rowLetter) => (
+                <div key={`right-${rowLetter}`} className="text-[9px] sm:text-[10px] md:text-[10px] lg:text-xs text-white/40 w-5 sm:w-6 md:w-6 lg:w-8 xl:w-10 text-center font-medium flex items-center justify-center" style={{ height: '42px' }}>
+                  {rowLetter}
+                </div>
+              ))}
+            </div>
+          </div>
+          
+          {/* Scrollable Container - Scrolls INSIDE the dark box with padding for labels */}
+          <div className="w-full overflow-x-auto no-scrollbar relative pb-2 md:pb-3 px-6 sm:px-7 md:px-8 lg:px-10 xl:px-12" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+            <div className="w-full flex flex-col items-stretch" style={{ minWidth: `${globalMaxColumn * 38}px` }}>
+              <div className="flex flex-col gap-2 sm:gap-2.5 md:gap-3 lg:gap-4 xl:gap-6 w-full">
             {rowLetters.map((rowLetter, rowIndex) => {
               const rowSeats = seatGrid[rowLetter];
               // Get max column from actual seat data in this row (or use 0 if no seats)
@@ -1987,19 +2048,22 @@ export default function SeatSelection() {
               
               return (
                 <div key={rowLetter} className="flex items-center w-full relative">
-                {/* Row Label Left - Fixed Position */}
-                  <span className="text-[9px] sm:text-[10px] md:text-xs text-white/40 w-6 sm:w-7 md:w-8 lg:w-10 text-center font-medium shrink-0 sticky left-0 z-20 pr-1">{rowLetter}</span>
                 
-                {/* Seats - Full Width Container - Takes remaining space */}
-                <div className="flex-1 min-w-0 flex items-center">
-                  <div className={`flex items-center justify-evenly w-full ${dynamicGapClass}`}>
-                    {Array.from({ length: rowMaxColumn }, (_, i) => {
-                      const column = rowMaxColumn - i;
+                {/* Seats - Full Width Container */}
+                <div className="w-full">
+                  <div 
+                    className="grid w-full seat-grid-responsive"
+                    style={{
+                      minWidth: `${globalMaxColumn * 38}px`
+                    }}
+                  >
+                    {Array.from({ length: globalMaxColumn }, (_, i) => {
+                      const column = globalMaxColumn - i;
                       const seat = rowSeats[column];
                       
                       if (!seat) {
-                        // Empty space - invisible spacer (no width, just maintains position)
-                        return <div key={`${rowLetter}-${column}`} className="shrink-0 w-0"></div>;
+                        // Empty grid cell - maintains column alignment
+                        return <div key={`${rowLetter}-${column}`} className="w-full"></div>;
                       }
 
                       const isSelected = isSeatSelected(seat);
@@ -2058,7 +2122,7 @@ export default function SeatSelection() {
                         const partnerSeatType = partnerSeat ? getSeatType(partnerSeat) : seatType;
 
                     return (
-                          <div key={`${rowLetter}-${column}`} className="flex flex-col items-center shrink-0 gap-0.5 min-w-0">
+                          <div key={`${rowLetter}-${column}`} className="flex flex-col items-center justify-center gap-0.5 w-full col-span-2">
                             <div className="flex items-center shrink-0 min-w-0">
                               <button
                               onClick={() => toggleSeat(seat)}
@@ -2126,7 +2190,7 @@ export default function SeatSelection() {
                       } else {
                         // Single seat
                         return (
-                          <div key={`${rowLetter}-${column}`} className="flex flex-col items-center shrink-0 gap-0.5 min-w-0">
+                          <div key={`${rowLetter}-${column}`} className="flex flex-col items-center justify-center gap-0.5 w-full">
                           <button
                             onClick={() => toggleSeat(seat)}
                               disabled={isOccupied || isDisabled}
@@ -2160,9 +2224,6 @@ export default function SeatSelection() {
                   })}
                   </div>
                 </div>
-                
-                {/* Row Label Right - Fixed Position */}
-                <span className="text-[9px] sm:text-[10px] md:text-xs text-white/40 w-6 sm:w-7 md:w-8 lg:w-10 text-center font-medium shrink-0 sticky right-0 z-20 pl-1">{rowLetter}</span>
               </div>
             );
           })}
@@ -2521,6 +2582,7 @@ export default function SeatSelection() {
         );
       })()}
       </div>
-    </div>
+      </div>
+    </>
   );
 }

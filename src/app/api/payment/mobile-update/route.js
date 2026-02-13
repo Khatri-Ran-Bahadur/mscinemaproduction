@@ -1,17 +1,24 @@
 /**
  * API Route: Mobile Payment Update
- * This endpoint is called by the mobile app after a successful SDK payment to sync server state.
+ * This endpoint is called by the mobile app after a SDK payment to sync server state.
  * SECURITY: Requires x-api-key header
  */
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { savePaymentLogDB, callReserveBooking, callCancelBooking } from '@/utils/molpay';
-import { sendTicketEmailForOrder } from '@/utils/order-email';
+import { savePaymentLogDB } from '@/utils/molpay';
 
-export async function POST(request) {
+const API_SECRET_KEY = process.env.API_SECRET_KEY;
+
+export async function POST(req) {
   try {
-    const body = await request.json();
+    // 0. Security Check
+    const apiKey = req.headers.get('x-api-key');
+    if (!apiKey || apiKey !== API_SECRET_KEY) {
+      return NextResponse.json({ status: false, error: 'Unauthorized: Invalid API Key' }, { status: 401 });
+    }
+
+    const body = await req.json();
     const { 
         orderId, 
         transactionId, 
@@ -20,7 +27,8 @@ export async function POST(request) {
         appCode,          // Authorization code from bank
         amount,
         currency = 'MYR',
-        errorDescription = '' 
+        errorDescription = '',
+        fiuuRequest = {}
     } = body;
 
     if (!orderId) {
@@ -49,29 +57,26 @@ export async function POST(request) {
       returnData: body,
       isSuccess: status === 'SUCCESS',
       remarks: status === 'SUCCESS' ? 'Mobile App success signal' : `Mobile App failed: ${errorDescription}`,
-      request
+      request: fiuuRequest
     });
 
     // 3. Process Status
     if (status === 'SUCCESS') {
-      // a. Update Order to PAID/CONFIRMED
+      // Update Order in DB to PAID
       await prisma.order.update({
         where: { orderId: orderId },
         data: {
           paymentStatus: 'PAID',
           status: 'CONFIRMED',
           transactionNo: transactionId,
-          paymentMethod: channel || 'Mobile SDK',
+          paymentMethod: channel || 'Mobile App',
           updatedAt: new Date()
         }
       });
 
-      // b. Send Ticket Email (Using new logic)
-      await sendTicketEmailForOrder(orderId, transactionId);
-
       return NextResponse.json({
         status: true,
-        message: 'Order updated and ticket sent',
+        message: 'Payment status updated to SUCCESS',
         data: {
           orderId,
           status: 'CONFIRMED'
@@ -86,13 +91,14 @@ export async function POST(request) {
           paymentStatus: 'FAILED',
           status: 'CANCELLED',
           transactionNo: transactionId,
+          paymentMethod: channel || 'Mobile App',
           updatedAt: new Date()
         }
       });
 
       return NextResponse.json({
         status: true,
-        message: 'Order status updated to FAILED',
+        message: 'Payment status updated to FAILED',
         data: { orderId, status: 'CANCELLED' }
       });
     }
