@@ -28,7 +28,7 @@ export default function PaymentPage() {
     // E-wallets
     { channel: 'creditAN', name: 'Visa', image: '/images/payment-credit.jpg', tcctype: 'SALS' },
     { channel: 'WeChatPayMY', name: 'WeChat Pay', image: '/images/wechatpay.png' },
-    { channel: 'alipay', name: 'Alipay', image: '/images/alipay.png' },
+    // { channel: 'alipay', name: 'Alipay', image: '/images/alipay.png' },
     
     // FPX Online Banking
     { channel: 'fpx_abmb', name: 'Alliance Bank', image: '/images/payment-affin.jpg' },
