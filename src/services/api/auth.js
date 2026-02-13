@@ -309,7 +309,7 @@ export const getMaintenanceModeAndAppVersion = async () => {
 export const getMaintenanceModeAndAppVersionById = async (id = 1) => {
   try {
     const CACHE_KEY = `maintenance_mode_${id}`;
-    const CACHE_DURATION = 3 * 60 * 1000; // 3 minutes
+    const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
     
     // Check localStorage cache
     const cachedItem = getStorageItem(CACHE_KEY);
