@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ChevronLeft, Loader2, Clock } from 'lucide-react';
 import { booking,auth } from '@/services/api';
 import { encryptId, decryptId, encryptIds, decryptIds } from '@/utils/encryption';
+import { formatHallName } from '@/utils/hall';
 
 export default function PaymentPage() {
   const router = useRouter();
@@ -541,7 +542,8 @@ export default function PaymentPage() {
   const movieLanguage = bookingData.movieDetails?.language || 'N/A';
   const cinemaName = bookingData.cinemaDetails?.displayName || bookingData.cinemaDetails?.name || 'Cinema';
   const experienceType = bookingData.movieDetails?.type || '2D';
-  const hallName = bookingData.showTimeDetails?.hallName || 'HALL - 1';
+  const hallNameRaw = bookingData.showTimeDetails?.hallName || 'HALL - 1';
+  const hallName = formatHallName(hallNameRaw);
   let showDateTime = 'N/A';
   if (bookingData.showTimeDetails?.showTime) {
     try {

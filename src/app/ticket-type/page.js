@@ -9,6 +9,7 @@ import Loader from '@/components/Loader';
 import { encryptId, decryptId, encryptIds, decryptIds } from '@/utils/encryption';
 import RatingIcon from '@/components/RatingIcon';
 import Header from '@/components/header';
+import { formatHallName } from '@/utils/hall';
 import Footer from '@/components/footer';
 
 export default function TicketSelection() {
@@ -412,7 +413,8 @@ export default function TicketSelection() {
   const movieLanguage = movieDetails?.language || 'N/A';
   const movieRating = movieDetails?.rating || '';
   const movieImage = movieDetails?.imageURL || 'img/banner.jpg';
-  const hallName = ticketData?.hallDetails?.hallName || 'HALL - 1';
+  const hallNameRaw = ticketData?.hallDetails?.hallName || 'HALL - 1';
+  const hallName = formatHallName(hallNameRaw);
   const cinemaName = cinemaDetails?.displayName || cinemaDetails?.name || `Cinema ${cinemaId}`;
   // Experience type from URL params (IMAX, 2D, 3D, etc.)
   const displayExperienceType = experienceType || movieDetails?.type || '2D';

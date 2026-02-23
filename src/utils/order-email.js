@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { API_CONFIG } from '@/config/api';
 import { sendTicketEmail } from '@/utils/email';
+import { formatHallName } from '@/utils/hall';
 
 /**
  * Handle sending ticket email for an order
@@ -72,7 +73,7 @@ export async function sendTicketEmailForOrder(orderId, tranID = '') {
       duration: t.Duration || 'N/A',
       language: t.Language || 'English',
       experienceType: t.ExperienceType || 'Standard',
-      hallName: t.HallName || order.hallName || 'Hall',
+      hallName: formatHallName(t.HallName || order.hallName || 'Hall'),
       cinemaName: t.CinemaName || order.cinemaName || 'Cinema',
       showDate: t.ShowDate || (order.showTime ? new Date(order.showTime).toLocaleDateString() : 'N/A'),
       showTime: t.ShowTime || (order.showTime ? new Date(order.showTime).toLocaleTimeString() : 'N/A'),
