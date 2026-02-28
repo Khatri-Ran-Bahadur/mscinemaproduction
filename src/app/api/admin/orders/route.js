@@ -47,6 +47,7 @@ export async function GET(request) {
 
     if (search) {
         where.OR = [
+            { orderId: { contains: search, mode: 'insensitive' } },
             { referenceNo: { contains: search, mode: 'insensitive' } },
             { customerName: { contains: search, mode: 'insensitive' } },
             { customerEmail: { contains: search, mode: 'insensitive' } }
