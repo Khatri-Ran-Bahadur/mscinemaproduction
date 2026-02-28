@@ -81,29 +81,32 @@ export async function POST(request) {
       showId = '', // Show ID for ReserveBooking API
       membershipId = '', // Membership ID for ReserveBooking API
       token = '', // Auth token from client
+      // Additional Order fields
+      movieId = '',
+      movieTitle = '',
+      cinemaName = '',
+      hallName = '',
+      showTime = '',
+      seats = '',
+      ticketType = '',
     } = paymentData;
 
-    // Generate order ID if not provided - shorter and unique format
-    // Format: MS{timestamp(10 digits)}{random(6 chars)} = ~16 characters total
-    let orderId = paymentData.orderId;
-    const existingByRef = await prisma.order.findFirst({
-      where: {
-        referenceNo: referenceNo
-      },
-      orderBy: { createdAt: 'desc' }
+    if (!referenceNo) {
+      return NextResponse.json({ error: 'Missing referenceNo' }, { status: 400 });
+    }
+
+    // 1. Check if an order already exists for this referenceNo
+    const existingOrder = await prisma.order.findUnique({
+      where: { referenceNo: referenceNo }
     });
-      
-      
-    if (existingByRef) {
-      orderId = existingByRef.orderId; // 👈 reuse
-    }
-    if (!orderId) {
-      // Use last 10 digits of timestamp (milliseconds since epoch)
-      const timestamp = Date.now().toString().slice(-10);
-      // Generate 6-character random string (base36)
-      const random = Math.random().toString(36).substring(2, 8).toUpperCase();
-      orderId = `MS${timestamp}${random}`;
-    }
+
+    // Generate a fresh unique Order ID for every payment attempt.
+    // Format: {referenceNo}_{8-digit-timestamp}{random} (One underscore after referenceNo)
+    const shortTs = Math.floor(Date.now() / 1000).toString().slice(-8);
+    const random = Math.random().toString(36).substring(2, 5).toUpperCase();
+    const orderId = `${referenceNo}_${shortTs}${random}`;
+
+    console.log(`[Payment Create] Fresh Order ID generated: ${orderId} for Reference No: ${referenceNo}`);
 
     // Use return URL and cancel URL from env if provided, otherwise use from request
     let finalReturnUrl = FIUU_CONFIG.returnUrl || returnUrl;
@@ -144,155 +147,112 @@ export async function POST(request) {
         // Invalid URL, use as is
         console.warn('[Payment Create] Invalid return URL, cannot add booking details:', e);
       }
-    } else {
-      console.warn('[Payment Create] ⚠️ No booking details to store - missing cinemaId, showId, or referenceNo', {
-        orderId,
-        cinemaId,
-        showId,
-        referenceNo,
-        hasReturnUrl: !!finalReturnUrl
-      });
     }
 
-   
-    // Validate required fields (matching process_order.php logic)
-    // Note: payment_options is optional for seamless - plugin will show all available methods
+    // Validate required fields
     if (!total_amount || !billingEmail || !finalReturnUrl || !referenceNo) {
       return NextResponse.json(
         { 
           status: false,
           error_code: '400',
-          error_desc: 'Missing required payment parameters. Required: total_amount, billingEmail, returnUrl (or FIUU_RETURN_URL in env)',
+          error_desc: 'Missing required payment parameters.',
           failureurl: finalCancelUrl || `${new URL(request.url).origin}/payment/failed`
         },
         { status: 400 }
       );
     }
 
-    // For seamless API, channel can be empty or omitted to show all payment methods
-    // Some sandbox accounts may not support specific channels, so we'll let the plugin show all
-    const selectedPaymentOption = payment_options || ''; // Empty string lets MOLPay show all methods
-
-    // Build bill name from first and last name
+    const selectedPaymentOption = payment_options || '';
     const billName = `${billingFirstName || ''} ${billingLastName || ''}`.trim() || 'Customer';
-    const billEmail = billingEmail;
-    const billMobile = billingMobile || '';
-    const billDesc = billingAddress || 'Payment';
-    const amount =   parseFloat(total_amount);
+    const amount = parseFloat(total_amount);
 
-    // Validate amount
     if (isNaN(amount) || amount <= 0) {
-      return NextResponse.json(
-        { 
-          status: false,
-          error_code: '400',
-          error_desc: 'Invalid amount',
-          failureurl: finalCancelUrl || `${new URL(request.url).origin}/payment/failed`
-        },
-        { status: 400 }
-      );
+      return NextResponse.json({ status: false, error_desc: 'Invalid amount' }, { status: 400 });
     }
 
-    // Get request origin for URLs
+    // --- 2. Perform Atomic Database Update (Upsert) ---
+    // This ensures we have a record in our database BEFORE the user sees the payment gateway
+    const paymentMethodName = selectedPaymentOption || 'Online';
+
+    await prisma.order.upsert({
+      where: { referenceNo: referenceNo },
+      update: {
+        orderId: orderId,
+        paymentMethod: paymentMethodName,
+        paymentStatus: existingOrder?.paymentStatus || 'PENDING',
+        status: existingOrder?.status === 'CANCELLED' ? 'PENDING' : (existingOrder?.status || 'PENDING'),
+        totalAmount: amount,
+        customerName: billName,
+        customerEmail: billingEmail,
+        customerPhone: billingMobile,
+        token: token || existingOrder?.token,
+        updatedAt: new Date(),
+      },
+      create: {
+        orderId: orderId,
+        referenceNo: referenceNo,
+        customerName: billName,
+        customerEmail: billingEmail,
+        customerPhone: billingMobile || '',
+        movieTitle: movieTitle || 'Movie',
+        movieId: movieId ? parseInt(movieId) : null,
+        cinemaName: cinemaName || '',
+        cinemaId: cinemaId || '',
+        hallName: hallName || '',
+        showId: showId || '',
+        showTime: showTime ? new Date(showTime) : null,
+        seats: Array.isArray(seats) ? JSON.stringify(seats) : (seats || ''),
+        ticketType: ticketType || 'Standard',
+        totalAmount: amount,
+        paymentStatus: 'PENDING',
+        paymentMethod: paymentMethodName,
+        status: 'PENDING',
+        token: token
+      }
+    });
+
+    // Build payment parameters for response
     const requestOrigin = new URL(request.url).origin;
-    
-    // Currency validation - ensure it's supported
     const upperCurrency = currency.toUpperCase();
-    const supportedCurrencies = ['MYR', 'USD', 'SGD', 'THB', 'PHP', 'IDR', 'VND', 'CNY', 'HKD', 'JPY', 'KRW', 'EUR', 'GBP', 'AUD', 'NZD'];
-    // Currency validation - ensure it's supported
     
-    // Build payment parameters for MOLPay Seamless (using mps prefix)
-    // NOTE: Based on WooCommerce implementation, mpsdomain is NOT required for seamless API
-    // The seamless plugin handles domain automatically
     const params = {
       mpsmerchantid: FIUU_CONFIG.merchantId,
-      mpsamount: amount.toFixed(2), // Format amount to 2 decimal places
+      mpsamount: amount.toFixed(2),
       mpsorderid: orderId,
       mpsbill_name: billName,
-      mpsbill_email: billEmail,
-      mpsbill_mobile: billMobile,
-      mpsbill_desc: billDesc,
-      mpscountry: 'MY', // Malaysia
-      mpscurrency: upperCurrency, // Ensure currency is uppercase (MYR not myr)
-      // mpsdomain is NOT included - WooCommerce seamless doesn't use it
-      mpsvcode: '', // Will be generated below
+      mpsbill_email: billingEmail,
+      mpsbill_mobile: billingMobile || '',
+      mpsbill_desc: billingAddress || 'Movie Ticket Booking',
+      mpscountry: 'MY',
+      mpscurrency: upperCurrency,
       mpsreturnurl: finalReturnUrl?.replace('http://', 'https://') || finalReturnUrl,
       mpscancelurl: (finalCancelUrl || `${requestOrigin}/payment/failed`)?.replace('http://', 'https://'),
       mpslangcode: 'en',
-      mpsapiversion: '3.28' // Updated to match official SDK documentation
+      mpsapiversion: '3.28',
+      mpschannel: selectedPaymentOption || ''
     };
-    
-    // mpschannel is MANDATORY according to documentation
-    // Channel codes must match Fiuu documentation (updated 2025/03/12)
-    // Note: "maybank2u" is deprecated - use "fpx_mb2u" instead
-    // If not specified, use empty string (which should show all methods)
-    if (selectedPaymentOption && selectedPaymentOption.trim() !== '') {
-      let channelCode = selectedPaymentOption.trim();
-      
-      // Map deprecated channel codes to current ones
-      const deprecatedChannels = {
-        'maybank2u': 'fpx_mb2u', // Deprecated 2025/03/12 - use fpx_mb2u
-      };
-      
-      if (deprecatedChannels[channelCode]) {
-        channelCode = deprecatedChannels[channelCode];
-      }
-      
-      params.mpschannel = channelCode;
-    } else {
-      // Use empty string to show all methods
-      params.mpschannel = ''; // Empty = show all methods
-    }
-    
-    // Only add timer if specified (matching demo: razertimer or molpaytimer)
-    const timerValue = razertimer || molpaytimer;
-    if (timerValue && timerValue.trim() !== '') {
-      params.mpstimer = parseInt(timerValue) || timerValue;
-    }
-    const timerBoxValue = molpaytimerbox;
-    if (timerBoxValue && timerBoxValue.trim() !== '') {
-      params.mpstimerbox = timerBoxValue;
-    }
 
-    // Generate vcode (verification code/signature) for MOLPay Seamless
-    // Signature is generated using MD5: amount + merchantid + orderid + verifykey + currency
-    // Note: Domain is NOT included in vcode calculation for seamless API
+    // Map deprecated channel codes if necessary
+    if (params.mpschannel === 'maybank2u') params.mpschannel = 'fpx_mb2u';
+    
+    // Generate vcode
     const vcodeString = `${params.mpsamount}${params.mpsmerchantid}${params.mpsorderid}${FIUU_CONFIG.verifyKey}${params.mpscurrency}`;
     const vcode = crypto.createHash('md5').update(vcodeString, 'utf8').digest('hex');
     params.mpsvcode = vcode;
 
-    // Return response in format matching process_order.php (index2.html style)
-    // Include ALL parameters including mpschannel (which is mandatory)
+    // Build final response object
     const responseData = {
       status: true,
-      mpsmerchantid: params.mpsmerchantid,
-      mpsamount: params.mpsamount,
-      mpsorderid: params.mpsorderid,
-      mpsbill_name: params.mpsbill_name,
-      mpsbill_email: params.mpsbill_email,
-      mpsbill_mobile: params.mpsbill_mobile,
-      mpsbill_desc: params.mpsbill_desc,
-      mpscountry: params.mpscountry,
-      mpsvcode: params.mpsvcode,
-      mpscurrency: params.mpscurrency,
-      mpschannel: params.mpschannel || '', // Always include (mandatory field)
-      // mpsdomain not included - seamless API doesn't require it
-      mpslangcode: params.mpslangcode,
-      mpscancelurl: params.mpscancelurl,
-      mpsreturnurl: params.mpsreturnurl,
-      mpsapiversion: params.mpsapiversion,
+      ...params,
     };
     
-    // Only include timer if specified
-    if (params.mpstimer) {
-      responseData.mpstimer = params.mpstimer;
+    if (razertimer || molpaytimer) {
+      responseData.mpstimer = parseInt(razertimer || molpaytimer);
     }
-    if (params.mpstimerbox) {
-      responseData.mpstimerbox = params.mpstimerbox;
+    if (molpaytimerbox) {
+      responseData.mpstimerbox = molpaytimerbox;
     }
 
-  
-    
     return NextResponse.json(responseData);
   } catch (error) {
     console.error('Error creating payment request:', error);
@@ -302,4 +262,3 @@ export async function POST(request) {
     );
   }
 }
-

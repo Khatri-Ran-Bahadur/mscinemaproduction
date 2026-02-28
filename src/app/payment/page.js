@@ -81,12 +81,7 @@ export default function PaymentPage() {
           setTimeLeft(remaining);
           setTimerActive(true);
         } else {
-          // No timer found - check 'createdAt' or just default to expired if logic dictates
-          // But actually, we need a reference time. If no timerStartTime, maybe we set one now?
-          // OR if we assume new booking -> 2 mins from now.
-          // BUT request says: "order created time check if morethan 2 minute session expire"
-          
-          // If we rely on localStorage 'timerStartTime' which is set during seat locking:
+         
           setError('Booking session details missing. Please select seats again.');
            setTimeout(() => {
             window.location.href = '/';
@@ -161,7 +156,7 @@ export default function PaymentPage() {
         await booking.releaseConfirmedLockedSeats(cinemaId, showId, referenceNo);
       } else {
         // Use ReleaseLockedSeats if only locked
-        await booking.releaseLockedSeats(cinemaId, showId, referenceNo, 0);
+        await booking.releaseLockedSeats(cinemaId, showId, referenceNo);
       }
     } catch (err) {
       console.error('Error releasing seats:', err);
@@ -349,6 +344,13 @@ export default function PaymentPage() {
     formDataToSend.append('referenceNo', bookingData.confirmedReferenceNo || bookingData.referenceNo || '');
     formDataToSend.append('cinemaId', bookingData.cinemaId || '');
     formDataToSend.append('showId', bookingData.showId || '');
+    formDataToSend.append('movieId', bookingData.movieId || '');
+    formDataToSend.append('movieTitle', movieTitle || '');
+    formDataToSend.append('cinemaName', cinemaName || '');
+    formDataToSend.append('hallName', hallName || '');
+    formDataToSend.append('showTime', bookingData.showTimeDetails?.showTime || '');
+    formDataToSend.append('seats', JSON.stringify(bookingData.seats || []));
+    formDataToSend.append('ticketType', bookingData.ticketType || 'Standard');
     formDataToSend.append('membershipId', '0'); // Default membership ID
     formDataToSend.append('returnUrl', returnUrl);
     formDataToSend.append('cancelUrl', cancelUrl);
@@ -374,7 +376,7 @@ export default function PaymentPage() {
     setError('');
 
     const { API_CONFIG } = await import('@/config/api');
-    // Call API to get payment parameters FIRST to ensure we have the correct Order ID
+    // Call API to get payment parameters and create/update order atomically
     fetch('/api/payment/create-request', {
       method: 'POST',
       headers: {
@@ -387,46 +389,7 @@ export default function PaymentPage() {
         if (!data.status) {
           throw new Error(data.error_desc || data.error || 'Failed to create payment request');
         }
-
-        let token2 = token;
-        if (!token2) {
-          token2 = localStorage.getItem('ms_cinema_public_token');
-        }
-
-        // Create Order in Database using the ID returned from payment gateway
-        const orderData = {
-            orderId: data.mpsorderid, // Payment Gateway Order ID
-            referenceNo: bookingData.confirmedReferenceNo || bookingData.referenceNo, // Ticket Reference
-            transactionNo: null,
-            customerName: billName,
-            customerEmail: billEmail,
-            customerPhone: billMobile,
-            movieTitle: movieTitle,
-            movieId: bookingData.movieId,
-            cinemaName: cinemaName,
-            cinemaId: bookingData.cinemaId,
-            hallName: hallName,
-            showId: bookingData.showId,
-            showTime: bookingData.showTimeDetails?.showTime,
-            seats: bookingData.seats,
-            ticketType: bookingData.ticketType || 'Standard',
-            totalAmount: bookingData.priceInfo?.totalTicketPrice || '0.00',
-            paymentStatus: 'PENDING',
-            paymentMethod: method.name,
-            token:token2
-        };
-
-        return fetch('/api/orders', {
-            method: 'POST',
-            headers: { 
-              'Content-Type': 'application/json',
-              'x-api-key': API_CONFIG.API_SECRET_KEY,
-            },
-            body: JSON.stringify(orderData)
-        }).then(res => res.json())
-          .then(orderRes => {
-              return data;
-          });
+        return data; // Database is already updated server-side in create-request
       })
       .then(data => {
         // Initialize payment with MOLPay Seamless plugin immediately

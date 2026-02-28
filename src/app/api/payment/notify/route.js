@@ -134,14 +134,33 @@ export async function POST(request) {
      
       try {
         // 1. Find Order in DB
-        const order = await prisma.order.findFirst({
-            where: { 
-                OR: [
-                    { orderId: orderid },
-                ]
-            },
-            orderBy: { createdAt: 'desc' }
+        // Try exact match by orderId first
+        let order = await prisma.order.findUnique({
+            where: { orderId: orderid }
         });
+
+        // Fallback: If not found, try finding by referenceNo 
+        // We extract referenceNo from orderid (format: {ref}_{ts}_{rand}) or use returned referenceNo
+        if (!order) {
+            const refFromOrder = orderid.split('_')[0];
+            const targetRef = notificationData.referenceNo || refFromOrder;
+            
+            if (targetRef) {
+                console.log(`[Payment Notify] Order ID ${orderid} not found. Falling back to Reference No: ${targetRef}`);
+                order = await prisma.order.findFirst({
+                    where: { referenceNo: targetRef },
+                    orderBy: { createdAt: 'desc' }
+                });
+
+                // Link this new Order ID to the existing record if found
+                if (order) {
+                    await prisma.order.update({
+                        where: { id: order.id },
+                        data: { orderId: orderid }
+                    });
+                }
+            }
+        }
 
         if (order) {
             // 2. Update Local Order Status

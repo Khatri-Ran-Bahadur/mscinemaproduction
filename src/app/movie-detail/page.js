@@ -809,20 +809,16 @@ export default function MovieBooking() {
           <h2 className="text-sm font-semibold mb-4 text-[#FAFAFA]">Select Time</h2>
           
           {/* Seat Availability Legend */}
-          {/* <div className="flex items-center gap-4 md:gap-6 mb-4 flex-wrap text-xs">
+          <div className="flex items-center gap-4 md:gap-6 mb-4 flex-wrap text-xs">
             <div className="flex items-center gap-2">
-              <SeatStatusIcon status="available" />
-              <span className="text-green-500">Available</span>
+              <div className="w-3 h-3 rounded bg-[#FFCA20]"></div>
+              <span className="text-[#FFCA20]">Available</span>
             </div>
             <div className="flex items-center gap-2">
-              <SeatStatusIcon status="selling-fast" />
-              <span className="text-[#FFCA20]">Selling fast</span>
+              <div className="w-3 h-3 rounded bg-gray-500"></div>
+              <span className="text-gray-500">Sold out</span>
             </div>
-            <div className="flex items-center gap-2">
-              <SeatStatusIcon status="sold-out" />
-              <span className="text-red-500">Sold out</span>
-            </div>
-          </div> */}
+          </div>
 
           {/* Error Message */}
           {error && (
@@ -865,8 +861,9 @@ export default function MovieBooking() {
                               setShowTimeRestrictionModal(true);
                             }
                           }}
-                          className={`p-3 rounded-lg border transition ${isSoldOut
-                              ? 'bg-gray-800 text-gray-500 cursor-not-allowed opaci ty-60'
+                          className={`p-3 rounded-lg border transition ${
+                            isSoldOut
+                              ? 'bg-gray-800 border-gray-700 text-gray-500 cursor-not-allowed opacity-60'
                               : 'bg-[#FFCA20] border-[#FFCA20] text-black'
                           }`}
                           title={isSoldOut 

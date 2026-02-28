@@ -37,10 +37,6 @@ export const lockSeats = async (cinemaId, showId, lockType = 0, seatData = []) =
  */
 export const releaseLockedSeats = async (cinemaId, showId, referenceNo) => {
   try {
-    // Release API: /Booking/ReleaseLockedSeats/{CinemaID}/{ShowID}/{lockType}
-    // ReferenceNo should be in the body or URL - checking common patterns
-    // Based on typical REST patterns, referenceNo might be in URL or body
-    // Trying body first, but could also be: /Booking/ReleaseLockedSeats/{CinemaID}/{ShowID}/{referenceNo}/{lockType}
     const response = await post(
       `/Booking/ReleaseLockedSeats/${cinemaId}/${showId}/${referenceNo}`,
     );
@@ -137,7 +133,6 @@ export const confirmLockedSeats = async (
  */
 export const releaseConfirmedLockedSeats = async (cinemaId, showId, referenceNo) => {
   try {
-    // Endpoint: /Booking/ReleaseConfirmedLockedSeats/{CinemaID}/{ShowID}/{referenceNo}
     const response = await post(
       `/Booking/ReleaseConfirmedLockedSeats/${cinemaId}/${showId}/${referenceNo}`,
       {}

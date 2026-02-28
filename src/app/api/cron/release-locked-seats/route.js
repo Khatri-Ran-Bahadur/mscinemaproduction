@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { API_CONFIG } from '@/config/api';
+import { prisma } from '@/lib/prisma';
+import { queryPaymentStatus, callReserveBooking, callCancelBooking } from '@/utils/molpay';
 
 export const dynamic = 'force-dynamic';
 
@@ -135,33 +137,128 @@ export async function GET(request) {
                     if (!endpoint) continue;
 
                     try {
-                        const releaseRes = await fetchWithAuth(endpoint, token, {
-                                method: 'POST',
-                            body: b.status === 1 ? JSON.stringify({}) : undefined, // ReleaseConfirmedLockedSeats expects {}; ReleaseLockedSeats no body
-                            });
-
-                        const ok = releaseRes.ok;
-                        const status = releaseRes.status;
+                        let ok = false;
+                        let status = 0;
                         let body = null;
-                        try { body = await releaseRes.json(); } catch { body = await releaseRes.text(); }
+                        let skippedReason = '';
 
-                            results.push({
-                                env: env.name,
-                                referenceNo: b.referenceNo,
-                                type: b.status === 0 ? 'Locked' : 'ConfirmLocked',
+                        // --- START SAFE RELEASE CHECK ---
+                        let orderRecord = await prisma.order.findFirst({
+                            where: { referenceNo: b.referenceNo },
+                            orderBy: { createdAt: 'desc' }
+                        });
+
+                        let isPaid = orderRecord?.paymentStatus === 'PAID';
+                        let isFailedAtGateway = false;
+
+                        // If not paid in DB, check Fiuu for safety
+                        if (!isPaid && orderRecord && orderRecord.orderId) {
+                            console.log(`[Cron Safe] Checking Fiuu status for ${orderRecord.orderId}`);
+                            const fiuuStatus = await queryPaymentStatus(orderRecord.orderId, orderRecord.totalAmount.toString());
+                            
+                            // 00 and 22 are successful payment statuses
+                            if (fiuuStatus.success || fiuuStatus.status === '00' || fiuuStatus.status === '22') {
+                                console.log(`[Cron Safe] Fiuu confirms PAID for ${orderRecord.orderId}. Updating DB.`);
+                                isPaid = true;
+                                orderRecord = await prisma.order.update({
+                                    where: { id: orderRecord.id },
+                                    data: { 
+                                        paymentStatus: 'PAID',
+                                        status: 'CONFIRMED',
+                                        transactionNo: fiuuStatus.tranID || orderRecord.transactionNo,
+                                        paymentMethod: fiuuStatus.raw?.Channel || orderRecord.paymentMethod || 'Fiuu'
+                                    }
+                                });
+                            } else if (fiuuStatus.status === '11') {
+                                // 11 is explicitly failed/blocked
+                                console.log(`[Cron Safe] Fiuu confirms FAILED (status 11) for ${orderRecord.orderId}. Updating DB.`);
+                                isFailedAtGateway = true;
+                                await prisma.order.update({
+                                    where: { id: orderRecord.id },
+                                    data: { 
+                                        paymentStatus: 'FAILED',
+                                        status: 'CANCELLED',
+                                        transactionNo: fiuuStatus.tranID || orderRecord.transactionNo
+                                    }
+                                });
+                            }
+                        }
+
+                        if (isPaid && orderRecord) {
+                            console.log(`[Cron Safe] Order ${orderRecord.orderId} is PAID. Attempting to Reserve instead of Release.`);
+                            const reserveResult = await callReserveBooking(
+                                orderRecord.orderId,
+                                orderRecord.transactionNo || orderRecord.orderId,
+                                orderRecord.paymentMethod || 'Online',
+                                '',
+                                {
+                                    cinemaId: b.cinemaID,
+                                    showId: b.showID,
+                                    referenceNo: b.referenceNo,
+                                    membershipId: '0',
+                                    storedDetails: { token: token }
+                                }
+                            );
+                            
+                            ok = reserveResult.success;
+                            body = reserveResult.data || { error: reserveResult.error };
+                            skippedReason = 'PAID_RESERVED';
+                        } else {
+                            // If it failed at gateway, we call CancelBooking first for cleanup
+                            if (isFailedAtGateway && orderRecord) {
+                                console.log(`[Cron Safe] Calling CancelBooking for failed order ${orderRecord.orderId}`);
+                                await callCancelBooking(
+                                    orderRecord.orderId,
+                                    orderRecord.transactionNo || orderRecord.orderId,
+                                    orderRecord.paymentMethod || 'Online',
+                                    'Cron cleanup after failed payment check',
+                                    {
+                                        cinemaId: b.cinemaID,
+                                        showId: b.showID,
+                                        referenceNo: b.referenceNo,
+                                        storedDetails: { token: token }
+                                    }
+                                );
+                            }
+
+                            // Proceed with release
+                            const releaseRes = await fetchWithAuth(endpoint, token, {
+                                method: 'POST',
+                                body: b.status === 1 ? JSON.stringify({}) : undefined,
+                            });
+                            ok = releaseRes.ok;
+                            status = releaseRes.status;
+                            try { body = await releaseRes.json(); } catch { body = await releaseRes.text(); }
+                        }
+                        // --- END SAFE RELEASE CHECK ---
+
+                        results.push({
+                            env: env.name,
+                            referenceNo: b.referenceNo,
+                            type: b.status === 0 ? 'Locked' : 'ConfirmLocked',
                             success: ok,
                             status,
+                            skippedReason,
                             apiResponse: body,
-                            });
+                        });
                             
                         if (ok) {
                             totalProcessed++;
                             releasedInEnv++;
+                            if (skippedReason === 'PAID_RESERVED') {
+                                console.log(`[Cron] Successfully reserved paid booking ${b.referenceNo}`);
+                                if (orderRecord) {
+                                    await prisma.order.update({
+                                        where: { id: orderRecord.id },
+                                        data: { reserve_ticket: true, status: 'CONFIRMED' }
+                                    }).catch(() => {});
+                                }
+                            }
                         } else {
-                            console.error(`[Cron] ${env.name}: Release failed for ${b.referenceNo}: ${status}`, body);
+                            console.error(`[Cron] ${env.name}: Action failed for ${b.referenceNo}: ${status}`, body);
                         }
                     } catch (err) {
-                        console.error(`[Cron] ${env.name}: Release error for ${b.referenceNo}:`, err);
+                        console.error(`[Cron] ${env.name}: Action error for ${b.referenceNo}:`, err);
                         results.push({ env: env.name, referenceNo: b.referenceNo, success: false, error: err.message });
                     }
                 }

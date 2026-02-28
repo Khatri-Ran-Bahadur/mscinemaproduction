@@ -20,7 +20,11 @@ import {
     Trash2,
     RotateCcw,
     Edit,
-    Mail
+    Mail,
+    RefreshCw,
+    Undo2,
+    Activity,
+    Code2
 } from 'lucide-react';
 import TicketModal from '@/components/TicketModal';
 import OrderDetailsModal from '@/components/admin/OrderDetailsModal';
@@ -52,7 +56,8 @@ export default function AdminOrdersPage() {
     // Status Modal State
     const [showStatusModal, setShowStatusModal] = useState(false);
     const [statusOrder, setStatusOrder] = useState(null);
-    const [newStatus, setNewStatus] = useState('PENDING');
+    const [newPaymentStatus, setNewPaymentStatus] = useState('PENDING');
+    const [newBookingStatus, setNewBookingStatus] = useState('PENDING');
 
     // Action Menu State
     const [openActionMenuId, setOpenActionMenuId] = useState(null);
@@ -61,6 +66,14 @@ export default function AdminOrdersPage() {
     const [showReserveModal, setShowReserveModal] = useState(false);
     const [reserveOrder, setReserveOrder] = useState(null);
     const [processingReserve, setProcessingReserve] = useState(false);
+
+    // New API States
+    const [actionLoading, setActionLoading] = useState(false);
+    const [processingId, setProcessingId] = useState(null);
+    
+    // Fiuu Status Modal State
+    const [showFiuuStatusModal, setShowFiuuStatusModal] = useState(false);
+    const [statusModalData, setStatusModalData] = useState(null);
 
     useEffect(() => {
         const timeoutId = setTimeout(() => {
@@ -229,6 +242,7 @@ export default function AdminOrdersPage() {
             case 'CONFIRMED': return 'bg-green-500/10 text-green-500 border-green-500/20';
             case 'PENDING': return 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20';
             case 'CANCELLED': return 'bg-red-500/10 text-red-500 border-red-500/20';
+            case 'REFUNDED': return 'bg-purple-500/10 text-purple-500 border-purple-500/20';
             default: return 'bg-gray-500/10 text-gray-500 border-gray-500/20';
         }
     };
@@ -238,6 +252,7 @@ export default function AdminOrdersPage() {
             case 'PAID': return 'text-green-400';
             case 'PENDING': return 'text-yellow-400';
             case 'FAILED': return 'text-red-400';
+            case 'REFUNDED': return 'text-purple-400';
             default: return 'text-gray-400';
         }
     };
@@ -307,7 +322,8 @@ export default function AdminOrdersPage() {
 
     const handleStatusUpdate = (order) => {
         setStatusOrder(order);
-        setNewStatus(order.paymentStatus || 'PENDING');
+        setNewPaymentStatus(order.paymentStatus || 'PENDING');
+        setNewBookingStatus(order.status || 'PENDING');
         setShowStatusModal(true);
     };
 
@@ -318,7 +334,10 @@ export default function AdminOrdersPage() {
             const res = await adminFetch(`/api/admin/orders/${statusOrder.id}/status`, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ status: newStatus })
+                body: JSON.stringify({ 
+                    paymentStatus: newPaymentStatus,
+                    status: newBookingStatus
+                })
             });
             const data = await res.json();
             if (data.success) {
@@ -379,6 +398,58 @@ export default function AdminOrdersPage() {
             alert("Error calling reserve API");
         } finally {
             setProcessingReserve(false);
+        }
+    };
+
+    const handleCheckStatus = async (order) => {
+        setProcessingId(order.id);
+        try {
+            const res = await adminFetch('/api/admin/orders/check-status', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ orderId: order.orderId })
+            });
+            const data = await res.json();
+            if (data.success) {
+                setStatusModalData(data);
+                setShowFiuuStatusModal(true);
+                fetchOrders();
+            } else {
+                alert(data.error || "Failed to check status");
+            }
+        } catch (e) {
+            console.error(e);
+            alert("Error checking status");
+        } finally {
+            setProcessingId(null);
+        }
+    };
+
+    const handleRefund = async (order) => {
+        if (!confirm(`Are you sure you want to refund RM ${order.totalAmount} for order ${order.orderId}? This cannot be undone.`)) return;
+        
+        setProcessingId(order.id);
+        try {
+            const res = await adminFetch('/api/admin/orders/refund', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    orderId: order.orderId,
+                    reason: 'Admin Manual Refund'
+                })
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert("Refund successful!");
+                fetchOrders();
+            } else {
+                alert(data.error || "Refund failed");
+            }
+        } catch (e) {
+            console.error(e);
+            alert("Error processing refund");
+        } finally {
+            setProcessingId(null);
         }
     };
 
@@ -598,9 +669,10 @@ export default function AdminOrdersPage() {
                                                                 e.stopPropagation();
                                                                 setOpenActionMenuId(openActionMenuId === order.id ? null : order.id);
                                                             }}
-                                                            className={`p-1.5 rounded transition ${openActionMenuId === order.id ? 'bg-[#444] text-white' : 'text-[#888] hover:text-white hover:bg-[#333]'}`}
+                                                            disabled={processingId === order.id}
+                                                            className={`p-1.5 rounded transition ${openActionMenuId === order.id ? 'bg-[#444] text-white' : 'text-[#888] hover:text-white hover:bg-[#333]'} ${processingId === order.id ? 'animate-pulse' : ''}`}
                                                         >
-                                                            <MoreVertical className="w-4 h-4" />
+                                                            {processingId === order.id ? <RefreshCw className="w-4 h-4 animate-spin" /> : <MoreVertical className="w-4 h-4" />}
                                                         </button>
                                                         
                                                         {openActionMenuId === order.id && (
@@ -640,6 +712,24 @@ export default function AdminOrdersPage() {
                                                                             className="text-left px-4 py-2.5 hover:bg-[#333] text-sm flex items-center gap-2 text-green-400 hover:text-green-300 transition"
                                                                         >
                                                                             <CheckCircle className="w-4 h-4" /> Reserve Ticket
+                                                                        </button>
+                                                                    )}
+
+                                                                    {order.paymentStatus === 'PENDING' && (
+                                                                         <button 
+                                                                            onClick={() => { handleCheckStatus(order); setOpenActionMenuId(null); }} 
+                                                                            className="text-left px-4 py-2.5 hover:bg-[#333] text-sm flex items-center gap-2 text-[#FFCA20] hover:text-[#FFCA20]/80 transition"
+                                                                        >
+                                                                            <RefreshCw className="w-4 h-4" /> Check Fiuu Status
+                                                                        </button>
+                                                                    )}
+
+                                                                    {order.paymentStatus === 'PAID' && (
+                                                                         <button 
+                                                                            onClick={() => { handleRefund(order); setOpenActionMenuId(null); }} 
+                                                                            className="text-left px-4 py-2.5 hover:bg-red-500/10 text-sm flex items-center gap-2 text-red-500 hover:text-red-400 transition"
+                                                                        >
+                                                                            <Undo2 className="w-4 h-4" /> Refund Customer
                                                                         </button>
                                                                     )}
                                                                     
@@ -768,20 +858,39 @@ export default function AdminOrdersPage() {
                             Changing status for Order <span className="text-[#FFCA20] font-mono bg-black/30 px-1 rounded">{statusOrder?.referenceNo}</span>
                         </p>
                         
-                        <div className="mb-6">
-                            <label className="block text-sm text-gray-400 mb-2 font-medium">New Status</label>
-                            <div className="relative">
-                                <select
-                                    value={newStatus}
-                                    onChange={(e) => setNewStatus(e.target.value)}
-                                    className="w-full bg-[#1a1a1a] border border-[#3a3a3a] text-white rounded-lg px-4 py-3 focus:border-[#FFCA20] focus:ring-1 focus:ring-[#FFCA20] outline-none appearance-none cursor-pointer"
-                                >
-                                    <option value="PAID">PAID</option>
-                                    <option value="PENDING">PENDING</option>
-                                    <option value="FAILED">FAILED</option>
-                                    <option value="REFUNDED">REFUNDED</option>
-                                </select>
-                                <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none" />
+                        <div className="space-y-4 mb-8">
+                            <div>
+                                <label className="block text-[10px] text-gray-500 uppercase tracking-widest mb-1.5 font-bold">Booking Status</label>
+                                <div className="relative">
+                                    <select
+                                        value={newBookingStatus}
+                                        onChange={(e) => setNewBookingStatus(e.target.value)}
+                                        className="w-full bg-[#1a1a1a] border border-[#3a3a3a] text-white rounded px-3 py-2 text-sm focus:border-[#FFCA20] outline-none appearance-none cursor-pointer"
+                                    >
+                                        <option value="CONFIRMED">CONFIRMED</option>
+                                        <option value="PENDING">PENDING</option>
+                                        <option value="CANCELLED">CANCELLED</option>
+                                    </select>
+                                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none" />
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <label className="block text-[10px] text-gray-500 uppercase tracking-widest mb-1.5 font-bold">Payment Status</label>
+                                <div className="relative">
+                                    <select
+                                        value={newPaymentStatus}
+                                        onChange={(e) => setNewPaymentStatus(e.target.value)}
+                                        className="w-full bg-[#1a1a1a] border border-[#3a3a3a] text-white rounded px-3 py-2 text-sm focus:border-[#FFCA20] outline-none appearance-none cursor-pointer"
+                                    >
+                                        <option value="PAID">PAID</option>
+                                        <option value="PENDING">PENDING</option>
+                                        <option value="FAILED">FAILED</option>
+                                        <option value="REFUNDED">REFUNDED</option>
+                                        <option value="CANCELLED">CANCELLED</option>
+                                    </select>
+                                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none" />
+                                </div>
                             </div>
                         </div>
                         
@@ -835,6 +944,116 @@ export default function AdminOrdersPage() {
                                 ) : (
                                     <>Confirm Reserve</>
                                 )}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* Fiuu Status Response Modal */}
+            {showFiuuStatusModal && statusModalData && (
+                <div className="fixed inset-0 bg-black/85 flex items-center justify-center z-[100] p-4 backdrop-blur-md">
+                    <div className="bg-[#1e1e1e] border border-[#333] rounded-xl w-full max-w-2xl shadow-2xl flex flex-col max-h-[90vh]">
+                        {/* Modal Header */}
+                        <div className="p-5 border-b border-[#333] flex justify-between items-center bg-[#252525] rounded-t-xl">
+                            <div className="flex items-center gap-3">
+                                <div className={`p-2 rounded-lg ${statusModalData.fiuuStatus.success ? 'bg-green-500/10 text-green-500' : 'bg-[#FFCA20]/10 text-[#FFCA20]'}`}>
+                                    <Activity className="w-6 h-6" />
+                                </div>
+                                <div>
+                                    <h3 className="text-xl font-bold text-white">Fiuu Payment Status</h3>
+                                    <p className="text-xs text-gray-500 font-mono">{statusModalData.fiuuStatus.orderID}</p>
+                                </div>
+                            </div>
+                            <button 
+                                onClick={() => setShowFiuuStatusModal(false)}
+                                className="p-2 hover:bg-[#333] rounded-full transition"
+                            >
+                                <Trash2 className="w-5 h-5 text-gray-400 rotate-45" /> {/* Using Trash2 as X close icon */}
+                            </button>
+                        </div>
+
+                        {/* Modal Content */}
+                        <div className="p-6 overflow-y-auto space-y-6">
+                            {/* Sync Status Alert */}
+                            {statusModalData.dbUpdated && (
+                                <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4 flex items-center gap-3">
+                                    <CheckCircle className="w-5 h-5 text-green-500" />
+                                    <div>
+                                        <p className="text-sm font-bold text-green-500">Database Synchronized!</p>
+                                        <p className="text-xs text-green-500/80">Order payment status was updated to PAID based on Fiuu response.</p>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Summary Grid */}
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="bg-[#252525] p-4 rounded-lg border border-[#333]">
+                                    <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Status Name</p>
+                                    <p className={`font-bold ${statusModalData.fiuuStatus.success ? 'text-green-500' : 'text-red-500'}`}>
+                                        {statusModalData.fiuuStatus.statusName}
+                                    </p>
+                                </div>
+                                <div className="bg-[#252525] p-4 rounded-lg border border-[#333]">
+                                    <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Tran ID</p>
+                                    <p className="text-white font-mono font-bold">{statusModalData.fiuuStatus.tranID || 'N/A'}</p>
+                                </div>
+                                <div className="bg-[#252525] p-4 rounded-lg border border-[#333]">
+                                    <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Amount</p>
+                                    <p className="text-[#FFCA20] font-bold">RM {statusModalData.fiuuStatus.amount}</p>
+                                </div>
+                                <div className="bg-[#252525] p-4 rounded-lg border border-[#333]">
+                                    <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Payment Date</p>
+                                    <p className="text-white text-sm">{statusModalData.fiuuStatus.raw.PayDate || 'N/A'}</p>
+                                </div>
+                            </div>
+
+                            {/* Raw Data Breakdown */}
+                            <div>
+                                <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                                    <Code2 className="w-4 h-4" /> Full API Response
+                                </h4>
+                                <div className="bg-black/40 rounded-lg p-4 border border-[#333] font-mono text-[11px] leading-relaxed">
+                                    <div className="grid grid-cols-2 gap-y-2">
+                                        {Object.entries(statusModalData.fiuuStatus.raw).map(([key, value]) => (
+                                            <React.Fragment key={key}>
+                                                <span className="text-blue-400">{key}:</span>
+                                                <span className="text-gray-300 break-all">{String(value)}</span>
+                                            </React.Fragment>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Logic Flags */}
+                            <div className="flex gap-4">
+                               <div className={`flex-1 p-3 rounded-lg border ${statusModalData.isPaidButNotReserved ? 'bg-orange-500/10 border-orange-500/30' : 'bg-[#333] border-[#444]'}`}>
+                                    <p className="text-[10px] text-gray-500 uppercase mb-1">Potential Action Required</p>
+                                    <p className={`text-xs font-bold ${statusModalData.isPaidButNotReserved ? 'text-orange-500' : 'text-gray-400'}`}>
+                                        {statusModalData.isPaidButNotReserved ? 'Paid but NOT Reserved' : 'No Action Required'}
+                                    </p>
+                               </div>
+                            </div>
+                        </div>
+
+                        {/* Modal Footer */}
+                        <div className="p-5 border-t border-[#333] flex justify-end bg-[#252525] rounded-b-xl gap-3">
+                             {statusModalData.isPaidButNotReserved && (
+                                <button 
+                                    onClick={() => {
+                                        setShowFiuuStatusModal(false);
+                                        // Trigger reserve logic or redirect
+                                        alert("You can now use the 'Reserve Ticket' button in the action menu.");
+                                    }}
+                                    className="px-4 py-2 rounded bg-green-600 text-white text-sm font-bold hover:bg-green-700 transition"
+                                >
+                                    Needs Manual Reservation
+                                </button>
+                            )}
+                            <button 
+                                onClick={() => setShowFiuuStatusModal(false)}
+                                className="px-6 py-2 rounded bg-[#FFCA20] text-black text-sm font-bold hover:bg-[#FFCA20]/90 transition"
+                            >
+                                Close Response
                             </button>
                         </div>
                     </div>
