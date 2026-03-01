@@ -8,16 +8,29 @@ export async function POST(request, { params }) {
     const id = parseInt(paramsData.id);
 
     if (isNaN(id)) return NextResponse.json({ error: 'Invalid ID' }, { status: 400 });
-    // Check if we need to parse body
-    const { status } = await request.json();
+    const { paymentStatus: inputPaymentStatus, status: inputBookingStatus } = await request.json();
+    
+    const paymentStatus = inputPaymentStatus?.toUpperCase();
+    const bookingStatus = inputBookingStatus?.toUpperCase();
 
-    if (!['PAID', 'PENDING', 'FAILED', 'CANCELLED'].includes(status)) {
-        return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
+    const allowedPaymentStatuses = ['PAID', 'PENDING', 'FAILED', 'CANCELLED', 'REFUNDED'];
+    const allowedBookingStatuses = ['CONFIRMED', 'PENDING', 'CANCELLED'];
+
+    if (paymentStatus && !allowedPaymentStatuses.includes(paymentStatus)) {
+        return NextResponse.json({ error: 'Invalid payment status' }, { status: 400 });
     }
+
+    if (bookingStatus && !allowedBookingStatuses.includes(bookingStatus)) {
+        return NextResponse.json({ error: 'Invalid booking status' }, { status: 400 });
+    }
+
+    const updateData = {};
+    if (paymentStatus) updateData.paymentStatus = paymentStatus;
+    if (bookingStatus) updateData.status = bookingStatus;
 
     const order = await prisma.order.update({
         where: { id: id },
-        data: { paymentStatus: status }
+        data: updateData
     });
     
     return NextResponse.json({ success: true, order });

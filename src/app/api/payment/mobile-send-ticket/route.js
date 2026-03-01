@@ -6,7 +6,7 @@
  */
 
 import { NextResponse } from 'next/server';
-import { sendTicketEmailForOrder } from '@/utils/order-email';
+import { sendMobileTicketEmailForOrder } from '@/utils/order-email';
 
 const API_SECRET_KEY = process.env.API_SECRET_KEY;
 
@@ -27,8 +27,8 @@ export async function POST(request) {
 
     console.log(`[Mobile Send Email API] Triggering email for Order: ${orderId}`);
     
-    // Use the optimized order-email utility
-    const result = await sendTicketEmailForOrder(orderId, transactionId || '');
+    // Use the optimized mobile order-email utility (gets data from Order table)
+    const result = await sendMobileTicketEmailForOrder(orderId, transactionId || '');
 
     if (result.success) {
       return NextResponse.json({

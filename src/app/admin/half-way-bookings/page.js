@@ -159,27 +159,48 @@ export default function HalfWayBookingsPage() {
 
     // Bulk Actions
     // Bulk Actions
-    const performBulkAction = async (actionType) => { // actionType is 'RELEASE'
-        if (!confirm(`Are you sure you want to release ${selectedIds.length} selected bookings?`)) return;
+    const performBulkAction = async (actionType) => {
+        if (!confirm(`Are you sure you want to release ${selectedIds.length} selected bookings? This will verify payment status first.`)) return;
 
         const selectedItems = bookings.filter(b => selectedIds.includes(b.referenceNo));
         let successCount = 0;
+        let reservedCount = 0;
+        let failedCount = 0;
         
         for (const item of selectedItems) {
             try {
-                if (item.status === 0) {
-                     await booking.releaseLockedSeats(item.cinemaID, item.showID, item.referenceNo);
-                     successCount++;
-                } else if (item.status === 1) {
-                     await booking.releaseConfirmLockedSeats(item.cinemaID, item.showID, item.referenceNo);
-                     successCount++;
+                const type = item.status === 0 ? 'locked' : 'confirmed';
+                const res = await fetch('/api/booking/release', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        cinemaId: item.cinemaID,
+                        showId: item.showID,
+                        referenceNo: item.referenceNo,
+                        type
+                    })
+                });
+                const data = await res.json();
+                
+                if (data.success) {
+                    if (data.action === 'RESERVED') {
+                        reservedCount++;
+                    } else {
+                        successCount++;
+                    }
+                } else {
+                    failedCount++;
                 }
             } catch (e) {
-                console.error(`Failed to release ${item.referenceNo}`, e);
+                console.error(`Failed to bulk release ${item.referenceNo}`, e);
+                failedCount++;
             }
         }
         
-        alert(`Action completed. Successfully released ${successCount} items.`);
+        let msg = `Action completed.\n- Released: ${successCount}\n- Auto-Reserved (Paid): ${reservedCount}`;
+        if (failedCount > 0) msg += `\n- Failed: ${failedCount}`;
+        
+        alert(msg);
         setSelectedIds([]);
         fetchBookings();
     };
@@ -352,11 +373,42 @@ export default function HalfWayBookingsPage() {
                                                         const isLocked = b.status === 0;
                                                         const actionName = isLocked ? 'Release Locked Seat?' : 'Release Confirm Locked?';
                                                         if(confirm(actionName)) {
-                                                            const promise = isLocked 
-                                                                ? booking.releaseLockedSeats(b.cinemaID, b.showID, b.referenceNo)
-                                                                : booking.releaseConfirmLockedSeats(b.cinemaID, b.showID, b.referenceNo);
+                                                            const performRelease = async (isForced = false) => {
+                                                                try {
+                                                                    const type = b.status === 0 ? 'locked' : 'confirmed';
+                                                                    const res = await fetch('/api/booking/release', {
+                                                                        method: 'POST',
+                                                                        headers: { 'Content-Type': 'application/json' },
+                                                                        body: JSON.stringify({
+                                                                            cinemaId: b.cinemaID,
+                                                                            showId: b.showID,
+                                                                            referenceNo: b.referenceNo,
+                                                                            type,
+                                                                            force: isForced
+                                                                        })
+                                                                    });
+                                                                    const data = await res.json();
+                                                                    
+                                                                    if (data.success) {
+                                                                        fetchBookings();
+                                                                        alert(data.message || 'Action Successful');
+                                                                    } else {
+                                                                        // Handle FAIL cases (e.g., paid but reservation failed)
+                                                                        if (data.action === 'RESERVE_FAILED') {
+                                                                             if (confirm(`${data.message}\n\nDo you want to FORCE RELEASE this seat anyway?`)) {
+                                                                                performRelease(true);
+                                                                             }
+                                                                        } else {
+                                                                            alert(data.error || 'Failed to process release');
+                                                                        }
+                                                                    }
+                                                                } catch (err) {
+                                                                    console.error(err);
+                                                                    alert('Network error while processing release');
+                                                                }
+                                                            };
                                                             
-                                                            promise.then(() => { fetchBookings(); alert('Released'); });
+                                                            performRelease(false);
                                                         }
                                                     }} className="p-1 bg-red-500/10 text-red-500 rounded hover:bg-red-500 hover:text-white transition" title="Release Seat">
                                                         <Unlock className="w-3.5 h-3.5" />

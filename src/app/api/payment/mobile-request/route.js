@@ -93,7 +93,7 @@ export async function POST(request) {
                 showId: showId ? String(showId) : null,
                 showTime: showTime ? new Date(showTime) : null,
                 seats: typeof seats === 'object' ? JSON.stringify(seats) : seats,
-                ticketType,
+                ticketType: typeof ticketType === 'object' ? JSON.stringify(ticketType) : ticketType,
                 totalAmount: parseFloat(amount),
                 paymentStatus: 'CONFIRMED', // Reset status in case they are retrying
                 status: 'PENDING',
@@ -116,10 +116,10 @@ export async function POST(request) {
                 showId: showId ? String(showId) : null,
                 showTime: showTime ? new Date(showTime) : null,
                 seats: typeof seats === 'object' ? JSON.stringify(seats) : seats,
-                ticketType,
+                ticketType: typeof ticketType === 'object' ? JSON.stringify(ticketType) : ticketType,
                 totalAmount: parseFloat(amount),
                 paymentStatus: 'PENDING',
-                status: 'CONFIRMED',
+                status: 'PENDING',
                 paymentMethod: 'Mobile App',
             }
         });

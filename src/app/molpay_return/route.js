@@ -49,21 +49,23 @@ async function handleReturn(request) {
     let order = await prisma.order.findUnique({
       where: { orderId: orderid }
     });
-    if (!order && returnData.referenceNo) {
-      order = await prisma.order.findFirst({
-        where: { referenceNo: returnData.referenceNo },
-        orderBy: { createdAt: 'desc' }
-      });
+    if (!order) {
+      const refFromOrder = orderid.split('_')[0];
+      const targetRef = returnData.referenceNo || returnData.refno || refFromOrder;
 
-      if (order) {
-        order = await prisma.order.update({
-          where: { id: order.id }, // use primary key
-          data: {
-            orderId: orderid
-          }
+      if (targetRef) {
+        order = await prisma.order.findFirst({
+          where: { referenceNo: targetRef },
+          orderBy: { createdAt: 'desc' }
         });
-      }
 
+        if (order) {
+          order = await prisma.order.update({
+            where: { id: order.id },
+            data: { orderId: orderid }
+          });
+        }
+      }
     }
     if(!order) return createRedirectResponse(`${baseUrl}payment/failed?orderid=${encodeURIComponent(orderid)}&error=order_not_found`);
 

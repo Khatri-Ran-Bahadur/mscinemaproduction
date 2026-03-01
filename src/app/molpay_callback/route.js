@@ -35,6 +35,8 @@ async function handleCallback(request) {
       }
     }
 
+    writeMolpayLog(returnData.orderid??'unknown_order', 'Callback', returnData);
+
     const orderid = returnData.orderid || `unknown_${Date.now()}`;
 
     // Log callback
@@ -71,21 +73,25 @@ async function handleCallback(request) {
       where: { orderId: orderid }
     });
     
-    if (!order && returnData.referenceNo) {
-      order = await prisma.order.findFirst({
-        where: { referenceNo: returnData.referenceNo },
-        orderBy: { createdAt: 'desc' }
-      });
+    if (!order) {
+      // If not found by orderid, try referenceNo from params or extracted from orderid
+      const refFromOrder = orderid.split('_')[0];
+      const targetRef = returnData.referenceNo || returnData.refno || refFromOrder;
 
-      if (order) {
-        order = await prisma.order.update({
-          where: { id: order.id }, // use primary key
-          data: {
-            orderId: orderid
-          }
+      if (targetRef) {
+        console.log(`[Callback] Order ${orderid} not found, trying Reference No: ${targetRef}`);
+        order = await prisma.order.findFirst({
+          where: { referenceNo: targetRef },
+          orderBy: { createdAt: 'desc' }
         });
+
+        if (order) {
+          order = await prisma.order.update({
+            where: { id: order.id },
+            data: { orderId: orderid }
+          });
+        }
       }
-      
     }
     
 

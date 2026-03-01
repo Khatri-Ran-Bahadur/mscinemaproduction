@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import QRCode from 'qrcode';
+import { formatHallName } from '@/utils/hall';
 
 export default function TicketModal({ ticketData, isOpen, onClose }) {
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState('');
@@ -287,7 +288,7 @@ export default function TicketModal({ ticketData, isOpen, onClose }) {
 
                                            const type = t.ticketTypeName || t.TicketTypeName || t.TicketType || t.ticketType || t.Type || t.type || 'Adult';
                                            const seat = t.SeatNo || t.seatNo || t.Seat || t.seat || '';
-                                           const hall = bookingDetails.hallName || 'Hall';
+                                           const hall = formatHallName(bookingDetails.hallName || 'Hall');
 
                                            return (
                                                <tr key={index} className="hover:bg-[#333]/50">

@@ -4,7 +4,7 @@ import { callReserveBooking } from '@/utils/molpay';
 
 export async function POST(request, { params }) {
   try {
-    const { id } = params;
+    const { id } = await params;
     
     // 1. Fetch the order
     const order = await prisma.order.findUnique({

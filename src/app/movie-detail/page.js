@@ -8,6 +8,7 @@ import Loader from '@/components/Loader';
 import SeatStatusIcon from '@/components/SeatStatusIcon';
 import { encryptId, decryptId, encryptIds, decryptIds } from '@/utils/encryption';
 import RatingIcon from '@/components/RatingIcon';
+import { formatHallName } from '@/utils/hall';
 
 import Header from '@/components/header';
 import Footer from '@/components/footer';
@@ -323,7 +324,7 @@ export default function MovieBooking() {
               movieID: show.movieID || show.movieId,
               showDate: show.showDate, // Format: YYYY-MM-DD
               showTime: show.showTime, // Format: YYYY-MM-DD HH:mm:ss
-              hallName: show.hallName || 'HALL - 1',
+              hallName: formatHallName(show.hallName || 'HALL - 1'),
               sellingStatus: show.sellingStatus !== undefined ? show.sellingStatus : 0,
               allowOnlineSales: show.allowOnlineSales !== undefined ? show.allowOnlineSales : true,
               // Format time for display (extract time from datetime)
@@ -335,11 +336,11 @@ export default function MovieBooking() {
                   })
                 : '10:00 AM',
               // Determine availability based on sellingStatus and allowOnlineSales
-              // Only available if: sellingStatus = 0 AND allowOnlineSales = true
-              available: show.sellingStatus === 0 && show.allowOnlineSales === true,
+              // Available if: sellingStatus = 0 (Available) OR sellingStatus = 1 (Selling Fast)
+              available: (show.sellingStatus === 0 || show.sellingStatus === 1) && show.allowOnlineSales === true,
               sellingFast: show.sellingStatus === 1,
-              // Sold out if: sellingStatus = 1 OR sellingStatus = 2 OR allowOnlineSales = false
-              soldOut: show.sellingStatus === 1 || show.sellingStatus === 2 || show.allowOnlineSales === false,
+              // Sold out if: sellingStatus = 2 OR allowOnlineSales = false
+              soldOut: show.sellingStatus === 2 || show.allowOnlineSales === false,
             }))
           : [];
         
@@ -425,8 +426,8 @@ export default function MovieBooking() {
     
     if (targetIndex !== null) {
       const show = filteredShowTimes[targetIndex];
-      // Only proceed if: sellingStatus = 0 AND allowOnlineSales = true
-      const isAvailable = show && show.sellingStatus === 0 && show.allowOnlineSales === true;
+      // Available if: (sellingStatus = 0 OR sellingStatus = 1) AND allowOnlineSales = true
+      const isAvailable = show && (show.sellingStatus === 0 || show.sellingStatus === 1) && show.allowOnlineSales === true;
       
       if (isAvailable) {
         // Check if show time is less than 1 hour from now
@@ -493,8 +494,8 @@ export default function MovieBooking() {
 
   const handleClick = (idx) => {
     const show = filteredShowTimes[idx];
-    // Only allow selection if: sellingStatus = 0 AND allowOnlineSales = true
-    const isAvailable = show && show.sellingStatus === 0 && show.allowOnlineSales === true;
+    // Available if: (sellingStatus = 0 OR sellingStatus = 1) AND allowOnlineSales = true
+    const isAvailable = show && (show.sellingStatus === 0 || show.sellingStatus === 1) && show.allowOnlineSales === true;
     
     if (isAvailable) {
       setSelectedTime(idx);
@@ -808,20 +809,16 @@ export default function MovieBooking() {
           <h2 className="text-sm font-semibold mb-4 text-[#FAFAFA]">Select Time</h2>
           
           {/* Seat Availability Legend */}
-          {/* <div className="flex items-center gap-4 md:gap-6 mb-4 flex-wrap text-xs">
+          <div className="flex items-center gap-4 md:gap-6 mb-4 flex-wrap text-xs">
             <div className="flex items-center gap-2">
-              <SeatStatusIcon status="available" />
-              <span className="text-green-500">Available</span>
+              <div className="w-3 h-3 rounded bg-[#FFCA20]"></div>
+              <span className="text-[#FFCA20]">Available</span>
             </div>
             <div className="flex items-center gap-2">
-              <SeatStatusIcon status="selling-fast" />
-              <span className="text-[#FFCA20]">Selling fast</span>
+              <div className="w-3 h-3 rounded bg-gray-500"></div>
+              <span className="text-gray-500">Sold out</span>
             </div>
-            <div className="flex items-center gap-2">
-              <SeatStatusIcon status="sold-out" />
-              <span className="text-red-500">Sold out</span>
-            </div>
-          </div> */}
+          </div>
 
           {/* Error Message */}
           {error && (
@@ -850,9 +847,9 @@ export default function MovieBooking() {
                 <div className={`grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3 mb-6 transition-opacity ${isShowTimesLoading ? 'opacity-30' : 'opacity-100'}`}>
                   {filteredShowTimes.map((show, idx) => {
                     // Determine if show is available for selection
-                    // Only available if: sellingStatus = 0 AND allowOnlineSales = true
-                    const isAvailable = show.sellingStatus === 0 && show.allowOnlineSales === true;
-                    const isSoldOut = !isAvailable; // Sold out if not available
+                    // Available if: (sellingStatus = 0 OR sellingStatus = 1) AND allowOnlineSales = true
+                    const isAvailable = (show.sellingStatus === 0 || show.sellingStatus === 1) && show.allowOnlineSales === true;
+                    const isSoldOut = show.sellingStatus === 2 || show.allowOnlineSales === false;
                     
                       return (
                         <button
@@ -866,11 +863,7 @@ export default function MovieBooking() {
                           }}
                           className={`p-3 rounded-lg border transition ${
                             isSoldOut
-                              ? 'bg-gray-800 text-gray-500 cursor-not-allowed opacity-60'
-                              : selectedTime === idx
-                              ? 'bg-[#FFCA20] border-[#FFCA20] text-black'
-                              : show.sellingFast
-                              ? 'bg-[#0a0a0a] border-[#FFCA20] text-[#FAFAFA] hover:border-[#FFCA20] hover:bg-[#151515]'
+                              ? 'bg-gray-800 border-gray-700 text-gray-500 cursor-not-allowed opacity-60'
                               : 'bg-[#FFCA20] border-[#FFCA20] text-black'
                           }`}
                           title={isSoldOut 
@@ -881,8 +874,8 @@ export default function MovieBooking() {
                                 : 'Sold out')
                             : 'Available'}
                         >
-                          <div className="text-md font-semibold">{show.time}</div>
-                          <div className="text-sm mt-1 opacity-70">{show.hallName || 'HALL - 1'} {show.hallName=='HALL - 6'?" (KIDS & FAMILY BED)" : ""}</div>
+                          <div className="text-md font-semibold">{show.time}</div>  
+                          <div className="text-sm mt-1 opacity-70">{show.hallName}</div>
                         </button>
                       );
                   })}

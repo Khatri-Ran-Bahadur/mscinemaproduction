@@ -11,6 +11,7 @@ import SeatIcon from '@/components/SeatIcon';
 import MovieIcon from '@/components/MovieIcon';
 import RatingIcon from '@/components/RatingIcon';
 import { encryptId, decryptId, encryptIds, decryptIds } from '@/utils/encryption';
+import { formatHallName } from '@/utils/hall';
 
 export default function SeatSelection() {
   const router = useRouter();
@@ -448,9 +449,11 @@ export default function SeatSelection() {
                       hour12: true 
                     })
                   : '10:00 AM',
-                available: show.sellingStatus === 0 && show.allowOnlineSales === true,
+                // Determine availability based on sellingStatus and allowOnlineSales
+                available: (show.sellingStatus === 0 || show.sellingStatus === 1) && show.allowOnlineSales === true,
                 sellingFast: show.sellingStatus === 1,
-                soldOut: show.sellingStatus === 1 || show.sellingStatus === 2 || show.allowOnlineSales === false,
+                // Sold out if: sellingStatus = 2 OR allowOnlineSales = false
+                soldOut: show.sellingStatus === 2 || show.allowOnlineSales === false,
               }))
               .sort((a, b) => {
                 const timeA = a.showTime ? new Date(a.showTime).getTime() : 0;
@@ -1151,9 +1154,11 @@ export default function SeatSelection() {
       }
     }
     
-    // Check if this is Hall 6
+    // Check if this is Hall 6 or a Kids and Family hall
     const hallNo = seatLayout?.hallDetails?.hallNo;
-    const isHall6 = hallNo === 6;
+    const hallName = seatLayout?.hallDetails?.hallName || showTimeDetails?.hallName || '';
+    const formattedHallName = formatHallName(hallName);
+    const isHall6 = hallNo === 6 || hallNo === '6' || hallName?.includes('6') || hallName?.toUpperCase()?.includes('HALL - 6') || formattedHallName === 'Hall-6 (Kids and Family)';
     
     // Special logic for Hall 6
     if (isHall6) {
@@ -1791,7 +1796,8 @@ export default function SeatSelection() {
   const movieImage = movieDetails?.imageURL || 'img/banner.jpg';
   const cinemaName = cinemaDetails?.displayName || cinemaDetails?.name || `Cinema ${cinemaId}`;
   const experienceType = movieDetails?.type || '2D';
-  const hallName = showTimeDetails?.hallName || seatLayout?.hallDetails?.hallName || 'HALL - 1';
+  const hallNameRaw = showTimeDetails?.hallName || seatLayout?.hallDetails?.hallName || 'HALL - 1';
+  const hallName = formatHallName(hallNameRaw);
 
   if (isLoading) {
     return (
@@ -2041,10 +2047,11 @@ export default function SeatSelection() {
               // Get dynamic gap class based on row seat count
               const dynamicGapClass = getDynamicGap(rowMaxColumn);
               
-              // Check if this is Hall 6 for seat labeling (check both number and string, and hallName as fallback)
+              // Check if this is Hall 6 or a Kids and Family hall for seat labeling
               const hallNo = seatLayout?.hallDetails?.hallNo;
               const hallName = seatLayout?.hallDetails?.hallName || showTimeDetails?.hallName || '';
-              const isHall6 = hallNo === 6 || hallNo === '6' || hallName?.includes('6') || hallName?.toUpperCase()?.includes('HALL - 6');
+              const formattedHallName = formatHallName(hallName);
+              const isHall6 = hallNo === 6 || hallNo === '6' || hallName?.includes('6') || hallName?.toUpperCase()?.includes('HALL - 6') || formattedHallName === 'Hall-6 (Kids and Family)';
               
               return (
                 <div key={rowLetter} className="flex items-center w-full relative">

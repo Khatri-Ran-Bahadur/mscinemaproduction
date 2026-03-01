@@ -334,94 +334,94 @@ export const sendTicketEmail = async (to, ticketData, corporateInfoPassed = null
   }
 
   // If no ticket details, try to get from booking data
-  if (ticketDetails.length === 0 && bookingData) {
-    const seats = bookingData?.seats || [];
-    const selectedTickets = bookingData?.selectedTickets || [];
-    const seatGroups = {}; // Temporary object to build seatDisplay
+  // if (ticketDetails.length === 0 && bookingData) {
+  //   const seats = bookingData?.seats || [];
+  //   const selectedTickets = bookingData?.selectedTickets || [];
+  //   const seatGroups = {}; // Temporary object to build seatDisplay
 
-    seats.forEach((seat, index) => {
-      const ticket = selectedTickets[index];
-      const ticketType = ticket?.ticketTypeName || ticket?.TicketTypeName || ticket?.ticketType || ticket?.type || 'Adult';
-      const seatNo = ticket?.seatNo || seat?.seatNo || seat?.seat || '';
-      const price = ticket?.price || 0;
-      const surcharge = ticket?.surcharge || 0;
+  //   seats.forEach((seat, index) => {
+  //     const ticket = selectedTickets[index];
+  //     const ticketType = ticket?.ticketTypeName || ticket?.TicketTypeName || ticket?.ticketType || ticket?.type || 'Adult';
+  //     const seatNo = ticket?.seatNo || seat?.seatNo || seat?.seat || '';
+  //     const price = ticket?.price || 0;
+  //     const surcharge = ticket?.surcharge || 0;
 
-      if (seatNo) {
-        if (!seatGroups[ticketType]) {
-          seatGroups[ticketType] = [];
-        }
-        seatGroups[ticketType].push(seatNo);
+  //     if (seatNo) {
+  //       if (!seatGroups[ticketType]) {
+  //         seatGroups[ticketType] = [];
+  //       }
+  //       seatGroups[ticketType].push(seatNo);
 
-        // Populate ticketDetails for the table
-        ticketDetails.push({
-            TicketType: ticketType,
-            SeatNo: seatNo,
-            Price: price,
-            Surcharge: surcharge
-        });
-      }
-    });
+  //       // Populate ticketDetails for the table
+  //       ticketDetails.push({
+  //           TicketType: ticketType,
+  //           SeatNo: seatNo,
+  //           Price: price,
+  //           Surcharge: surcharge
+  //       });
+  //     }
+  //   });
 
-    // Format seat display
-    const formatSeats = () => {
-      const parts = [];
-      Object.entries(seatGroups).forEach(([type, seatList]) => {
-        const seatNumbers = seatList.map(s => {
-          const seatStr = String(s);
-          const match = seatStr.match(/([A-Z])(\d+)/);
-          if (match) {
-            return match[1] + match[2];
-          }
-          return seatStr;
-        });
-        parts.push({ type, seats: seatNumbers });
-      });
-      return parts;
-    };
+  //   // Format seat display
+  //   const formatSeats = () => {
+  //     const parts = [];
+  //     Object.entries(seatGroups).forEach(([type, seatList]) => {
+  //       const seatNumbers = seatList.map(s => {
+  //         const seatStr = String(s);
+  //         const match = seatStr.match(/([A-Z])(\d+)/);
+  //         if (match) {
+  //           return match[1] + match[2];
+  //         }
+  //         return seatStr;
+  //       });
+  //       parts.push({ type, seats: seatNumbers });
+  //     });
+  //     return parts;
+  //   };
 
-    ticketData.seatDisplay = formatSeats();
-    ticketData.totalPersons = Object.values(seatGroups).reduce((sum, seats) => sum + seats.length, 0) || ticketDetails.length || 0;
+  //   ticketData.seatDisplay = formatSeats();
+  //   ticketData.totalPersons = Object.values(seatGroups).reduce((sum, seats) => sum + seats.length, 0) || ticketDetails.length || 0;
     
-    // Add ticket details with pricing for email template
-    ticketData.ticketDetails = ticketDetails.length > 0 ? ticketDetails : [];
+  //   // Add ticket details with pricing for email template
+  //   ticketData.ticketDetails = ticketDetails.length > 0 ? ticketDetails : [];
     
-    // Calculate totals correctly including taxes
-    let totalPrice = 0;
-    let totalSurcharge = 0;
-    let calculatedGrandTotal = 0;
+  //   // Calculate totals correctly including taxes
+  //   let totalPrice = 0;
+  //   let totalSurcharge = 0;
+  //   let calculatedGrandTotal = 0;
     
-    if (ticketDetails.length > 0) {
-      ticketDetails.forEach(t => {
-        // Price components extraction for verification/fallback
-        const price = parseFloat(t.Price || t.price || t.TicketPrice || t.ticketPrice || 0);
-        const eTax = parseFloat(t.entertainmentTax || t.EntertainmentTax || 0);
-        const gTax = parseFloat(t.govtTax || t.GovtTax || 0);
-        const onlineCharge = parseFloat(t.onlineCharge || t.OnlineCharge || 0);
-        const sur = parseFloat(t.Surcharge || t.surcharge || t.surCharge || 0);
-        const ticketTotal = parseFloat(t.totalTicketPrice || t.TotalTicketPrice || 0);
+  //   if (ticketDetails.length > 0) {
+  //     ticketDetails.forEach(t => {
+  //       // Price components extraction for verification/fallback
+  //       const price = parseFloat(t.Price || t.price || t.TicketPrice || t.ticketPrice || 0);
+  //       const eTax = parseFloat(t.entertainmentTax || t.EntertainmentTax || 0);
+  //       const gTax = parseFloat(t.govtTax || t.GovtTax || 0);
+  //       const onlineCharge = parseFloat(t.onlineCharge || t.OnlineCharge || 0);
+  //       const sur = parseFloat(t.Surcharge || t.surcharge || t.surCharge || 0);
+  //       const ticketTotal = parseFloat(t.totalTicketPrice || t.TotalTicketPrice || 0);
 
-        // Fallback row calculations
-        const displayPrice = price + eTax + gTax;
-        const displaySurcharge = sur;
-        const rowTotal = ticketTotal ? (ticketTotal - onlineCharge) : (displayPrice + displaySurcharge);
+  //       // Fallback row calculations
+  //       const displayPrice = price + eTax + gTax;
+  //       const displaySurcharge = sur;
+  //       const rowTotal = ticketTotal ? (ticketTotal - onlineCharge) : (displayPrice + displaySurcharge);
         
-        // Use Ticket Total for Grand Total sum (Source of Truth)
-        calculatedGrandTotal += ticketTotal || (rowTotal + onlineCharge);
+  //       // Use Ticket Total for Grand Total sum (Source of Truth)
+  //       calculatedGrandTotal += ticketTotal || (rowTotal + onlineCharge);
         
-        // Sum Online Charges for Sub Charge display
-        totalSurcharge += onlineCharge; 
-      });
+  //       // Sum Online Charges for Sub Charge display
+  //       totalSurcharge += onlineCharge; 
+  //     });
       
-      // Update ticketData values
-      // subCharge field -> Total Online Charges
-      ticketData.subCharge = totalSurcharge;
-      ticketData.grandTotal = calculatedGrandTotal;
-    } else {
-        // Fallback or existing values
-       ticketData.subCharge = parseFloat(bookingData?.subCharge || ticketData?.subCharge || subCharge || 0);
-       ticketData.grandTotal = parseFloat(bookingData?.grandTotal || ticketData?.grandTotal || grandTotal || 0);
-    }
-  }
+  //     // Update ticketData values
+  //     // subCharge field -> Total Online Charges
+  //     ticketData.subCharge = totalSurcharge;
+  //     ticketData.grandTotal = calculatedGrandTotal;
+  //   } else {
+  //       // Fallback or existing values
+  //      ticketData.subCharge = parseFloat(bookingData?.subCharge || ticketData?.subCharge || subCharge || 0);
+  //      ticketData.grandTotal = parseFloat(bookingData?.grandTotal || ticketData?.grandTotal || grandTotal || 0);
+  //   }
+  // }
 
 
   // Generate QR code as Buffer for attachment
