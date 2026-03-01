@@ -112,6 +112,24 @@ export default function RootLayout({ children }) {
           dangerouslySetInnerHTML={{
             __html: `
               (function() {
+                // Fix for ChunkLoadError after new deployments
+                window.addEventListener('error', function(e) {
+                  const isChunkLoadError = (e.message && /Loading chunk [\\w-]+ failed/.test(e.message)) || 
+                                          (e.target && e.target.tagName === 'SCRIPT' && e.target.src && e.target.src.includes('/_next/static/chunks/'));
+                  
+                  if (isChunkLoadError) {
+                    console.warn('ChunkLoadError detected. Attempting to reload page to fetch new manifest...');
+                    
+                    const lastReload = parseInt(localStorage.getItem('next-chunk-reload-time') || '0');
+                    const now = Date.now();
+                    
+                    if (now - lastReload > 10000) {
+                      localStorage.setItem('next-chunk-reload-time', now.toString());
+                      window.location.reload(true);
+                    }
+                  }
+                }, true);
+
                 if ('${process.env.NEXT_PUBLIC_DISABLE_INSPECT}' === 'true') {
                   
                   // Disable right-click

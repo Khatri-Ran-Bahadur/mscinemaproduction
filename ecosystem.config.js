@@ -24,7 +24,7 @@ module.exports = {
       // Next.js optimization
       NEXT_TELEMETRY_DISABLED: '1', // Disable telemetry to reduce CPU usage
       DATABASE_URL:
-          'postgres://USER:PASSWORD@db.prisma.io:5432/postgres?sslmode=require&connection_limit=1'
+          'postgresql://mscinemas_user:newpassword@localhost:5432/mscinemas_db'
     },
     error_file: '/var/log/pm2/mscinemas-error.log',
     out_file: '/var/log/pm2/mscinemas-out.log',
