@@ -178,13 +178,19 @@ export async function queryPaymentStatus(orderid, amount) {
   try {
     const md5 = (str) => crypto.createHash('md5').update(str, 'utf8').digest('hex');
     
+    // Ensure amount is formatted consistently (2 decimal places)
+    const formattedAmount = parseFloat(amount).toFixed(2);
+    
     // skey for q_by_oid.php API: md5(oID + domain + verifykey + amount)
-    const skey = md5(`${orderid}${RMS_CONFIG.merchantId}${RMS_CONFIG.verifyKey}${amount}`);
+    const skeySource = `${orderid}${RMS_CONFIG.merchantId}${RMS_CONFIG.verifyKey}${formattedAmount}`;
+    const skey = md5(skeySource);
+    
+    
     
     const params = new URLSearchParams();
     params.set('domain', RMS_CONFIG.merchantId);
     params.set('oID', orderid);
-    params.set('amount', amount);
+    params.set('amount', formattedAmount);
     params.set('skey', skey);
     params.set('url', 'https://mscinemas.my/'); // Mandatory placeholder for RMS API
     params.set('type', '2'); // JSON response
@@ -192,13 +198,14 @@ export async function queryPaymentStatus(orderid, amount) {
     // Better RMS Query URL
     const queryUrl = 'https://api.fiuu.com/RMS/query/q_by_oid.php';
     
-    console.log(`[Fiuu Query] Checking status via q_by_oid for Order: ${orderid}, Amount: ${amount}`);
     
     const resp = await fetch(queryUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: params.toString()
     });
+
+    console.log(`[Fiuu Query] HTTP Response Status: ${resp.status}`);
 
     if (!resp.ok) {
       throw new Error(`Query API failed with status: ${resp.status}`);
@@ -212,10 +219,21 @@ export async function queryPaymentStatus(orderid, amount) {
       data = JSON.parse(text);
     } catch (e) {
       console.error(`[Fiuu Query] Failed to parse JSON: ${text}`);
-      return { success: false, error: 'Invalid response from gateway' };
+      return { success: false, error: 'Invalid response from gateway', raw: text };
     }
 
     console.log(`[Fiuu Query] Parsed for ${orderid}:`, data);
+    
+    // Check for Fiuu error response
+    if (data.ErrorCode) {
+      console.error(`[Fiuu Query] API Error - Code: ${data.ErrorCode}, Desc: ${data.ErrorDesc}`);
+      return {
+        success: false,
+        error: `Fiuu Error: ${data.ErrorDesc}`,
+        errorCode: data.ErrorCode,
+        raw: data
+      };
+    }
     
     // Status '00' is success in Fiuu/MOLPay
     return {

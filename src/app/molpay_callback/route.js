@@ -35,7 +35,7 @@ async function handleCallback(request) {
       }
     }
 
-    writeMolpayLog(returnData.orderid??'unknown_order', 'Callback', returnData);
+    // writeMolpayLog(returnData.orderid??'unknown_order', 'Callback', returnData);
 
     const orderid = returnData.orderid || `unknown_${Date.now()}`;
 

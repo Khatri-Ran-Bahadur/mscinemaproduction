@@ -30,7 +30,16 @@ export const GUEST_CREDENTIALS = USE_LIVE_API ? LIVE_GUEST_CREDENTIALS : TEST_GU
 const useProxyEnv = process.env.NEXT_PUBLIC_USE_PROXY || process.env.USE_PROXY;
 // Explicitly default to false if not set or not 'true'
 export const USE_PROXY = useProxyEnv === 'true';
-export const PROXY_URL = process.env.NEXT_PUBLIC_PROXY_URL || process.env.PROXY_URL || '/api/proxy';
+
+// BASE APP URL for server-side calls
+const APP_URL = (process.env.NEXT_PUBLIC_BASE_URL || 'https://www.mscinemas.my').replace(/\/$/, '');
+
+// Ensure PROXY_URL is absolute on server side to avoid "Invalid URL" error in Node.js fetch
+const rawProxyUrl = process.env.NEXT_PUBLIC_PROXY_URL || '/api/proxy';
+const isServer = typeof window === 'undefined';
+export const PROXY_URL = (isServer && !rawProxyUrl.startsWith('http')) 
+  ? `${APP_URL}${rawProxyUrl.startsWith('/') ? '' : '/'}${rawProxyUrl}`
+  : rawProxyUrl;
 
 // Debug logging (only in development)
 // if (process.env.NODE_ENV === 'development') {

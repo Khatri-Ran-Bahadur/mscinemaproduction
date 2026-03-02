@@ -198,6 +198,7 @@ export default function MyTicketsPage() {
                     status: booking.Status || booking.status,
                     cinemaID: booking.CinemaID || booking.cinemaID,
                     showID: booking.ShowID || booking.showID,
+                    hallName: booking.HallName || booking.hallName,
                 })) : [];
 
                 setBookings(transformedBookings);
@@ -242,7 +243,15 @@ export default function MyTicketsPage() {
                     bookingItem.referenceNo
                 );
                 if (fetchedTicketData) {
-                    setTicketData(fetchedTicketData);
+                    // Merge hallName from bookingItem into ticketData bookingDetails
+                    const enrichedTicketData = {
+                        ...fetchedTicketData,
+                        bookingDetails: {
+                            ...fetchedTicketData.bookingDetails,
+                            hallName: bookingItem.hallName || fetchedTicketData.bookingDetails?.hallName
+                        }
+                    };
+                    setTicketData(enrichedTicketData);
                     setShowTicketModal(true);
                     setShowModal(false); // Close booking summary modal
                 }

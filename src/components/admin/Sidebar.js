@@ -127,12 +127,12 @@ export default function AdminSidebar() {
              <span className="text-[#FFCA20] font-bold">
                {typeof window !== 'undefined' ? (JSON.parse(localStorage.getItem('adminData') || '{}').name?.charAt(0) || 'A') : 'A'}
              </span>
-          </div>
-          <div className="overflow-hidden">
-            <p className="text-sm font-medium text-white truncate group-hover:text-[#FFCA20] transition">
+           </div>
+           <div className="overflow-hidden">
+             <p className="text-sm font-medium text-white truncate group-hover:text-[#FFCA20] transition">
               {typeof window !== 'undefined' ? (JSON.parse(localStorage.getItem('adminData') || '{}').name || 'Administrator') : 'Administrator'}
-            </p>
-            <p className="text-xs text-[#888] truncate">
+             </p>
+             <p className="text-xs text-[#888] truncate">
               {typeof window !== 'undefined' ? (JSON.parse(localStorage.getItem('adminData') || '{}').email || 'admin@mscinema.com') : 'admin@mscinema.com'}
             </p>
           </div>

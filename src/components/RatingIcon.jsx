@@ -21,12 +21,16 @@ export default function RatingIcon({ rating, className = '' }) {
     else return null;
 
     return (
-        <div className={`inline-flex items-center justify-center overflow-hidden shrink-0 ${className}`}>
+        <div className={`inline-flex items-center justify-center overflow-hidden shrink-0 flex-shrink-0 ${className}`}>
             <img 
                 src={iconPath} 
                 alt={`Rating ${r}`}
-                className="w-full h-full object-contain"
-                onError={(e) => { e.target.style.display = 'none'; }}
+                className="w-full h-full object-contain pointer-events-none"
+                onError={(e) => { 
+                    e.target.style.display = 'none';
+                    e.target.parentElement.style.display = 'none';
+                }}
+                loading="eager"
             />
         </div>
     );

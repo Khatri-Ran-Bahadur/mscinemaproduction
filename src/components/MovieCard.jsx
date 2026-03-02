@@ -43,12 +43,14 @@ export default function MovieCard({ movie, onBookNow, onWatchTrailer, className 
                 >
                     <div className="p-2 sm:p-3">
                         {/* Movie title and Rating Icon */}
-                        <div className="flex items-center justify-between gap-2 mb-2">
-                            <h3 className="text-[#FAFAFA] text-xs sm:text-sm font-bold truncate tracking-wide">
-                                {movie.title}
+                        <div className="flex items-start justify-between gap-2 mb-2 min-h-[1.25rem]">
+                            <h3 className="text-[#FAFAFA] text-xs sm:text-sm font-bold truncate tracking-wide flex-1 line-clamp-2">
+                                {(movie.title && movie.title.trim()) ? movie.title : "Movie Title"}
                             </h3>
                             {movie.rating && (
-                                <RatingIcon rating={movie.rating} className="w-5 h-5 sm:w-6 sm:h-6 drop-shadow-lg" />
+                                <div className="flex-shrink-0">
+                                    <RatingIcon rating={movie.rating} className="w-5 h-5 sm:w-6 sm:h-6 drop-shadow-lg" />
+                                </div>
                             )}
                         </div>
                         

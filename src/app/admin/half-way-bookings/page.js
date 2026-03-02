@@ -224,6 +224,10 @@ export default function HalfWayBookingsPage() {
                 if (!data.bookingDetails) data.bookingDetails = {};
                 data.bookingDetails.bookingID = b.bookingID || '-';
                 data.bookingDetails.referenceNo = b.referenceNo;
+                // Merge hallName from booking if available
+                if (b.hallName) {
+                    data.bookingDetails.hallName = b.hallName;
+                }
                 
                 setSelectedTicketData(data);
                 setShowModal(true);

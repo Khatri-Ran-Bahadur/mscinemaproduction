@@ -80,21 +80,56 @@ export async function GET(request) {
                     continue;
                 }
 
-                // 2. Get Half Way Bookings (with token)
-                const listUrl = `${env.url}/Booking/GetHalfWayBookings/${m1}/${m2}`;
-                const fetchRes = await fetchWithAuth(listUrl, token, { cache: 'no-store' });
+                // 2. Get Half Way Bookings from Cinema API (with token)
+                let bookings = [];
+                try {
+                    const listUrl = `${env.url}/Booking/GetHalfWayBookings/${m1}/${m2}`;
+                    const fetchRes = await fetchWithAuth(listUrl, token, { cache: 'no-store' });
 
-                if (!fetchRes.ok) {
-                    const errText = await fetchRes.text();
-                    console.error(`[Cron] ${env.name}: GetHalfWayBookings failed: ${fetchRes.status}`, errText);
-                    results.push({ env: env.name, error: `GetHalfWayBookings failed: ${fetchRes.status}` });
-                    continue;
+                    if (fetchRes.ok) {
+                        bookings = await fetchRes.json();
+                        if (!Array.isArray(bookings)) {
+                            bookings = [];
+                        }
+                    } else {
+                        const errText = await fetchRes.text();
+                        console.warn(`[Cron] ${env.name}: GetHalfWayBookings API returned ${fetchRes.status}:`, errText);
+                        // Fall through to use database bookings instead
+                    }
+                } catch (apiErr) {
+                    console.warn(`[Cron] ${env.name}: GetHalfWayBookings API failed:`, apiErr.message);
+                    // Fall through to use database bookings instead
                 }
 
-                const bookings = await fetchRes.json();
-                if (!Array.isArray(bookings)) {
-                    results.push({ env: env.name, message: 'No bookings array', count: 0 });
-                    continue;
+                // 2b. FALLBACK: If no bookings from API, query database for pending orders
+                if (bookings.length === 0) {
+                    console.log(`[Cron] ${env.name}: No bookings from API, checking database...`);
+                    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
+                    const dbOrders = await prisma.order.findMany({
+                        where: {
+                            AND: [
+                                { createdAt: { lt: tenMinutesAgo } },
+                                {
+                                    OR: [
+                                        { status: 'PENDING', paymentStatus: { notIn: ['PAID'] } },
+                                        { status: 'CONFIRMED', paymentStatus: 'PENDING' }
+                                    ]
+                                }
+                            ]
+                        },
+                        orderBy: { createdAt: 'asc' },
+                        take: 50
+                    });
+
+                    bookings = dbOrders.map(order => ({
+                        cinemaID: order.cinemaId,
+                        showID: order.showId,
+                        referenceNo: order.referenceNo,
+                        bookingDateTime: order.createdAt.toISOString(),
+                        status: order.paymentStatus === 'PAID' ? 1 : 0,
+                        _source: 'database'
+                    }));
+                    console.log(`[Cron] ${env.name}: Found ${bookings.length} pending bookings in database`);
                 }
 
                 const targetBookings = bookings.filter((b) => b.status === 0 || b.status === 1);

@@ -6,9 +6,10 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true, // Disables type checking during build
   },
-  turbopack: {
-    root: process.cwd(),
-  },
+  // Disabled Turbopack - using webpack instead to fix missing chunks
+  // turbopack: {
+  //   root: process.cwd(),
+  // },
   compress: true, // Enables gzip compression to reduce CPU/Bandwidth
   poweredByHeader: false, // Security and slight performance gain
   images: {

@@ -20,7 +20,16 @@ export const adminFetch = async (url, options = {}) => {
     headers,
   };
 
-  const response = await fetch(url, config);
+  // BASE APP URL for server-side calls
+  const APP_URL = (process.env.NEXT_PUBLIC_BASE_URL || 'https://www.mscinemas.my').replace(/\/$/, '');
+  const isServer = typeof window === 'undefined';
+  
+  // Ensure url is absolute on server side
+  const fetchUrl = (isServer && !url.startsWith('http')) 
+    ? `${APP_URL}${url.startsWith('/') ? '' : '/'}${url}`
+    : url;
+
+  const response = await fetch(fetchUrl, config);
 
   if (response.status === 401) {
     // Handle unauthorized access (e.g., redirect to login)

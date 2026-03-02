@@ -105,6 +105,9 @@ export default function MovieStreamingSite() {
     setIsLoading(true);
     setError('');
     try {
+      // Add cache-busting parameter to force fresh data on reload
+      const now = new Date().getTime();
+      
       // Fetch Movies and Banners in parallel
       const [moviesData, bannersData] = await Promise.all([
         moviesAPI.getMovies(),
@@ -114,8 +117,12 @@ export default function MovieStreamingSite() {
       const activeBanners = bannersData.success ? bannersData.banners : [];
 
       if (!Array.isArray(moviesData) || moviesData.length === 0) {
+        console.warn('Homepage: No movies data received from API');
         throw new Error('No movies data received');
       }
+
+      console.log('Homepage: Movies loaded successfully, count:', moviesData.length);
+      console.log('Homepage: Banners loaded, count:', activeBanners.length);
 
       // Transform API data to match component structure
       const transformedMovies = moviesData.map((movie) => ({
@@ -170,8 +177,8 @@ export default function MovieStreamingSite() {
                 if (movie) {
                     return {
                         id: movie.id,
-                        title: movie.title.toUpperCase(),
-                        subtitle: `${movie.genre} | ${movie.duration}`,
+                        title: (movie.title && movie.title.trim()) ? movie.title.toUpperCase() : "UPCOMING FILM",
+                        subtitle: `${movie.genre || 'Cinema'} | ${movie.duration || 'TBA'}`,
                         image: getValidImageUrl(banner.image) || movie.image, // Prefer banner image
                         type: movie.type,
                         trailerUrl: movie.trailerUrl,
@@ -183,7 +190,7 @@ export default function MovieStreamingSite() {
             // Promotion and Concessions banner fallback or if movie not found
             return {
                 id: banner.id,
-                title: banner.title || '',
+                title: banner.title || 'SPECIAL OFFER',
                 subtitle: banner.description || '',
                 image: getValidImageUrl(banner.image),
                 link: banner.link,
@@ -192,20 +199,23 @@ export default function MovieStreamingSite() {
             };
         }).filter(item => item); // Filter out nulls if any (though map returns obj)
 
+        console.log('Homepage: Using banner-based hero movies, count:', heroList.length);
         setHeroMovies(heroList);
       } else if (nowShowing.length > 0) {
         // Fallback to top 5 movies if no banners
         const heroMoviesList = nowShowing.slice(0, 5).map(movie => ({
           id: movie.id,
-          title: movie.title.toUpperCase(),
-          subtitle: movie.title,
+          title: (movie.title && movie.title.trim()) ? movie.title.toUpperCase() : "UPCOMING FILM",
+          subtitle: (movie.title && movie.title.trim()) ? movie.title : "Movie Preview",
           image: movie.image || "img/banner1.jpg",
           type: movie.type || "2D",
           trailerUrl: movie.trailerUrl || "",
           isMovie: true
         }));
+        console.log('Homepage: Using fallback hero movies, count:', heroMoviesList.length);
         setHeroMovies(heroMoviesList);
       } else {
+        console.warn('Homepage: No now showing movies and no banners available');
         setHeroMovies([]);
       }
 
@@ -254,8 +264,18 @@ export default function MovieStreamingSite() {
 
       {/* Hero Section - Full Banner View with Slider */}
       {/* Hide hero section on mobile during loading, show on desktop */}
-      {heroMovies.length > 0 ? (
-      <div className={`relative h-[40vh] md:h-[70vh] max-h-[700px] overflow-hidden group ${isLoading ? 'hidden md:block' : ''}`}>
+      {isLoading ? (
+        // Loading skeleton
+        <div className="relative h-[40vh] md:h-[70vh] max-h-[700px] bg-gradient-to-b from-gray-800 to-black animate-pulse overflow-hidden">
+          <div className="h-full w-full bg-gray-900"></div>
+          <div className="absolute bottom-4 md:bottom-8 left-1/2 transform -translate-x-1/2 flex justify-center gap-2 z-30">
+            {[0, 1, 2, 3, 4].map((i) => (
+              <div key={i} className="w-2 h-2 rounded-full bg-gray-700 animate-pulse"></div>
+            ))}
+          </div>
+        </div>
+      ) : heroMovies.length > 0 ? (
+      <div className={`relative h-[40vh] md:h-[70vh] max-h-[700px] overflow-hidden group z-10`}>
         
         {/* Slider Track */}
         <div 
@@ -269,6 +289,12 @@ export default function MovieStreamingSite() {
                   src={movie.image || "img/banner1.jpg"}
                   alt={movie.title || "Movie"}
                   className={`w-full h-full object-cover center transition-transform duration-[8000ms] ease-linear ${index === currentSlide ? 'scale-110' : 'scale-100'}`}
+                  onError={(e) => { 
+                    if (e.target.src !== 'img/banner1.jpg') {
+                      e.target.src = 'img/banner1.jpg';
+                    }
+                  }}
+                  loading={index === currentSlide ? "eager" : "lazy"}
                 />
                 {/* Bottom Gradient Overlay - Desktop: from bottom */}
                 <div 
@@ -295,11 +321,11 @@ export default function MovieStreamingSite() {
               
               <div className="relative h-full container mx-auto px-4 sm:px-6 lg:px-8 z-10 flex flex-col justify-end pb-12 md:pb-20 lg:pb-28">
                 <div className="max-w-3xl">
-                  <h1 className="text-2xl md:text-4xl lg:text-5xl xl:text-6xl font-bold mb-2 text-[#FAFAFA] uppercase tracking-tight leading-tight drop-shadow-lg">
-                    {movie.title || ""}
+                  <h1 className="text-2xl md:text-4xl lg:text-5xl xl:text-6xl font-bold mb-2 text-[#FAFAFA] uppercase tracking-tight leading-tight drop-shadow-lg min-h-[2.5rem] md:min-h-[3.5rem] lg:min-h-[4rem] xl:min-h-[5rem] flex items-start">
+                    {movie.title ? movie.title : ""}
                   </h1>
-                  <h2 className="text-base md:text-xl lg:text-2xl font-normal mb-3 md:mb-4 text-[#FAFAFA] drop-shadow-md">
-                    {movie.subtitle || ""}
+                  <h2 className="text-base md:text-xl lg:text-2xl font-normal mb-3 md:mb-4 text-[#FAFAFA] drop-shadow-md min-h-[1.5rem] md:min-h-[2rem] flex items-center">
+                    {movie.subtitle ? movie.subtitle : ""}
                   </h2>
 
                   <div className="flex items-center space-x-2 md:space-x-3 mb-4 md:mb-6 text-xs md:text-sm text-[#FAFAFA] drop-shadow-md">
@@ -360,7 +386,7 @@ export default function MovieStreamingSite() {
         </div>
 
         {/* Carousel Dots - Centered on screen */}
-        <div className="absolute bottom-4 md:bottom-8 left-1/2 transform -translate-x-1/2 flex justify-center gap-2 z-20">
+        <div className="absolute bottom-4 md:bottom-8 left-1/2 transform -translate-x-1/2 flex justify-center gap-2 z-30 pointer-events-auto">
           {heroMovies.map((_, index) => (
             <button
               key={index}

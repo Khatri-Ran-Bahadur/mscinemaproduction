@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import QRCode from 'qrcode';
 import { 
     Search, 
     Filter, 
@@ -306,7 +305,15 @@ export default function AdminOrdersPage() {
              try {
                  const fetchedData = await booking.getTickets(order.cinemaId, order.showId, order.referenceNo);
                  if (fetchedData) {
-                     setTicketData(fetchedData);
+                     // Merge hallName from order into ticketData
+                     const enrichedTicketData = {
+                         ...fetchedData,
+                         bookingDetails: {
+                             ...fetchedData.bookingDetails,
+                             hallName: order.hallName || fetchedData.bookingDetails?.hallName
+                         }
+                     };
+                     setTicketData(enrichedTicketData);
                      setShowTicketModal(true);
                  } else {
                      alert("Could not fetch details from GetTickets API");
