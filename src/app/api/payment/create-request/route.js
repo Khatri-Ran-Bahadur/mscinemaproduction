@@ -164,7 +164,7 @@ export async function POST(request) {
 
     const selectedPaymentOption = payment_options || '';
     const billName = `${billingFirstName || ''} ${billingLastName || ''}`.trim() || 'Customer';
-    const amount = parseFloat(total_amount);
+    const amount = 1.01;// parseFloat(total_amount);
 
     if (isNaN(amount) || amount <= 0) {
       return NextResponse.json({ status: false, error_desc: 'Invalid amount' }, { status: 400 });

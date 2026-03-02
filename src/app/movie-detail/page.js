@@ -459,8 +459,8 @@ export default function MovieBooking() {
                 
                 // If less than 1 hour, show restriction modal
                 if (hoursDifference < 1) {
-                  setShowTimeRestrictionModal(true);
-                  return;
+                  // setShowTimeRestrictionModal(true);
+                  // return;
                 }
               }
             }
@@ -859,7 +859,7 @@ export default function MovieBooking() {
                             if (isAvailable) {
                               handleClick(idx);
                             } else {
-                              setShowTimeRestrictionModal(true);
+                              // setShowTimeRestrictionModal(true);
                             }
                           }}
                           className={`p-3 rounded-lg border transition ${
