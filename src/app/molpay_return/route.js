@@ -19,7 +19,7 @@ async function handleReturn(request) {
     }
 
     orderid = returnData.orderid || `unknown_${Date.now()}`;
-    writeMolpayLog(orderid,'RETURN',returnData);
+    // writeMolpayLog(orderid,'RETURN',returnData);
 
     const isValidSignature = verifyReturnSignature(returnData);
     const SUCCESS_STATUSES = ['00','22'];
