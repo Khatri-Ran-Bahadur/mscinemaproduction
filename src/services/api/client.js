@@ -22,7 +22,8 @@ const {
 } = API_CONFIG;
 
 // Access or initialize global storage to share across module instances
-const globalScope = typeof window !== 'undefined' ? window : global;
+const isServer = typeof window === 'undefined';
+const globalScope = isServer ? global : window;
 if (!globalScope._ms_api_cache) {
   globalScope._ms_api_cache = {};
 }
@@ -81,7 +82,7 @@ const ensurePublicToken = async () => {
   try {
     // Only fetch if a promise is not already in progress
     if (!cache.publicTokenPromise) {
-      const tokenUrl = USE_PROXY 
+      const tokenUrl = (USE_PROXY && !isServer) 
         ? `${PROXY_URL}?endpoint=/APIUser/GetToken`
         : `${BASE_URL}/APIUser/GetToken`;
       
@@ -323,7 +324,7 @@ export const apiRequest = async (endpoint, options = {}) => {
 
   // Choose between proxy or direct API call based on configuration
   const fullEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
-  const url = USE_PROXY
+  const url = (USE_PROXY && !isServer)
     ? `${PROXY_URL}?endpoint=${encodeURIComponent(fullEndpoint)}`
     : `${BASE_URL}${fullEndpoint}`;
   

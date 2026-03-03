@@ -18,12 +18,12 @@ const RMS_CONFIG = {
 };
 
 /**
- * Generate unique internal order ID
+ * Generate unique internal order ID matching the website's logic
  */
-function generateInternalOrderId() {
-  const timestamp = Date.now();
-  const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-  return `MOB${timestamp}${random}`;
+function generateInternalOrderId(referenceNo) {
+  const shortTs = Math.floor(Date.now() / 1000).toString().slice(-8);
+  const random = Math.random().toString(36).substring(2, 5).toUpperCase();
+  return `${referenceNo}_MB${shortTs}${random}`;
 }
 
 const API_SECRET_KEY = process.env.API_SECRET_KEY;
@@ -57,7 +57,8 @@ export async function POST(request) {
       currency = 'MYR',
       country = 'MY',
       sandboxMode = false,
-      devMode = false
+      devMode = false,
+      token = '' // Auth token from client
     } = body;
 
     // 1. Basic Validation
@@ -68,62 +69,59 @@ export async function POST(request) {
       );
     }
 
-    // 2. Create or Update Order in Database (PENDING status)
-    const internalOrderId = generateInternalOrderId();
+    // 2. Create or Update Order in Database (Upsert logic matching website)
+    const internalOrderId = generateInternalOrderId(referenceNo);
     
-    // Check if an order with this reference number already exists to avoid duplicates
-    const existingOrder = await prisma.order.findFirst({
-        where: { referenceNo: referenceNo }
+    console.log(`[Mobile Request] Syncing order for reference: ${referenceNo}, New Order ID: ${internalOrderId}`);
+
+    const existingOrder = await prisma.order.findUnique({
+      where: { referenceNo: referenceNo }
     });
 
-    let order;
-    if (existingOrder) {
-        console.log(`[Mobile Request] Updating existing order for reference: ${referenceNo}`);
-        order = await prisma.order.update({
-            where: { id: existingOrder.id },
-            data: {
-                customerName,
-                customerEmail,
-                customerPhone,
-                movieTitle,
-                movieId: movieId ? parseInt(movieId) : null,
-                cinemaName,
-                cinemaId: cinemaId ? String(cinemaId) : null,
-                hallName,
-                showId: showId ? String(showId) : null,
-                showTime: showTime ? new Date(showTime) : null,
-                seats: typeof seats === 'object' ? JSON.stringify(seats) : seats,
-                ticketType: typeof ticketType === 'object' ? JSON.stringify(ticketType) : ticketType,
-                totalAmount: parseFloat(amount),
-                paymentStatus: 'CONFIRMED', // Reset status in case they are retrying
-                status: 'PENDING',
-            }
-        });
-    } else {
-        console.log(`[Mobile Request] Creating new order for reference: ${referenceNo}`);
-        order = await prisma.order.create({
-            data: {
-                orderId: internalOrderId,
-                referenceNo,
-                customerName,
-                customerEmail,
-                customerPhone,
-                movieTitle,
-                movieId: movieId ? parseInt(movieId) : null,
-                cinemaName,
-                cinemaId: cinemaId ? String(cinemaId) : null,
-                hallName,
-                showId: showId ? String(showId) : null,
-                showTime: showTime ? new Date(showTime) : null,
-                seats: typeof seats === 'object' ? JSON.stringify(seats) : seats,
-                ticketType: typeof ticketType === 'object' ? JSON.stringify(ticketType) : ticketType,
-                totalAmount: parseFloat(amount),
-                paymentStatus: 'PENDING',
-                status: 'PENDING',
-                paymentMethod: 'Mobile App',
-            }
-        });
-    }
+    const order = await prisma.order.upsert({
+      where: { referenceNo: referenceNo },
+      update: {
+        orderId: internalOrderId,
+        customerName,
+        customerEmail,
+        customerPhone,
+        movieTitle: movieTitle || undefined,
+        movieId: movieId ? parseInt(movieId) : undefined,
+        cinemaName: cinemaName || undefined,
+        cinemaId: cinemaId ? String(cinemaId) : undefined,
+        hallName: hallName || undefined,
+        showId: showId ? String(showId) : undefined,
+        showTime: showTime ? new Date(showTime) : undefined,
+        seats: seats ? (typeof seats === 'object' ? JSON.stringify(seats) : seats) : undefined,
+        ticketType: ticketType ? (typeof ticketType === 'object' ? JSON.stringify(ticketType) : ticketType) : undefined,
+        totalAmount: parseFloat(amount),
+        paymentStatus: existingOrder?.paymentStatus === 'PAID' ? 'PAID' : 'PENDING',
+        status: existingOrder?.status === 'CANCELLED' ? 'PENDING' : (existingOrder?.status || 'PENDING'),
+        token: token || existingOrder?.token,
+        updatedAt: new Date(),
+      },
+      create: {
+        orderId: internalOrderId,
+        referenceNo,
+        customerName,
+        customerEmail,
+        customerPhone,
+        movieTitle: movieTitle || 'Movie',
+        movieId: movieId ? parseInt(movieId) : null,
+        cinemaName: cinemaName || '',
+        cinemaId: cinemaId ? String(cinemaId) : null,
+        hallName: hallName || '',
+        showId: showId ? String(showId) : null,
+        showTime: showTime ? new Date(showTime) : null,
+        seats: typeof seats === 'object' ? JSON.stringify(seats) : (seats || ''),
+        ticketType: typeof ticketType === 'object' ? JSON.stringify(ticketType) : (ticketType || 'Standard'),
+        totalAmount: parseFloat(amount),
+        paymentStatus: 'PENDING',
+        status: 'PENDING',
+        paymentMethod: 'Mobile App',
+        token: token
+      }
+    });
 
     // 3. Build Razer Mobile SDK Payload
     const finalOrderId = order.orderId; // Use the existing or new orderId
