@@ -433,10 +433,33 @@ export default function AdminOrdersPage() {
     };
 
     const handleRefund = async (order) => {
-        if (!confirm(`Are you sure you want to refund RM ${order.totalAmount} for order ${order.orderId}? This cannot be undone.`)) return;
-        
+        // Quick check before showing loader
+        if (order.reserve_ticket) {
+            alert("Cannot refund: A ticket has already been reserved for this order.");
+            return;
+        }
+
         setProcessingId(order.id);
         try {
+            // Step 1: Check if ticket already exists in cinema system
+            try {
+                const ticketCheck = await booking.getTickets(order.cinemaId, order.showId, order.referenceNo);
+                // The API might return the reference number at the top level or inside bookingDetails
+                if (ticketCheck && (ticketCheck.referenceNo || ticketCheck.bookingDetails || ticketCheck.BookingDetails)) {
+                    alert("Cannot refund: A ticket already exists for this order in the cinema system. Please cancel the ticket first if needed.");
+                    setProcessingId(null);
+                    return;
+                }
+            } catch (checkErr) {
+                
+            }
+
+            // Step 2: Confirm refund with admin
+            if (!confirm(`Are you sure you want to refund RM ${order.totalAmount} for order ${order.orderId}? This cannot be undone.`)) {
+                setProcessingId(null);
+                return;
+            }
+
             const res = await adminFetch('/api/admin/orders/refund', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -731,7 +754,7 @@ export default function AdminOrdersPage() {
                                                                         </button>
                                                                     )}
 
-                                                                    {order.paymentStatus === 'PAID' && (
+                                                                     {order.paymentStatus === 'PAID' && (
                                                                          <button 
                                                                             onClick={() => { handleRefund(order); setOpenActionMenuId(null); }} 
                                                                             className="text-left px-4 py-2.5 hover:bg-red-500/10 text-sm flex items-center gap-2 text-red-500 hover:text-red-400 transition"

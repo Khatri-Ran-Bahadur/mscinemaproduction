@@ -1311,9 +1311,10 @@ export default function SeatSelection() {
         const isTwinSeats = ticketData?.generalInfo?.ticketTypeIDForTwinSeatsAndVIPSeats === price.ticketTypeID || price.ticketTypeName?.toUpperCase().includes('TWIN');
         const seatsPerTicket = isTwinSeats ? 2 : 1;
         
-        const pricePerTicket = price.price || 0;
-        const taxPerTicket = price.entertainmentTax || 0;
-        netPrice += pricePerTicket * count * seatsPerTicket;
+        const pricePerTicket = Number(price.price) || 0;
+        const surChargePerTicket = Number(price.surCharge || price.surcharge) || 0;
+        const taxPerTicket = Number(price.entertainmentTax) || 0;
+        netPrice += (pricePerTicket + surChargePerTicket) * count * seatsPerTicket;
         tax += taxPerTicket * count * seatsPerTicket;
       }
     });
@@ -1693,7 +1694,9 @@ export default function SeatSelection() {
       
       // Calculate totals from lockedSeats array
       lockSeatResponse.lockedSeats.forEach((seat) => {
-        netPrice += seat.price || 0;
+        const seatPrice = Number(seat.price) || 0;
+        const seatSurcharge = Number(seat.surCharge || seat.surcharge) || 0;
+        netPrice += seatPrice + seatSurcharge;
         entertainmentTax += seat.entertainmentTax || 0;
         govtTax += seat.govtTax || 0;
         onlineCharge += seat.onlineCharge || 0;
@@ -1742,14 +1745,16 @@ export default function SeatSelection() {
         const isTwinSeats = ticketData?.generalInfo?.ticketTypeIDForTwinSeatsAndVIPSeats === price.ticketTypeID || price.ticketTypeName?.toUpperCase().includes('TWIN');
         const seatsPerTicket = isTwinSeats ? 2 : 1;
           
-        const pricePerTicket = price.price || 0;
-        const taxPerTicket = price.entertainmentTax || 0;
+        const pricePerTicket = Number(price.price) || 0;
+        const surChargePerTicket = Number(price.surCharge || price.surcharge) || 0;
+        const taxPerTicket = Number(price.entertainmentTax) || 0;
+        const govtTaxPerTicket = Number(price.govtTax) || 0;
         
         // Use totalTicketPrice if available, otherwise sum components
-        const totalPerTicket = price.totalTicketPrice || (pricePerTicket + taxPerTicket);
+        const totalPerTicket = Number(price.totalTicketPrice) || (pricePerTicket + surChargePerTicket + taxPerTicket + govtTaxPerTicket);
         
-        netPrice += pricePerTicket * count * seatsPerTicket;
-        tax += taxPerTicket * count * seatsPerTicket;
+        netPrice += (pricePerTicket + surChargePerTicket) * count * seatsPerTicket;
+        tax += (taxPerTicket + govtTaxPerTicket) * count * seatsPerTicket;
         
         totalTicketPriceSum += totalPerTicket * count * seatsPerTicket;
       }

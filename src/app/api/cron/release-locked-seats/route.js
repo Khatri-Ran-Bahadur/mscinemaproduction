@@ -36,6 +36,7 @@ async function fetchWithAuth(url, token, options = {}) {
     const headers = {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`,
+        'x-api-key': API_CONFIG.API_SECRET_KEY,
         ...options.headers,
     };
     const res = await fetch(url, { ...options, headers });
@@ -55,7 +56,8 @@ export async function GET(request) {
 
         const { searchParams } = new URL(request.url);
         const m1 = searchParams.get('m1') || 2;
-        const m2 = searchParams.get('m2') || 50;
+        const m2 = searchParams.get('m2') || 15;
+        const limit = searchParams.get('limit') || 100;
         
         const environments = [
             { name: 'Test', url: API_CONFIG.TEST_API_URL, credentials: API_CONFIG.TEST_GUEST_CREDENTIALS },
@@ -84,10 +86,12 @@ export async function GET(request) {
                 let bookings = [];
                 try {
                     const listUrl = `${env.url}/Booking/GetHalfWayBookings/${m1}/${m2}`;
+                    console.log(`[Cron] ${env.name}: Fetching bookings from ${listUrl}`);
                     const fetchRes = await fetchWithAuth(listUrl, token, { cache: 'no-store' });
 
                     if (fetchRes.ok) {
                         bookings = await fetchRes.json();
+                        console.log(`[Cron] ${env.name}: Raw API response:`, JSON.stringify(bookings));
                         if (!Array.isArray(bookings)) {
                             bookings = [];
                         }
@@ -98,39 +102,13 @@ export async function GET(request) {
                     }
                 } catch (apiErr) {
                     console.warn(`[Cron] ${env.name}: GetHalfWayBookings API failed:`, apiErr.message);
-                    // Fall through to use database bookings instead
                 }
 
-                // 2b. FALLBACK: If no bookings from API, query database for pending orders
-                if (bookings.length === 0) {
-                    console.log(`[Cron] ${env.name}: No bookings from API, checking database...`);
-                    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
-                    const dbOrders = await prisma.order.findMany({
-                        where: {
-                            AND: [
-                                { createdAt: { lt: tenMinutesAgo } },
-                                {
-                                    OR: [
-                                        { status: 'PENDING', paymentStatus: { notIn: ['PAID'] } },
-                                        { status: 'CONFIRMED', paymentStatus: 'PENDING' }
-                                    ]
-                                }
-                            ]
-                        },
-                        orderBy: { createdAt: 'asc' },
-                        take: 50
-                    });
-
-                    bookings = dbOrders.map(order => ({
-                        cinemaID: order.cinemaId,
-                        showID: order.showId,
-                        referenceNo: order.referenceNo,
-                        bookingDateTime: order.createdAt.toISOString(),
-                        status: order.paymentStatus === 'PAID' ? 1 : 0,
-                        _source: 'database'
-                    }));
-                    console.log(`[Cron] ${env.name}: Found ${bookings.length} pending bookings in database`);
+                if (bookings.length > 0) {
+                    console.log(`[Cron] ${env.name}: Found ${bookings.length} halfway bookings. Statuses:`, bookings.map(b => `${b.referenceNo}(${b.status})`).join(', '));
                 }
+
+                // 2b. (Removed) FALLBACK: Database checking is no longer used as GetHalfWayBookings is the source of truth.
 
                 const targetBookings = bookings.filter((b) => b.status === 0 || b.status === 1);
                 console.log(`[Cron] ${env.name}: Fetched ${bookings.length} bookings, ${targetBookings.length} to check (status 0 or 1).`);
@@ -144,23 +122,8 @@ export async function GET(request) {
 
                 // 3. Release each qualifying booking (with token)
                 for (const b of targetBookings) {
-                        let shouldRelease = false;
-                        
-                        if (b.bookingDateTime) {
-                        const [datePart, timePart] = String(b.bookingDateTime).split(' ');
-                            if (datePart && timePart) {
-                                const [d, m, y] = datePart.split('-');
-                            if (d && m && y) {
-                                const bookingTime = new Date(`${y}-${m}-${d}T${timePart}+08:00`);
-                                if (!isNaN(bookingTime.getTime())) {
-                                    const diffMinutes = (Date.now() - bookingTime.getTime()) / (1000 * 60);
-                                    if (diffMinutes > 10) shouldRelease = true;
-                                }
-                                }
-                            }
-                        }
-
-                        if (!shouldRelease) continue;
+                        console.log(`[Cron] ${env.name}: Processing ${b.referenceNo} (Type: ${b.status === 0 ? 'Locked' : 'Confirmed'}, Source: ${b._source || 'API'})`);
+                        let shouldRelease = true;
 
                         let endpoint = '';
                         if (b.status === 0) {

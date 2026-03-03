@@ -169,7 +169,7 @@ export default function ResetPasswordPage() {
       {/* Left Side - Image (2/3 width on desktop, hidden on mobile) */}
       <div className="hidden md:block md:w-2/3 relative overflow-hidden">
         <img
-          src="/img/sing.jpg"
+          src="/img/login.jpeg"
           alt="Popcorn"
           className="w-full h-full object-cover"
         />

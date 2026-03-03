@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronLeft, Loader2, Clock } from 'lucide-react';
+import { ChevronLeft, Loader2, Clock, AlertCircle } from 'lucide-react';
 import { booking,auth } from '@/services/api';
 import { encryptId, decryptId, encryptIds, decryptIds } from '@/utils/encryption';
 import { formatHallName } from '@/utils/hall';
@@ -22,13 +22,14 @@ export default function PaymentPage() {
   const [token, setToken] = useState('');
   const scriptsLoadedRef = useRef(false);
   const loadingScriptsRef = useRef(false);
+  const [showBackModal, setShowBackModal] = useState(false);
 
   // Payment methods configuration - Only show specified payment methods
   // Using images from public/images folder
   const paymentMethods = [
     // E-wallets
     { channel: 'creditAN', name: 'Visa', image: '/images/payment-credit.jpg', tcctype: 'SALS' },
-    { channel: 'WeChatPayMY', name: 'WeChat Pay', image: '/images/wechatpay.png' },
+    // { channel: 'WeChatPayMY', name: 'WeChat Pay', image: '/images/wechatpay.png' },
     // { channel: 'alipay', name: 'Alipay', image: '/images/alipay.png' },
     
     // FPX Online Banking
@@ -82,21 +83,17 @@ export default function PaymentPage() {
           setTimerActive(true);
         } else {
          
-          setError('Booking session details missing. Please select seats again.');
-           setTimeout(() => {
-            window.location.href = '/';
-          }, 2000);
+          setError('Booking session details missing. Redirecting...');
+          window.location.href = '/';
         }
         
         setIsLoading(false);
       } else {
-        setError('No booking data found. Please start a new booking.');
-        setIsLoading(false);
+        window.location.href = '/';
       }
     } catch (err) {
       console.error('Error loading booking data:', err);
-      setError('Failed to load booking data. Please start a new booking.');
-      setIsLoading(false);
+      window.location.href = '/';
     }
   }, []);
 
@@ -160,11 +157,13 @@ export default function PaymentPage() {
       }
     } catch (err) {
       console.error('Error releasing seats:', err);
-    } finally {
-      // Always redirect to seat selection page after releasing (reload page)
-      // Always redirect to home page after releasing (reload page)
-      window.location.href = '/';
-    }
+    } 
+    
+    // Always redirect to seat selection page after releasing (reload page)
+    const encryptedMovieId = encryptId(movieId || '');
+    const encryptedCinemaId = encryptId(cinemaId || '');
+    const encryptedShowId = encryptId(showId || '');
+    window.location.href = `/seat-selection?cinemaId=${encryptedCinemaId}&showId=${encryptedShowId}&movieId=${encryptedMovieId}`;
   };
 
   // Load jQuery and MOLPay Seamless scripts
@@ -456,6 +455,8 @@ export default function PaymentPage() {
           // Trigger click to open payment modal immediately
           setTimeout(() => {
             $(tempButton).trigger('click');
+            // Reset processing state after a short delay to allow clicking other options if needed
+            setTimeout(() => setIsProcessing(false), 2000);
           }, 150);
         } else {
           throw new Error('Payment gateway plugin not ready');
@@ -480,21 +481,7 @@ export default function PaymentPage() {
   }
 
   if (!bookingData) {
-    return (
-      <div className="min-h-screen bg-[#1c1c1c] text-white py-10 px-4">
-        <div className="max-w-4xl mx-auto">
-          <div className="bg-red-500/10 border border-red-500/50 rounded-lg p-6 text-center">
-            <p className="text-red-400 mb-4">{error || 'No booking data found.'}</p>
-            <button
-              onClick={() => router.push('/')}
-              className="px-6 py-2 bg-[#FFCA20] text-black rounded-lg hover:bg-[#FFCA20]/90"
-            >
-              Start New Booking
-            </button>
-          </div>
-        </div>
-      </div>
-    );
+    return null;
   }
 
   // Get movie details
@@ -530,7 +517,7 @@ export default function PaymentPage() {
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-4">
             <button
-              onClick={() => router.back()}
+              onClick={() => setShowBackModal(true)}
               className="p-2 hover:bg-[#2a2a2a] rounded-lg transition"
             >
               <ChevronLeft className="w-6 h-6" />
@@ -786,6 +773,42 @@ export default function PaymentPage() {
           </div>
         )}
       </div>
+
+      {/* Back Confirmation Modal */}
+      {showBackModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-[#1a1a1a] border border-white/10 rounded-2xl max-w-md w-full p-6 shadow-2xl animate-in zoom-in-95 duration-300">
+            <div className="flex items-center gap-4 mb-4">
+              <div className="w-12 h-12 rounded-full bg-yellow-500/10 flex items-center justify-center">
+                <AlertCircle className="w-6 h-6 text-[#FFCA20]" />
+              </div>
+              <h3 className="text-xl font-bold text-white">Release Seats?</h3>
+            </div>
+            
+            <p className="text-white/60 mb-6 leading-relaxed">
+              Are you sure you want to go back? Your current seat selection will be <span className="text-white font-semibold">released</span> and you will need to select seats again.
+            </p>
+            
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowBackModal(false)}
+                className="flex-1 py-3 px-4 rounded-xl border border-white/10 text-white font-semibold hover:bg-white/5 transition"
+              >
+                Stay Here
+              </button>
+              <button
+                onClick={() => {
+                  setShowBackModal(false);
+                  releaseConfirmedSeats();
+                }}
+                className="flex-1 py-3 px-4 rounded-xl bg-red-600 text-white font-semibold hover:bg-red-700 transition shadow-lg shadow-red-600/20"
+              >
+                Yes, Go Back
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
