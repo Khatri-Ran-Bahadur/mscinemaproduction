@@ -11,6 +11,7 @@ import { savePaymentLogDB } from '@/utils/molpay';
 const API_SECRET_KEY = process.env.API_SECRET_KEY;
 
 export async function POST(req) {
+  
   try {
     // 0. Security Check
     const apiKey = req.headers.get('x-api-key');
@@ -88,7 +89,7 @@ export async function POST(req) {
       await prisma.order.update({
         where: { orderId: orderId },
         data: {
-          paymentStatus: 'FAILED',
+          paymentStatus: status,
           status: 'CANCELLED',
           transactionNo: transactionId,
           paymentMethod: channel || 'Mobile App',
@@ -98,8 +99,8 @@ export async function POST(req) {
 
       return NextResponse.json({
         status: true,
-        message: 'Payment status updated to FAILED',
-        data: { orderId, status: 'CANCELLED' }
+        message: status,
+        data: { orderId, status }
       });
     }
 
