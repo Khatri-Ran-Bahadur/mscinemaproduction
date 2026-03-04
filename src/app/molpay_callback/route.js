@@ -43,7 +43,7 @@ async function handleCallback(request) {
 
     // Verify signature
     const isValidSignature = verifyReturnSignature(returnData);
-    const SUCCESS_STATUSES = ['00', '22'];
+    const SUCCESS_STATUSES = ['00'];
     const finalStatus = SUCCESS_STATUSES.includes(returnData.status) && isValidSignature ? 'PAID' : returnData.status;
 
     let isSuccess = false;
@@ -109,7 +109,7 @@ async function handleCallback(request) {
         let reserveSuccess = order.reserve_ticket;
         let cancelSuccess = order.cancel_ticket;
 
-        if (finalStatus === 'PAID' || finalStatus==='00' || finalStatus==='22') {
+        if (finalStatus === 'PAID' || finalStatus==='00') {
             updateData.paymentStatus = 'PAID';
             updateData.status = 'CONFIRMED';
             
@@ -132,7 +132,10 @@ async function handleCallback(request) {
             //      }
             // }
            
-        } else {
+      } else if(finalStatus === '22'){ 
+        updateData.paymentStatus = 'PENDING';
+        updateData.status = 'PENDING';
+      } else {
              // Payment Failed
              updateData.paymentStatus = 'FAILED';
              updateData.status = 'CANCELLED';

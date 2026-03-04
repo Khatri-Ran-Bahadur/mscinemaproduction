@@ -146,18 +146,18 @@ export async function GET(request) {
                             orderBy: { createdAt: 'desc' }
                         });
 
-                        let isPaid = orderRecord?.paymentStatus === 'PAID';
-                        let isFailedAtGateway = false;
+                        let gatewayIsPaid = false;
+                        let gatewayIsFailed = false;
 
-                        // If not paid in DB, check Fiuu for safety
-                        if (!isPaid && orderRecord && orderRecord.orderId) {
-                            console.log(`[Cron Safe] Checking Fiuu status for ${orderRecord.orderId}`);
+                        // To be 100% safe, if there is a record in our DB, we always check Fiuu 
+                        // before deciding whether to Reserve (Paid) or Release (Failed/Pending).
+                        if (orderRecord && orderRecord.orderId) {
                             const fiuuStatus = await queryPaymentStatus(orderRecord.orderId, orderRecord.totalAmount.toString());
                             
-                            // 00 and 22 are successful payment statuses
-                            if (fiuuStatus.success || fiuuStatus.status === '00' || fiuuStatus.status === '22') {
-                                console.log(`[Cron Safe] Fiuu confirms PAID for ${orderRecord.orderId}. Updating DB.`);
-                                isPaid = true;
+                            if (fiuuStatus.status === '00') {
+                                console.log(`[Cron Safe] Order ${orderRecord.orderId} is PAID at Gateway.`);
+                                gatewayIsPaid = true;
+                                // Synchronize DB state if it was wrong
                                 orderRecord = await prisma.order.update({
                                     where: { id: orderRecord.id },
                                     data: { 
@@ -167,23 +167,25 @@ export async function GET(request) {
                                         paymentMethod: fiuuStatus.raw?.Channel || orderRecord.paymentMethod || 'Fiuu'
                                     }
                                 });
-                            } else if (fiuuStatus.status === '11') {
-                                // 11 is explicitly failed/blocked
-                                console.log(`[Cron Safe] Fiuu confirms FAILED (status 11) for ${orderRecord.orderId}. Updating DB.`);
-                                isFailedAtGateway = true;
-                                await prisma.order.update({
+                            } else {
+                                console.log(`[Cron Safe] Order ${orderRecord.orderId} is NOT PAID at Gateway (Status: ${fiuuStatus.status}).`);
+                                gatewayIsFailed = true;
+                                // Ensure DB reflects the failure
+                                orderRecord = await prisma.order.update({
                                     where: { id: orderRecord.id },
                                     data: { 
-                                        paymentStatus: 'FAILED',
-                                        status: 'CANCELLED',
+                                        paymentStatus: fiuuStatus.status === '22' ? 'PENDING' : 'FAILED',
+                                        status: fiuuStatus.status === '22' ? 'PENDING' : 'CANCELLED',
                                         transactionNo: fiuuStatus.tranID || orderRecord.transactionNo
                                     }
                                 });
                             }
                         }
 
-                        if (isPaid && orderRecord) {
-                            console.log(`[Cron Safe] Order ${orderRecord.orderId} is PAID. Attempting to Reserve instead of Release.`);
+                        // ACTION PHASE:
+                        if (gatewayIsPaid && orderRecord) {
+                            // Only RESERVE if explicitly confirmed as paid at Gateway
+                            console.log(`[Cron Safe] Triggering Reservation for confirmed order ${orderRecord.orderId}`);
                             const reserveResult = await callReserveBooking(
                                 orderRecord.orderId,
                                 orderRecord.transactionNo || orderRecord.orderId,
@@ -202,14 +204,14 @@ export async function GET(request) {
                             body = reserveResult.data || { error: reserveResult.error };
                             skippedReason = 'PAID_RESERVED';
                         } else {
-                            // If it failed at gateway, we call CancelBooking first for cleanup
-                            if (isFailedAtGateway && orderRecord) {
-                                console.log(`[Cron Safe] Calling CancelBooking for failed order ${orderRecord.orderId}`);
+                            // Payment failed or order not found in our DB -> Release the seats
+                            if (gatewayIsFailed && orderRecord) {
+                                console.log(`[Cron Safe] Cleaning up resources for failed order ${orderRecord.orderId}`);
                                 await callCancelBooking(
                                     orderRecord.orderId,
                                     orderRecord.transactionNo || orderRecord.orderId,
                                     orderRecord.paymentMethod || 'Online',
-                                    'Cron cleanup after failed payment check',
+                                    'Cron cleanup after verification',
                                     {
                                         cinemaId: b.cinemaID,
                                         showId: b.showID,
@@ -219,7 +221,7 @@ export async function GET(request) {
                                 );
                             }
 
-                            // Proceed with release
+                            console.log(`[Cron Safe] Releasing seats for ${b.referenceNo}`);
                             const releaseRes = await fetchWithAuth(endpoint, token, {
                                 method: 'POST',
                                 body: b.status === 1 ? JSON.stringify({}) : undefined,

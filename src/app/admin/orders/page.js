@@ -37,7 +37,8 @@ export default function AdminOrdersPage() {
     const [searchQuery, setSearchQuery] = useState('');
     const [filterStatus, setFilterStatus] = useState('All');
     const [filterPaymentStatus, setFilterPaymentStatus] = useState('All');
-    const [dateFilter, setDateFilter] = useState('');
+    const [startDate, setStartDate] = useState('');
+    const [endDate, setEndDate] = useState('');
     const [selectedOrder, setSelectedOrder] = useState(null);
     const [ticketData, setTicketData] = useState(null);
     const [showTicketModal, setShowTicketModal] = useState(false);
@@ -51,6 +52,9 @@ export default function AdminOrdersPage() {
     const [limit, setLimit] = useState(10);
     const [totalPages, setTotalPages] = useState(1);
     const [totalOrders, setTotalOrders] = useState(0);
+    const [totalAmountSum, setTotalAmountSum] = useState(0);
+    const [paidAmountSum, setPaidAmountSum] = useState(0);
+    const [unpaidAmountSum, setUnpaidAmountSum] = useState(0);
 
     // Status Modal State
     const [showStatusModal, setShowStatusModal] = useState(false);
@@ -79,7 +83,7 @@ export default function AdminOrdersPage() {
             fetchOrders();
         }, 300); // Debounce search
         return () => clearTimeout(timeoutId);
-    }, [page, limit, searchQuery, filterStatus, filterPaymentStatus, dateFilter]);
+    }, [page, limit, searchQuery, filterStatus, filterPaymentStatus, startDate, endDate]);
 
     const fetchOrders = async () => {
         setLoading(true);
@@ -90,19 +94,26 @@ export default function AdminOrdersPage() {
                 search: searchQuery,
                 status: filterStatus,
                 paymentStatus: filterPaymentStatus,
-                date: dateFilter
+                startDate: startDate,
+                endDate: endDate
             });
             
             const res = await adminFetch(`/api/admin/orders?${params.toString()}`);
             const data = await res.json();
             if (data.success) {
                 setOrders(data.orders);
+                setTotalAmountSum(data.totalAmountSum || 0);
+                setPaidAmountSum(data.paidAmountSum || 0);
+                setUnpaidAmountSum(data.unpaidAmountSum || 0);
                 if (data.pagination) {
                     setTotalPages(data.pagination.totalPages);
                     setTotalOrders(data.pagination.total);
                 }
             } else {
                 setOrders([]);
+                setTotalAmountSum(0);
+                setPaidAmountSum(0);
+                setUnpaidAmountSum(0);
             }
         } catch (error) {
             console.error('Failed to fetch orders:', error);
@@ -127,8 +138,13 @@ export default function AdminOrdersPage() {
         setPage(1);
     };
 
-    const handleDateChange = (e) => {
-        setDateFilter(e.target.value);
+    const handleStartDateChange = (e) => {
+        setStartDate(e.target.value);
+        setPage(1);
+    };
+
+    const handleEndDateChange = (e) => {
+        setEndDate(e.target.value);
         setPage(1);
     };
 
@@ -136,7 +152,8 @@ export default function AdminOrdersPage() {
         setSearchQuery('');
         setFilterStatus('All');
         setFilterPaymentStatus('All');
-        setDateFilter('');
+        setStartDate('');
+        setEndDate('');
         setPage(1);
         setSelectedOrders([]);
     };
@@ -485,7 +502,7 @@ export default function AdminOrdersPage() {
 
     return (
         <div className="p-8 relative">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+            <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center mb-8 gap-4">
                 <div>
                     <h1 className="text-3xl font-bold text-[#FFCA20] mb-2">Booking Orders</h1>
                     <p className="text-[#888]">Manage and view all customer ticket bookings</p>
@@ -502,12 +519,21 @@ export default function AdminOrdersPage() {
                             className="bg-[#2a2a2a] border border-[#3a3a3a] text-white pl-10 pr-4 py-2 rounded-lg focus:border-[#FFCA20] outline-none w-64"
                         />
                     </div>
-                    <div className="relative">
+                    <div className="flex items-center bg-[#2a2a2a] border border-[#3a3a3a] rounded-lg px-2 gap-2">
+                        <span className="text-[10px] text-[#666] uppercase font-bold pl-1">From</span>
                         <input 
                             type="date" 
-                            value={dateFilter}
-                            onChange={handleDateChange}
-                            className="bg-[#2a2a2a] border border-[#3a3a3a] text-white pl-4 pr-4 py-2 rounded-lg focus:border-[#FFCA20] outline-none appearance-none cursor-pointer [color-scheme:dark]"
+                            value={startDate}
+                            onChange={handleStartDateChange}
+                            className="bg-transparent text-white py-2 outline-none appearance-none cursor-pointer [color-scheme:dark] text-sm"
+                        />
+                        <span className="text-[#3a3a3a]">|</span>
+                        <span className="text-[10px] text-[#666] uppercase font-bold">To</span>
+                        <input 
+                            type="date" 
+                            value={endDate}
+                            onChange={handleEndDateChange}
+                            className="bg-transparent text-white py-2 outline-none appearance-none cursor-pointer [color-scheme:dark] text-sm"
                         />
                     </div>
                     <div className="relative">
@@ -559,6 +585,50 @@ export default function AdminOrdersPage() {
                     )}
                 </div>
             </div>
+            {/* Total Amount Summary - TOP VERSION */}
+            {!loading && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                    <div className="bg-[#2a2a2a] p-4 rounded-xl border border-[#3a3a3a] flex items-center gap-4">
+                        <div className="bg-[#FFCA20]/10 p-3 rounded-lg">
+                            <Activity className="w-5 h-5 text-[#FFCA20]" />
+                        </div>
+                        <div>
+                            <span className="text-xs text-[#888] uppercase block font-semibold tracking-wider">Filtered Count</span>
+                            <span className="text-white font-bold text-xl">{totalOrders}</span>
+                        </div>
+                    </div>
+                    
+                    <div className="bg-[#2a2a2a] p-4 rounded-xl border border-[#3a3a3a] flex items-center gap-4">
+                        <div className="bg-white/10 p-3 rounded-lg">
+                            <CreditCard className="w-5 h-5 text-white" />
+                        </div>
+                        <div>
+                            <span className="text-xs text-[#888] uppercase block font-semibold tracking-wider">Filtered Total</span>
+                            <span className="text-white font-bold text-xl">RM {parseFloat(totalAmountSum).toFixed(2)}</span>
+                        </div>
+                    </div>
+
+                    <div className="bg-[#2a2a2a] p-4 rounded-xl border border-green-500/20 flex items-center gap-4 relative overflow-hidden group">
+                        <div className="bg-green-500/10 p-3 rounded-lg">
+                            <CheckCircle className="w-5 h-5 text-green-500" />
+                        </div>
+                        <div>
+                            <span className="text-xs text-green-500/70 uppercase block font-semibold tracking-wider">Grand Paid (Period)</span>
+                            <span className="text-green-500 font-bold text-xl">RM {parseFloat(paidAmountSum).toFixed(2)}</span>
+                        </div>
+                    </div>
+
+                    <div className="bg-[#2a2a2a] p-4 rounded-xl border border-red-500/20 flex items-center gap-4">
+                        <div className="bg-red-500/10 p-3 rounded-lg">
+                            <XCircle className="w-5 h-5 text-red-500" />
+                        </div>
+                        <div>
+                            <span className="text-xs text-red-500/70 uppercase block font-semibold tracking-wider">Grand Unpaid (Period)</span>
+                            <span className="text-red-500 font-bold text-xl">RM {parseFloat(unpaidAmountSum).toFixed(2)}</span>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {loading && orders.length === 0 ? (
                 <div className="text-center py-20 text-[#888]">Loading orders...</div>
@@ -585,9 +655,8 @@ export default function AdminOrdersPage() {
                                     {/* <th className="px-3 py-3 text-[#888] font-medium text-xs hidden lg:table-cell">Flags</th> */}
                                    
                                     <th className="px-3 py-3 text-[#888] font-medium text-xs">Status</th>
-                                    <th className="px-3 py-3 text-[#888] font-medium text-xs hidden xl:table-cell">Date</th>
-                                        <th className="px-3 py-3 text-[#888] font-medium text-xs hidden lg:table-cell">Time Ago</th>
-                                         <th className="px-3 py-3 text-[#888] font-medium text-xs">Email</th>
+                                    <th className="px-3 py-3 text-[#888] font-medium text-xs hidden lg:table-cell">Time Ago</th>
+                                    <th className="px-3 py-3 text-[#888] font-medium text-xs">Email</th>
                                     <th className="px-3 py-3 text-[#888] font-medium text-xs text-right">Action</th>
                                 </tr>
                             </thead>
@@ -660,9 +729,6 @@ export default function AdminOrdersPage() {
                                                 <span className={`px-1.5 py-0.5 rounded text-[10px] border ${getStatusColor(order.status)}`}>
                                                     {order.status}
                                                 </span>
-                                            </td>
-                                            <td className="px-3 py-2 hidden xl:table-cell">
-                                                <span className="text-xs text-[#888]">{formatDate(order.createdAt)}</span>
                                             </td>
                                             <td className="px-3 py-2 hidden lg:table-cell">
                                                 <span className="text-[10px] font-mono text-gray-400 bg-[#333] px-1.5 py-0.5 rounded whitespace-nowrap">

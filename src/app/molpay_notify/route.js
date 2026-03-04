@@ -45,7 +45,7 @@ async function handleCallback(request) {
 
     // Verify signature
     const isValidSignature = verifyReturnSignature(returnData);
-    const SUCCESS_STATUSES = ['00', '22'];
+    const SUCCESS_STATUSES = ['00'];
     const finalStatus = SUCCESS_STATUSES.includes(returnData.status) && isValidSignature ? 'PAID' : returnData.status;
 
     // Save payment log
@@ -88,6 +88,11 @@ async function handleCallback(request) {
           await prisma.order.update({
             where: { id: order.id },
             data: { paymentStatus: 'PAID', status: 'CONFIRMED', transactionNo: returnData.tranID }
+          });
+        } else if(finalStatus === '22'){
+          await prisma.order.update({
+            where: { id: order.id },
+            data: { paymentStatus: 'PENDING', status: 'PENDING', transactionNo: returnData.tranID }
           });
         } else {
           await prisma.order.update({

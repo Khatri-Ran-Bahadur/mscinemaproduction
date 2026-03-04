@@ -22,7 +22,7 @@ async function handleReturn(request) {
     // writeMolpayLog(orderid,'RETURN',returnData);
 
     const isValidSignature = verifyReturnSignature(returnData);
-    const SUCCESS_STATUSES = ['00','22'];
+    const SUCCESS_STATUSES = ['00'];
     let finalStatus = SUCCESS_STATUSES.includes(returnData.status) && isValidSignature ? 'PAID' : returnData.status;
 
     // Save payment log
@@ -78,7 +78,7 @@ async function handleReturn(request) {
     };
 
     // ReserveBooking or CancelBooking
-    if(finalStatus==='00' || finalStatus==='22' || finalStatus==='PAID'){
+    if(finalStatus==='00' || finalStatus==='PAID'){
       let updateData = { paymentStatus:'PAID', status:'CONFIRMED', transactionNo:returnData.tranID };
       let updated = false;
 
@@ -90,17 +90,7 @@ async function handleReturn(request) {
           updated = true;
         } 
 
-      // // 2. Cancel Booking (Confirmation step)
-      // // Only call if not already cancelled
-      // if(!order.cancel_ticket){
-      //     const cancelResult = await callCancelBooking(orderid, returnData.tranID, returnData.channel, 'Automatic Post-Reserve Cancel (Return)', returnData);
-      //     // We mark cancel_ticket true if success or if it says "already"
-      //     if(cancelResult.success || cancelResult.error?.includes('already')){
-      //        updateData.cancel_ticket = true;
-      //        updated = true;
-      //     }
-      // }
-
+      
       // Commit updates if any flags changed or if we need to confirm payment status
       if(updated || order.paymentStatus !== 'PAID'){
           await prisma.order.update({
@@ -109,6 +99,11 @@ async function handleReturn(request) {
           });
       }
 
+    } else if(finalStatus==='22'){
+      await prisma.order.update({
+        where: { orderId: orderid },
+        data: { paymentStatus: 'PENDING', status: 'PENDING', transactionNo: returnData.tranID }
+      });
     } else {
         // Payment Failed Case
         if(!order.cancel_ticket && order.paymentStatus!=='PAID'){
@@ -136,8 +131,10 @@ async function handleReturn(request) {
         }
     }
 
-    if(returnData.status==='00' || returnData.status==='22') {
+    if(returnData.status==='00') {
       return createRedirectResponse(`${baseUrl}payment/success?orderid=${encodeURIComponent(orderid)}`);
+    } else if(returnData.status==='22') {
+      return createRedirectResponse(`${baseUrl}payment/pending?orderid=${encodeURIComponent(orderid)}`);
     } else {
       return createRedirectResponse(`${baseUrl}payment/failed?orderid=${encodeURIComponent(orderid)}&error=payment_failed`);
     }

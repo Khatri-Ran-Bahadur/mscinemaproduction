@@ -10,7 +10,8 @@ export async function GET(request) {
     const search = searchParams.get('search') || '';
     const status = searchParams.get('status') || 'All';
     const paymentStatus = searchParams.get('paymentStatus') || 'All';
-    const date = searchParams.get('date') || '';
+    const startDate = searchParams.get('startDate') || '';
+    const endDate = searchParams.get('endDate') || '';
     const skip = (page - 1) * limit;
 
     const where = {};
@@ -23,25 +24,25 @@ export async function GET(request) {
         where.paymentStatus = paymentStatus;
     }
 
-    if (date) {
-        // Create start and end of the day based on the input date string (YYYY-MM-DD)
-        // We want to find records matching the date in Asia/Kuala_Lumpur (UTC+8)
-        
-        const targetDate = new Date(date); // This parses as UTC midnight: e.g., 2023-01-01T00:00:00.000Z
-        
-        if (!isNaN(targetDate.getTime())) {
-            // KL is UTC+8.
-            // 00:00:00 KL = 16:00:00 UTC (Previous Day)
-            // So we take the UTC midnight timestamp and subtract 8 hours.
-            const startUtc = new Date(targetDate.getTime() - (8 * 60 * 60 * 1000));
-            
-            // End of day is Start + 24 hours - 1ms
-            const endUtc = new Date(startUtc.getTime() + (24 * 60 * 60 * 1000) - 1);
-            
-            where.createdAt = {
-                gte: startUtc,
-                lte: endUtc
-            };
+    // Date Filtering Logic
+    if (startDate || endDate) {
+        where.createdAt = {};
+        if (startDate) {
+            const sDate = new Date(startDate);
+            if (!isNaN(sDate.getTime())) {
+                // Start of startDate (KL time 00:00:00 = UTC-8)
+                const startUtc = new Date(sDate.getTime() - (8 * 60 * 60 * 1000));
+                where.createdAt.gte = startUtc;
+            }
+        }
+        if (endDate) {
+            const eDate = new Date(endDate);
+            if (!isNaN(eDate.getTime())) {
+                // End of endDate (KL time 23:59:59 = UTC-8 + 24h - 1ms)
+                const startOfEndDayUtc = new Date(eDate.getTime() - (8 * 60 * 60 * 1000));
+                const endUtc = new Date(startOfEndDayUtc.getTime() + (24 * 60 * 60 * 1000) - 1);
+                where.createdAt.lte = endUtc;
+            }
         }
     }
 
@@ -54,19 +55,38 @@ export async function GET(request) {
         ];
     }
 
-    const [orders, total] = await prisma.$transaction([
+    // Generate two additional totals: Paid and non-Paid (for the current search/date filter)
+    const baseWhere = { ...where };
+    delete baseWhere.paymentStatus; // Remove payment filter for the comparison totals
+
+    const [orders, total, totalStats, paidStats, failedStats] = await prisma.$transaction([
       prisma.order.findMany({
         where,
         take: limit,
         skip: skip,
         orderBy: { createdAt: 'desc' }
       }),
-      prisma.order.count({ where })
+      prisma.order.count({ where }),
+      prisma.order.aggregate({
+        where,
+        _sum: { totalAmount: true }
+      }),
+      prisma.order.aggregate({
+        where: { ...baseWhere, paymentStatus: 'PAID' },
+        _sum: { totalAmount: true }
+      }),
+      prisma.order.aggregate({
+        where: { ...baseWhere, paymentStatus: { not: 'PAID' } },
+        _sum: { totalAmount: true }
+      })
     ]);
 
     return NextResponse.json({ 
         success: true, 
         orders,
+        totalAmountSum: totalStats._sum.totalAmount || 0,
+        paidAmountSum: paidStats._sum.totalAmount || 0,
+        unpaidAmountSum: failedStats._sum.totalAmount || 0,
         pagination: {
             page,
             limit,

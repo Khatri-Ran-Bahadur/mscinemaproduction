@@ -42,7 +42,9 @@ export async function POST(request) {
         } else if (orderRecord.orderId) {
           // Verify with Fiuu Query API
           const fiuuStatus = await queryPaymentStatus(orderRecord.orderId, orderRecord.totalAmount.toString());
-          if (fiuuStatus.success) {
+          
+          if (fiuuStatus.status === '00') {
+            console.log(`[Safe Release] Fiuu confirms PAID for ${orderRecord.orderId}. Reserving.`);
             shouldRelease = false;
             
             // Sync DB with Fiuu's truth
@@ -53,6 +55,15 @@ export async function POST(request) {
                 transactionNo: fiuuStatus.tranID,
                 paymentMethod: fiuuStatus.raw.channel || 'Fiuu'
               }
+            });
+          } else if (fiuuStatus.status === '22') {
+            console.log(`[Safe Release] Fiuu confirms PENDING for ${orderRecord.orderId}. Skipping release.`);
+            // When pending, we don't want to release, but we also can't reserve.
+            // Returning early with a specific message.
+            return NextResponse.json({ 
+                success: true, 
+                message: 'Payment is currently PENDING at gateway. Skipping release action.', 
+                action: 'PENDING_SKIPPED' 
             });
           }
         }
