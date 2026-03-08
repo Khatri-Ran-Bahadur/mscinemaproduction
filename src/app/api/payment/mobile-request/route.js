@@ -198,7 +198,7 @@ export async function POST(request) {
       mp_express_mode: body.mp_express_mode !== undefined ? body.mp_express_mode : false,
 
       // Optional, cash channel wait time
-      mp_cash_waittime: body.mp_cash_waittime || 48,
+      mp_cash_waittime: body.mp_cash_waittime || 120,
 
       // Optional, non-3DS bypass
       mp_non_3DS: false,

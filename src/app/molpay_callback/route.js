@@ -68,6 +68,15 @@ async function handleCallback(request) {
       returnData[key] = value;
     });
 
+    writeCallbackLog({
+      type: "Received Callback",
+      method: request.method,
+      url: request.url,
+      headers,
+      queryParams,
+      rawBody
+    });
+
     // 2️⃣ POST form or JSON
     if (request.method === "POST") {
 
@@ -104,17 +113,7 @@ async function handleCallback(request) {
       }
     }
 
-    /**
-     * Write full callback request log
-     */
-    writeCallbackLog({
-      method: request.method,
-      url: request.url,
-      headers,
-      queryParams,
-    //   rawBody,
-    //   parsedData: returnData
-    // });
+   
 
     const orderid = returnData.orderid || `unknown_${Date.now()}`;
 
@@ -263,12 +262,12 @@ async function handleCallback(request) {
 
   } catch (error) {
 
-    console.error("[MOLPay Callback] Error", error);
+    // console.error("[MOLPay Callback] Error", error);
 
-    writeCallbackLog({
-      error: error.message,
-      stack: error.stack
-    });
+    // writeCallbackLog({
+    //   error: error.message,
+    //   stack: error.stack
+    // });
 
     return acknowledgeResponse();
   }

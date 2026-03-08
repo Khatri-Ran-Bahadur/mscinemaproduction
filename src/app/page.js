@@ -261,7 +261,7 @@ export default function MovieStreamingSite() {
   return (
     <div className="bg-black min-h-screen text-[#D3D3D3]">
       <Header/>
-
+     
       {/* Hero Section - Full Banner View with Slider */}
       {/* Hide hero section on mobile during loading, show on desktop */}
       {isLoading ? (
@@ -397,6 +397,8 @@ export default function MovieStreamingSite() {
             />
           ))}
         </div>
+
+        
 
         {/* Navigation Arrows (Hidden on Mobile) */}
         <button 

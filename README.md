@@ -45,3 +45,8 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 
 before build remove cache 
 sudo rm -rf /var/cache/nginx/nextjs/* && sudo systemctl reload nginx
+
+
+npm run build && pm2 restart mscinemas-nextjs --update-env && pm2 save
+
+npm run build && pm2 restart stagemscinemas-nextjs  --update-env && pm2 save
