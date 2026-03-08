@@ -61,22 +61,16 @@ export async function sendMobileTicketEmailForOrder(orderId, tranID = '') {
       };
     }
 
-    // 4. Formatting Helpers (Direct Show - no GMT)
-    const formatDirectDate = (date) => {
-      if (!date || isNaN(new Date(date))) return '';
-      const d = new Date(date);
+    // 4. Formatting Helpers
+    // Parse API date format "2025-12-10" to "10 Dec 2025"
+    const parseApiDate = (dateStr) => {
+      if (!dateStr) return '';
+      const parts = dateStr.split('-');
+      if (parts.length !== 3) return dateStr;
+      const [year, month, day] = parts;
       const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-      return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
-    };
-
-    const formatDirectTime = (date) => {
-      if (!date || isNaN(new Date(date))) return '';
-      const d = new Date(date);
-      let hours = d.getHours();
-      const minutes = d.getMinutes().toString().padStart(2, '0');
-      const ampm = hours >= 12 ? 'PM' : 'AM';
-      hours = hours % 12 || 12;
-      return `${hours}:${minutes} ${ampm}`;
+      const monthIndex = parseInt(month) - 1;
+      return `${parseInt(day)} ${months[monthIndex]} ${year}`;
     };
 
     // 5. Build ticketInfoData payload (Casing compatible with email.js)
@@ -93,9 +87,9 @@ export async function sendMobileTicketEmailForOrder(orderId, tranID = '') {
       hallName: formatHallName(t.HallName || t.hallName || order.hallName || 'Hall'),
       cinemaName: t.CinemaName || t.cinemaName || order.cinemaName || 'Cinema',
       
-      // Use clean string formatting
-      showDate: t.ShowDate || t.showDate || formatDirectDate(order.showTime),
-      showTime: t.ShowTime || t.showTime || formatDirectTime(order.showTime),
+      // Use API formatted values directly, or parse API date format (YYYY-MM-DD to "D Mon YYYY")
+      showDate: (t.ShowDate ? parseApiDate(t.ShowDate) : '') || (t.showDate ? parseApiDate(t.showDate) : '') || '',
+      showTime: t.ShowTime || t.showTime || '',
       
       bookingId: order.referenceNo,
       referenceNo: t.ReferenceNo || t.referenceNo || order.referenceNo,

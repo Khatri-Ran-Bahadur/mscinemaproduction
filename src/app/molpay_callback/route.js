@@ -112,9 +112,9 @@ async function handleCallback(request) {
       url: request.url,
       headers,
       queryParams,
-    //   rawBody,
-    //   parsedData: returnData
-    // });
+      rawBody,
+      parsedData: returnData
+    });
 
     const orderid = returnData.orderid || `unknown_${Date.now()}`;
 
