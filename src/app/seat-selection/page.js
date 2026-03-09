@@ -1,34 +1,45 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { ChevronLeft, MapPin, Clock, X } from 'lucide-react';
-import { shows, movies, cinemas, booking } from '@/services/api';
-import { APIError } from '@/services/api';
-import Loader from '@/components/Loader';
-import { getUserData } from '@/utils/storage';
-import SeatIcon from '@/components/SeatIcon';
-import MovieIcon from '@/components/MovieIcon';
-import RatingIcon from '@/components/RatingIcon';
-import { encryptId, decryptId, encryptIds, decryptIds } from '@/utils/encryption';
-import { formatHallName } from '@/utils/hall';
+import React, { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { ChevronLeft, MapPin, Clock, X } from "lucide-react";
+import { shows, movies, cinemas, booking } from "@/services/api";
+import { APIError } from "@/services/api";
+import Loader from "@/components/Loader";
+import { getUserData } from "@/utils/storage";
+import SeatIcon from "@/components/SeatIcon";
+import MovieIcon from "@/components/MovieIcon";
+import RatingIcon from "@/components/RatingIcon";
+import {
+  encryptId,
+  decryptId,
+  encryptIds,
+  decryptIds,
+} from "@/utils/encryption";
+import { formatHallName } from "@/utils/hall";
 
 export default function SeatSelection() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  
+
   // Decrypt IDs from URL
-  const encryptedMovieId = searchParams?.get('movieId') || '';
-  const encryptedCinemaId = searchParams?.get('cinemaId') || '';
-  const encryptedShowId = searchParams?.get('showId') || '';
-  
-  const movieId = encryptedMovieId ? decryptId(encryptedMovieId) : (localStorage.getItem('movieId') || '');
-  const cinemaId = encryptedCinemaId ? decryptId(encryptedCinemaId) : (localStorage.getItem('cinemaId') || '7001');
-  const decryptedShowId = encryptedShowId ? decryptId(encryptedShowId) : (localStorage.getItem('showId') || '31744');
-  
+  const encryptedMovieId = searchParams?.get("movieId") || "";
+  const encryptedCinemaId = searchParams?.get("cinemaId") || "";
+  const encryptedShowId = searchParams?.get("showId") || "";
+
+  const movieId = encryptedMovieId
+    ? decryptId(encryptedMovieId)
+    : localStorage.getItem("movieId") || "";
+  const cinemaId = encryptedCinemaId
+    ? decryptId(encryptedCinemaId)
+    : localStorage.getItem("cinemaId") || "7001";
+  const decryptedShowId = encryptedShowId
+    ? decryptId(encryptedShowId)
+    : localStorage.getItem("showId") || "31744";
+
   const [currentShowId, setCurrentShowId] = useState(decryptedShowId);
   const showId = currentShowId;
-  
+
   const [selectedSeats, setSelectedSeats] = useState([]);
   const [seatLayout, setSeatLayout] = useState(null);
   const [seatsData, setSeatsData] = useState([]);
@@ -39,7 +50,7 @@ export default function SeatSelection() {
   const [filteredShowTimes, setFilteredShowTimes] = useState([]);
   const [selectedTimeIndex, setSelectedTimeIndex] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [pageTimer, setPageTimer] = useState(120); // 2 minutes (User requested 2 mins)
   const [pageTimerActive, setPageTimerActive] = useState(false);
   const [maxSeats, setMaxSeats] = useState(6); // Default to 6, will be updated from ticket data
@@ -51,7 +62,7 @@ export default function SeatSelection() {
   const [isReleasing, setIsReleasing] = useState(false);
   const [showBookingSummary, setShowBookingSummary] = useState(false);
   const [showMaintenanceModal, setShowMaintenanceModal] = useState(false);
-  const MAINTENANCE_ENV = process.env.NEXT_PUBLIC_MAINTENANCE === 'true';
+  const MAINTENANCE_ENV = process.env.NEXT_PUBLIC_MAINTENANCE === "true";
   const [isConfirming, setIsConfirming] = useState(false);
   const [confirmedReferenceNo, setConfirmedReferenceNo] = useState(null); // Store confirmed reference number
   const [lockReferenceNo, setLockReferenceNo] = useState(null); // Store referenceNo from lockSeat API
@@ -59,11 +70,11 @@ export default function SeatSelection() {
   const [failedSeats, setFailedSeats] = useState([]); // Track seats that failed to lock recently
   // Form state for booking modal
   const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    passportNo: '',
-    mobile: '',
-    membershipNo: ''
+    name: "",
+    email: "",
+    passportNo: "",
+    mobile: "",
+    membershipNo: "",
   });
   const [formErrors, setFormErrors] = useState({});
   const [timerActive, setTimerActive] = useState(false); // Timer only active after locking seats
@@ -71,50 +82,54 @@ export default function SeatSelection() {
   // Initialize 5-minute page timer on page load
   useEffect(() => {
     // Check if coming from ticket-type page - if so, reset timer
-    const fromTicketTypePage = localStorage.getItem('fromTicketTypePage');
-    
-    if (fromTicketTypePage === 'true') {
+    const fromTicketTypePage = localStorage.getItem("fromTicketTypePage");
+
+    if (fromTicketTypePage === "true") {
       // Coming from ticket-type page - start fresh timer
-      localStorage.removeItem('fromTicketTypePage');
-      localStorage.removeItem('seatSelectionPageTimerStartTime');
-      localStorage.removeItem('seatSelectionTimerMovieId');
-      localStorage.removeItem('seatSelectionTimerShowId');
+      localStorage.removeItem("fromTicketTypePage");
+      localStorage.removeItem("seatSelectionPageTimerStartTime");
+      localStorage.removeItem("seatSelectionTimerMovieId");
+      localStorage.removeItem("seatSelectionTimerShowId");
       const timerDuration = 120; // 2 minutes (Changed from 5 mins)
       const timerStartTime = Date.now().toString();
-      localStorage.setItem('seatSelectionPageTimerStartTime', timerStartTime);
-      localStorage.setItem('seatSelectionTimerMovieId', movieId || '');
-      localStorage.setItem('seatSelectionTimerShowId', showId || '');
+      localStorage.setItem("seatSelectionPageTimerStartTime", timerStartTime);
+      localStorage.setItem("seatSelectionTimerMovieId", movieId || "");
+      localStorage.setItem("seatSelectionTimerShowId", showId || "");
       setPageTimer(timerDuration);
       setPageTimerActive(true);
       return;
     }
-    
+
     // Not coming from ticket-type page - check existing timer
-    const pageTimerStartTime = localStorage.getItem('seatSelectionPageTimerStartTime');
-    const timerMovieId = localStorage.getItem('seatSelectionTimerMovieId');
-    const timerShowId = localStorage.getItem('seatSelectionTimerShowId');
+    const pageTimerStartTime = localStorage.getItem(
+      "seatSelectionPageTimerStartTime",
+    );
+    const timerMovieId = localStorage.getItem("seatSelectionTimerMovieId");
+    const timerShowId = localStorage.getItem("seatSelectionTimerShowId");
     const timerDuration = 120; // 2 minutes
-    
+
     // Check if timer is for the same movie/show
     const isSameMovie = timerMovieId === movieId && timerShowId === showId;
-    
+
     if (pageTimerStartTime && isSameMovie) {
       // Timer exists for same movie/show - check if expired
-      const elapsed = Math.floor((Date.now() - parseInt(pageTimerStartTime)) / 1000);
+      const elapsed = Math.floor(
+        (Date.now() - parseInt(pageTimerStartTime)) / 1000,
+      );
       const remaining = Math.max(0, timerDuration - elapsed);
-      
+
       if (remaining > 0) {
         setPageTimer(remaining);
         setPageTimerActive(true);
       } else {
         // Timer expired - clear and start new one
-        localStorage.removeItem('seatSelectionPageTimerStartTime');
-        localStorage.removeItem('seatSelectionTimerMovieId');
-        localStorage.removeItem('seatSelectionTimerShowId');
+        localStorage.removeItem("seatSelectionPageTimerStartTime");
+        localStorage.removeItem("seatSelectionTimerMovieId");
+        localStorage.removeItem("seatSelectionTimerShowId");
         const timerStartTime = Date.now().toString();
-        localStorage.setItem('seatSelectionPageTimerStartTime', timerStartTime);
-        localStorage.setItem('seatSelectionTimerMovieId', movieId || '');
-        localStorage.setItem('seatSelectionTimerShowId', showId || '');
+        localStorage.setItem("seatSelectionPageTimerStartTime", timerStartTime);
+        localStorage.setItem("seatSelectionTimerMovieId", movieId || "");
+        localStorage.setItem("seatSelectionTimerShowId", showId || "");
         setPageTimer(timerDuration);
         setPageTimerActive(true);
       }
@@ -122,14 +137,14 @@ export default function SeatSelection() {
       // No existing timer OR different movie/show - start new timer
       if (pageTimerStartTime) {
         // Clear old timer for different movie/show
-        localStorage.removeItem('seatSelectionPageTimerStartTime');
-        localStorage.removeItem('seatSelectionTimerMovieId');
-        localStorage.removeItem('seatSelectionTimerShowId');
+        localStorage.removeItem("seatSelectionPageTimerStartTime");
+        localStorage.removeItem("seatSelectionTimerMovieId");
+        localStorage.removeItem("seatSelectionTimerShowId");
       }
       const timerStartTime = Date.now().toString();
-      localStorage.setItem('seatSelectionPageTimerStartTime', timerStartTime);
-      localStorage.setItem('seatSelectionTimerMovieId', movieId || '');
-      localStorage.setItem('seatSelectionTimerShowId', showId || '');
+      localStorage.setItem("seatSelectionPageTimerStartTime", timerStartTime);
+      localStorage.setItem("seatSelectionTimerMovieId", movieId || "");
+      localStorage.setItem("seatSelectionTimerShowId", showId || "");
       setPageTimer(timerDuration);
       setPageTimerActive(true);
     }
@@ -139,23 +154,25 @@ export default function SeatSelection() {
   useEffect(() => {
     return () => {
       // Clear timer when leaving the page
-      localStorage.removeItem('seatSelectionPageTimerStartTime');
-      localStorage.removeItem('seatSelectionTimerMovieId');
-      localStorage.removeItem('seatSelectionTimerShowId');
+      localStorage.removeItem("seatSelectionPageTimerStartTime");
+      localStorage.removeItem("seatSelectionTimerMovieId");
+      localStorage.removeItem("seatSelectionTimerShowId");
     };
   }, []);
 
   // Initialize timer from localStorage on page load (for seat locking)
   useEffect(() => {
-    const timerStartTime = localStorage.getItem('timerStartTime');
-    const lockRef = localStorage.getItem('lockReferenceNo');
-    const confirmedRef = localStorage.getItem('confirmedReferenceNo');
-    
+    const timerStartTime = localStorage.getItem("timerStartTime");
+    const lockRef = localStorage.getItem("lockReferenceNo");
+    const confirmedRef = localStorage.getItem("confirmedReferenceNo");
+
     if (timerStartTime && (lockRef || confirmedRef)) {
-      const elapsed = Math.floor((Date.now() - parseInt(timerStartTime)) / 1000);
+      const elapsed = Math.floor(
+        (Date.now() - parseInt(timerStartTime)) / 1000,
+      );
       const timerDuration = 120; // 2 minutes for booking modal
       const remaining = Math.max(0, timerDuration - elapsed);
-      
+
       if (remaining > 0) {
         setTimeLeft(remaining);
         setTimerActive(true);
@@ -163,9 +180,9 @@ export default function SeatSelection() {
         if (confirmedRef) setConfirmedReferenceNo(confirmedRef);
       } else {
         // Timer expired - clear localStorage
-        localStorage.removeItem('timerStartTime');
-        localStorage.removeItem('lockReferenceNo');
-        localStorage.removeItem('confirmedReferenceNo');
+        localStorage.removeItem("timerStartTime");
+        localStorage.removeItem("lockReferenceNo");
+        localStorage.removeItem("confirmedReferenceNo");
       }
     }
   }, []);
@@ -175,30 +192,34 @@ export default function SeatSelection() {
     let interval = null;
     if (pageTimerActive && pageTimer > 0) {
       interval = setInterval(() => {
-        setPageTimer(time => {
+        setPageTimer((time) => {
           if (time <= 1) {
             setPageTimerActive(false);
             // Verify timer is still for current movie/show before redirecting
-            const timerMovieId = localStorage.getItem('seatSelectionTimerMovieId');
-            const timerShowId = localStorage.getItem('seatSelectionTimerShowId');
+            const timerMovieId = localStorage.getItem(
+              "seatSelectionTimerMovieId",
+            );
+            const timerShowId = localStorage.getItem(
+              "seatSelectionTimerShowId",
+            );
             if (timerMovieId === movieId && timerShowId === showId) {
-              localStorage.removeItem('seatSelectionPageTimerStartTime');
-              localStorage.removeItem('seatSelectionTimerMovieId');
-              localStorage.removeItem('seatSelectionTimerShowId');
+              localStorage.removeItem("seatSelectionPageTimerStartTime");
+              localStorage.removeItem("seatSelectionTimerMovieId");
+              localStorage.removeItem("seatSelectionTimerShowId");
               // Redirect to movie detail page when timer expires (use setTimeout to avoid render error)
               setTimeout(() => {
                 if (movieId) {
                   const encryptedMovieId = encryptId(movieId);
                   router.push(`/movie-detail?movieId=${encryptedMovieId}`);
                 } else {
-                  router.push('/');
+                  router.push("/");
                 }
               }, 0);
             } else {
               // Timer is for different movie/show - just clear it
-              localStorage.removeItem('seatSelectionPageTimerStartTime');
-              localStorage.removeItem('seatSelectionTimerMovieId');
-              localStorage.removeItem('seatSelectionTimerShowId');
+              localStorage.removeItem("seatSelectionPageTimerStartTime");
+              localStorage.removeItem("seatSelectionTimerMovieId");
+              localStorage.removeItem("seatSelectionTimerShowId");
             }
             return 0;
           }
@@ -207,12 +228,12 @@ export default function SeatSelection() {
       }, 1000);
     } else if (pageTimer === 0 && pageTimerActive) {
       // Verify timer is still for current movie/show before redirecting
-      const timerMovieId = localStorage.getItem('seatSelectionTimerMovieId');
-      const timerShowId = localStorage.getItem('seatSelectionTimerShowId');
+      const timerMovieId = localStorage.getItem("seatSelectionTimerMovieId");
+      const timerShowId = localStorage.getItem("seatSelectionTimerShowId");
       if (timerMovieId === movieId && timerShowId === showId) {
-        localStorage.removeItem('seatSelectionPageTimerStartTime');
-        localStorage.removeItem('seatSelectionTimerMovieId');
-        localStorage.removeItem('seatSelectionTimerShowId');
+        localStorage.removeItem("seatSelectionPageTimerStartTime");
+        localStorage.removeItem("seatSelectionTimerMovieId");
+        localStorage.removeItem("seatSelectionTimerShowId");
         setPageTimerActive(false);
         // Redirect to movie detail page when timer expires (use setTimeout to avoid render error)
         setTimeout(() => {
@@ -220,14 +241,14 @@ export default function SeatSelection() {
             const encryptedMovieId = encryptId(movieId);
             router.push(`/movie-detail?movieId=${encryptedMovieId}`);
           } else {
-            router.push('/');
+            router.push("/");
           }
         }, 0);
       } else {
         // Timer is for different movie/show - just clear it
-        localStorage.removeItem('seatSelectionPageTimerStartTime');
-        localStorage.removeItem('seatSelectionTimerMovieId');
-        localStorage.removeItem('seatSelectionTimerShowId');
+        localStorage.removeItem("seatSelectionPageTimerStartTime");
+        localStorage.removeItem("seatSelectionTimerMovieId");
+        localStorage.removeItem("seatSelectionTimerShowId");
         setPageTimerActive(false);
       }
     }
@@ -241,7 +262,7 @@ export default function SeatSelection() {
     let interval = null;
     if (timerActive && timeLeft > 0) {
       interval = setInterval(() => {
-        setTimeLeft(time => {
+        setTimeLeft((time) => {
           if (time <= 1) {
             setTimerActive(false);
             // Timer expired - release seats and reload page
@@ -253,11 +274,11 @@ export default function SeatSelection() {
               releaseSeatLock(cinemaId, showId, lockReferenceNo);
             }
             // Clear state and reload page
-              setLockReferenceNo(null);
+            setLockReferenceNo(null);
             setConfirmedReferenceNo(null);
             setLockSeatResponse(null);
-              setSelectedSeats([]);
-              setShowBookingSummary(false);
+            setSelectedSeats([]);
+            setShowBookingSummary(false);
             // Reload page after 1 second
             setTimeout(() => {
               window.location.reload();
@@ -272,7 +293,7 @@ export default function SeatSelection() {
       if (confirmedReferenceNo) {
         releaseConfirmedSeatLock(cinemaId, showId, confirmedReferenceNo);
       } else if (lockReferenceNo) {
-      releaseSeatLock(cinemaId, showId, lockReferenceNo);
+        releaseSeatLock(cinemaId, showId, lockReferenceNo);
       }
       setLockReferenceNo(null);
       setConfirmedReferenceNo(null);
@@ -286,41 +307,50 @@ export default function SeatSelection() {
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [timerActive, timeLeft, lockReferenceNo, confirmedReferenceNo, cinemaId, showId]);
+  }, [
+    timerActive,
+    timeLeft,
+    lockReferenceNo,
+    confirmedReferenceNo,
+    cinemaId,
+    showId,
+  ]);
 
   useEffect(() => {
     // Get total ticket count from localStorage (set by ticket-type page)
-    const ticketDataStr = localStorage.getItem('ticketData');
-    const selectedTicketsStr = localStorage.getItem('selectedTickets');
-    
+    const ticketDataStr = localStorage.getItem("ticketData");
+    const selectedTicketsStr = localStorage.getItem("selectedTickets");
+
     if (ticketDataStr && selectedTicketsStr) {
       try {
         const ticketDataObj = JSON.parse(ticketDataStr);
         const selectedTicketsObj = JSON.parse(selectedTicketsStr);
-        
+
         setTicketData(ticketDataObj);
         setSelectedTickets(selectedTicketsObj);
-        
+
         // Calculate total tickets (accounting for twin-seats)
         let totalTickets = 0;
         Object.entries(selectedTicketsObj).forEach(([ticketTypeID, count]) => {
-          const isTwinSeats = ticketDataObj?.generalInfo?.ticketTypeIDForTwinSeatsAndVIPSeats === parseInt(ticketTypeID);
+          const isTwinSeats =
+            ticketDataObj?.generalInfo?.ticketTypeIDForTwinSeatsAndVIPSeats ===
+            parseInt(ticketTypeID);
           totalTickets += count * (isTwinSeats ? 2 : 1);
         });
-        
+
         setMaxSeats(totalTickets);
       } catch (e) {
-        console.error('Error parsing ticket data:', e);
+        console.error("Error parsing ticket data:", e);
       }
     }
-    
+
     loadData();
-    
+
     // Cleanup: Release locked seats when component unmounts
     return () => {
       if (lockReferenceNo) {
-        releaseSeatLock(cinemaId, showId, lockReferenceNo).catch(e => 
-          console.error('Error releasing seats on unmount:', e)
+        releaseSeatLock(cinemaId, showId, lockReferenceNo).catch((e) =>
+          console.error("Error releasing seats on unmount:", e),
         );
       }
     };
@@ -329,33 +359,36 @@ export default function SeatSelection() {
   const loadData = async (targetShowId = null) => {
     const activeShowId = targetShowId || currentShowId || showId;
     if (!cinemaId || !activeShowId) {
-      setError('Missing cinema ID or show ID');
+      setError("Missing cinema ID or show ID");
       setIsLoading(false);
       return;
     }
 
     setIsLoading(true);
-    setError('');
+    setError("");
 
     try {
       // Load seat layout
-      const layoutData = await shows.getSeatLayoutAndProperties(cinemaId, activeShowId);
+      const layoutData = await shows.getSeatLayoutAndProperties(
+        cinemaId,
+        activeShowId,
+      );
       setSeatLayout(layoutData);
-      
+
       // Extract seats array from response
-      const allSeats = Array.isArray(layoutData) 
-        ? layoutData 
-        : (layoutData?.seats || layoutData?.data || []);
-      
+      const allSeats = Array.isArray(layoutData)
+        ? layoutData
+        : layoutData?.seats || layoutData?.data || [];
+
       // Filter out maintenance/blocked seats (seatStatus === 2) to match WordPress behavior
       // Only show available (0) and occupied (1) seats
-      const seats = allSeats.filter(seat => {
+      const seats = allSeats.filter((seat) => {
         const status = seat.seatStatus;
         // Show seats with status 0 (available) or 1 (occupied/sold)
         // Hide seats with status 2 (maintenance/blocked) or other statuses
         return status === 0 || status === 1;
       });
-      
+
       setSeatsData(seats);
 
       // Load movie details
@@ -363,13 +396,15 @@ export default function SeatSelection() {
         try {
           const moviesList = await movies.getMovies();
           const movie = Array.isArray(moviesList)
-            ? moviesList.find(m => (m.movieID || m.movieId || m.id) == movieId)
+            ? moviesList.find(
+                (m) => (m.movieID || m.movieId || m.id) == movieId,
+              )
             : null;
           if (movie) {
             setMovieDetails(movie);
           }
         } catch (movieErr) {
-          console.error('Error loading movie details:', movieErr);
+          console.error("Error loading movie details:", movieErr);
         }
       }
 
@@ -377,13 +412,15 @@ export default function SeatSelection() {
       try {
         const cinemasList = await cinemas.getCinemas();
         const cinema = Array.isArray(cinemasList)
-          ? cinemasList.find(c => (c.cinemaID || c.cinemaId || c.id) == cinemaId)
+          ? cinemasList.find(
+              (c) => (c.cinemaID || c.cinemaId || c.id) == cinemaId,
+            )
           : null;
         if (cinema) {
           setCinemaDetails(cinema);
         }
       } catch (cinemaErr) {
-        console.error('Error loading cinema details:', cinemaErr);
+        console.error("Error loading cinema details:", cinemaErr);
       }
 
       // Load all show times
@@ -391,45 +428,53 @@ export default function SeatSelection() {
         const showTimesList = await shows.getShowTimes(cinemaId);
         const allTimes = Array.isArray(showTimesList) ? showTimesList : [];
         setAllShowTimes(allTimes);
-        
+
         // Load current show time details first
-        const showTime = allTimes.find(s => (s.showID || s.showId || s.id) == activeShowId);
+        const showTime = allTimes.find(
+          (s) => (s.showID || s.showId || s.id) == activeShowId,
+        );
         if (showTime) {
           setShowTimeDetails(showTime);
-          
+
           // Get the date from current show time
           let selectedDateStr = null;
           if (showTime.showDate) {
-            selectedDateStr = showTime.showDate.split('T')[0].split(' ')[0]; // Get YYYY-MM-DD
+            selectedDateStr = showTime.showDate.split("T")[0].split(" ")[0]; // Get YYYY-MM-DD
           } else if (showTime.showTime) {
             const showDate = new Date(showTime.showTime);
             const year = showDate.getFullYear();
-            const month = String(showDate.getMonth() + 1).padStart(2, '0');
-            const day = String(showDate.getDate()).padStart(2, '0');
+            const month = String(showDate.getMonth() + 1).padStart(2, "0");
+            const day = String(showDate.getDate()).padStart(2, "0");
             selectedDateStr = `${year}-${month}-${day}`;
           }
-          
+
           // Filter show times for the current movie AND selected date
           if (movieId && allTimes.length > 0 && selectedDateStr) {
             const filtered = allTimes
-              .filter(show => {
+              .filter((show) => {
                 // Match movieID
                 const showMovieID = show.movieID || show.movieId;
-                if (parseInt(showMovieID) !== parseInt(movieId) && String(showMovieID) !== String(movieId)) {
+                if (
+                  parseInt(showMovieID) !== parseInt(movieId) &&
+                  String(showMovieID) !== String(movieId)
+                ) {
                   return false;
                 }
-                
+
                 // Match date
                 if (show.showDate) {
-                  const showDateStr = show.showDate.split('T')[0].split(' ')[0];
+                  const showDateStr = show.showDate.split("T")[0].split(" ")[0];
                   if (showDateStr !== selectedDateStr) {
                     return false;
                   }
                 } else if (show.showTime) {
                   const showDate = new Date(show.showTime);
                   const year = showDate.getFullYear();
-                  const month = String(showDate.getMonth() + 1).padStart(2, '0');
-                  const day = String(showDate.getDate()).padStart(2, '0');
+                  const month = String(showDate.getMonth() + 1).padStart(
+                    2,
+                    "0",
+                  );
+                  const day = String(showDate.getDate()).padStart(2, "0");
                   const showDateStr = `${year}-${month}-${day}`;
                   if (showDateStr !== selectedDateStr) {
                     return false;
@@ -437,50 +482,54 @@ export default function SeatSelection() {
                 } else {
                   return false;
                 }
-                
+
                 return true;
               })
-              .map(show => ({
+              .map((show) => ({
                 ...show,
                 showID: show.showID || show.showId || show.id,
-                time: show.showTime 
-                  ? new Date(show.showTime).toLocaleTimeString('en-US', { 
-                      hour: 'numeric', 
-                      minute: '2-digit',
-                      hour12: true 
+                time: show.showTime
+                  ? new Date(show.showTime).toLocaleTimeString("en-US", {
+                      hour: "numeric",
+                      minute: "2-digit",
+                      hour12: true,
                     })
-                  : '10:00 AM',
+                  : "10:00 AM",
                 // Determine availability based on sellingStatus and allowOnlineSales
-                available: (show.sellingStatus === 0 || show.sellingStatus === 1) && show.allowOnlineSales === true,
+                available:
+                  (show.sellingStatus === 0 || show.sellingStatus === 1) &&
+                  show.allowOnlineSales === true,
                 sellingFast: show.sellingStatus === 1,
                 // Sold out if: sellingStatus = 2 OR allowOnlineSales = false
-                soldOut: show.sellingStatus === 2 || show.allowOnlineSales === false,
+                soldOut:
+                  show.sellingStatus === 2 || show.allowOnlineSales === false,
               }))
               .sort((a, b) => {
                 const timeA = a.showTime ? new Date(a.showTime).getTime() : 0;
                 const timeB = b.showTime ? new Date(b.showTime).getTime() : 0;
                 return timeA - timeB;
               });
-            
+
             setFilteredShowTimes(filtered);
-            
+
             // Find current show time index
-            const currentIndex = filtered.findIndex(s => (s.showID || s.showId || s.id) == activeShowId);
+            const currentIndex = filtered.findIndex(
+              (s) => (s.showID || s.showId || s.id) == activeShowId,
+            );
             if (currentIndex !== -1) {
               setSelectedTimeIndex(currentIndex);
             }
           }
         }
       } catch (showTimeErr) {
-        console.error('Error loading show time details:', showTimeErr);
+        console.error("Error loading show time details:", showTimeErr);
       }
-
     } catch (err) {
-      console.error('Error loading seat layout:', err);
+      console.error("Error loading seat layout:", err);
       if (err instanceof APIError) {
-        setError(err.message || 'Failed to load seat layout');
+        setError(err.message || "Failed to load seat layout");
       } else {
-        setError('An unexpected error occurred');
+        setError("An unexpected error occurred");
       }
     } finally {
       setIsLoading(false);
@@ -492,14 +541,17 @@ export default function SeatSelection() {
     if (!seatsData || seatsData.length === 0) return {};
 
     const grid = {};
-    
+
     // Find the maximum column number from actual seat data
-    const maxColumn = Math.max(...seatsData.map(seat => seat.seatColumn || 0), 0);
+    const maxColumn = Math.max(
+      ...seatsData.map((seat) => seat.seatColumn || 0),
+      0,
+    );
 
     // Group seats by row - using dynamic row letter from seatNo
-    seatsData.forEach(seat => {
+    seatsData.forEach((seat) => {
       // Extract non-numeric part as row letter (e.g., "A1" -> "A", "AA1" -> "AA")
-      const rowLetter = seat.seatNo.replace(/[0-9]/g, '').trim(); 
+      const rowLetter = seat.seatNo.replace(/[0-9]/g, "").trim();
       if (!grid[rowLetter]) {
         grid[rowLetter] = {};
       }
@@ -507,7 +559,7 @@ export default function SeatSelection() {
     });
 
     // Fill in missing columns with null for spacing
-    Object.keys(grid).forEach(rowLetter => {
+    Object.keys(grid).forEach((rowLetter) => {
       for (let col = 1; col <= maxColumn; col++) {
         if (!grid[rowLetter][col]) {
           grid[rowLetter][col] = null;
@@ -520,70 +572,84 @@ export default function SeatSelection() {
 
   const seatGrid = buildSeatGrid();
   // Sort rows alphabetically (A, B, C...) then reverse if needed for display (Screen at top vs bottom)
-  // Usually cinema maps show A at screen (Top) or Back (Bottom). 
+  // Usually cinema maps show A at screen (Top) or Back (Bottom).
   // Code previously used .sort().reverse().
-  // If we want natural order (A first), or reverse. 
+  // If we want natural order (A first), or reverse.
   // Previous code: Object.keys(seatGrid).sort().reverse();
   const rowLetters = Object.keys(seatGrid).sort().reverse();
-  
+
   // Calculate the maximum number of columns across all rows for consistent grid alignment
   const globalMaxColumn = rowLetters.reduce((max, rowLetter) => {
     const rowSeats = seatGrid[rowLetter];
     if (!rowSeats) return max;
-    const rowMax = Math.max(...Object.keys(rowSeats).map(k => parseInt(k) || 0), 0);
+    const rowMax = Math.max(
+      ...Object.keys(rowSeats).map((k) => parseInt(k) || 0),
+      0,
+    );
     return Math.max(max, rowMax);
   }, 0);
-  
+
   // Calculate total seats across all rows for dynamic gap calculation
   const calculateTotalSeats = () => {
     let total = 0;
-    rowLetters.forEach(rowLetter => {
+    rowLetters.forEach((rowLetter) => {
       const rowSeats = seatGrid[rowLetter];
       if (rowSeats) {
-        const rowMaxColumn = Math.max(...Object.keys(rowSeats).map(k => parseInt(k) || 0), 0);
+        const rowMaxColumn = Math.max(
+          ...Object.keys(rowSeats).map((k) => parseInt(k) || 0),
+          0,
+        );
         total += rowMaxColumn;
       }
     });
     return total;
   };
-  
+
   const totalSeats = calculateTotalSeats();
-  
+
   // Calculate dynamic gap based on row seat count
   const getDynamicGap = (rowMaxColumn) => {
-    if (rowMaxColumn <= 8) return 'gap-4 sm:gap-5 md:gap-6 lg:gap-7';
-    if (rowMaxColumn <= 12) return 'gap-3 sm:gap-3.5 md:gap-4 lg:gap-5';
-    if (rowMaxColumn <= 18) return 'gap-2 sm:gap-2.5 md:gap-3 lg:gap-3.5';
-    if (rowMaxColumn <= 25) return 'gap-1.5 sm:gap-2 md:gap-2.5 lg:gap-3';
-    if (rowMaxColumn <= 35) return 'gap-1 sm:gap-1.5 md:gap-2 lg:gap-2.5';
-    return 'gap-1 sm:gap-1 md:gap-1.5 lg:gap-2';
+    if (rowMaxColumn <= 8) return "gap-4 sm:gap-5 md:gap-6 lg:gap-7";
+    if (rowMaxColumn <= 12) return "gap-3 sm:gap-3.5 md:gap-4 lg:gap-5";
+    if (rowMaxColumn <= 18) return "gap-2 sm:gap-2.5 md:gap-3 lg:gap-3.5";
+    if (rowMaxColumn <= 25) return "gap-1.5 sm:gap-2 md:gap-2.5 lg:gap-3";
+    if (rowMaxColumn <= 35) return "gap-1 sm:gap-1.5 md:gap-2 lg:gap-2.5";
+    return "gap-1 sm:gap-1 md:gap-1.5 lg:gap-2";
   };
 
   // Get priceID for a seat based on ticket type mapping
   const getPriceIDForSeat = (seatIndex) => {
     if (!ticketData?.priceDetails || !selectedTickets) return 0;
-    
+
     // Map seats to ticket types based on order
     // For simplicity, we'll use the first available ticket type
     // In a real scenario, you might want to map seats to specific ticket types
     const ticketTypeEntries = Object.entries(selectedTickets);
     if (ticketTypeEntries.length === 0) return 0;
-    
+
     // Find which ticket type this seat belongs to based on index
     let currentIndex = 0;
     for (const [ticketTypeID, count] of ticketTypeEntries) {
       const ticketTypeIDNum = parseInt(ticketTypeID);
-      const priceDetail = ticketData.priceDetails.find(p => p.ticketTypeID === ticketTypeIDNum);
-      
-      if (priceDetail && seatIndex >= currentIndex && seatIndex < currentIndex + count) {
+      const priceDetail = ticketData.priceDetails.find(
+        (p) => p.ticketTypeID === ticketTypeIDNum,
+      );
+
+      if (
+        priceDetail &&
+        seatIndex >= currentIndex &&
+        seatIndex < currentIndex + count
+      ) {
         return priceDetail.priceID || 0;
       }
       currentIndex += count;
     }
-    
+
     // Default to first ticket type's priceID
     const firstTicketTypeID = parseInt(ticketTypeEntries[0][0]);
-    const firstPriceDetail = ticketData.priceDetails.find(p => p.ticketTypeID === firstTicketTypeID);
+    const firstPriceDetail = ticketData.priceDetails.find(
+      (p) => p.ticketTypeID === firstTicketTypeID,
+    );
     return firstPriceDetail?.priceID || 0;
   };
 
@@ -592,83 +658,101 @@ export default function SeatSelection() {
     if (!seats || seats.length === 0) return null;
 
     setIsLocking(true);
-    setError(''); // Clear previous errors
-    
+    setError(""); // Clear previous errors
+
     try {
       // Use currentShowId to ensure we're using the latest show ID (important when time changes)
       const activeShowId = currentShowId || showId;
-      
+
       if (!activeShowId || !cinemaId) {
-        setError('Missing show ID or cinema ID. Please refresh the page and try again.');
+        setError(
+          "Missing show ID or cinema ID. Please refresh the page and try again.",
+        );
         return null;
       }
-      
+
       // Get current selected seats count to determine seat index
       const currentSelectedCount = selectedSeats.length;
-      
+
       // Format: [{ seatID: 0, priceID: 0 }]
       const seatData = seats.map((seat, index) => {
-        const seatID = typeof seat === 'object' ? seat.seatID : seat;
+        const seatID = typeof seat === "object" ? seat.seatID : seat;
         // Calculate seat index based on current selection + this seat's position
         const seatIndex = currentSelectedCount + index;
-        const priceID = typeof seat === 'object' && seat.priceID !== undefined 
-          ? seat.priceID 
-          : getPriceIDForSeat(seatIndex);
-        
+        const priceID =
+          typeof seat === "object" && seat.priceID !== undefined
+            ? seat.priceID
+            : getPriceIDForSeat(seatIndex);
+
         return {
           seatID: seatID,
-          priceID: priceID
+          priceID: priceID,
         };
       });
-      
+
       // Validate seat data
-      if (seatData.some(seat => !seat.seatID || seat.seatID === 0)) {
-        setError('Invalid seat selection. Please select seats again.');
+      if (seatData.some((seat) => !seat.seatID || seat.seatID === 0)) {
+        setError("Invalid seat selection. Please select seats again.");
         return null;
       }
-      
-      console.log('Locking seats with data:', { cinemaId, showId: activeShowId, seatData });
-      
-      const response = await booking.lockSeats(cinemaId, activeShowId, 0, seatData);
-      const referenceNo = response?.referenceNo || response?.reference || response?.data?.referenceNo || response?.ReferenceNo;
-      
+
+      console.log("Locking seats with data:", {
+        cinemaId,
+        showId: activeShowId,
+        seatData,
+      });
+
+      const response = await booking.lockSeats(
+        cinemaId,
+        activeShowId,
+        0,
+        seatData,
+      );
+      const referenceNo =
+        response?.referenceNo ||
+        response?.reference ||
+        response?.data?.referenceNo ||
+        response?.ReferenceNo;
+
       if (!referenceNo) {
-        console.warn('No reference number in lock response:', response);
+        console.warn("No reference number in lock response:", response);
       }
-      
+
       // Store the full response including lockedSeats array
       setLockSeatResponse(response);
-      
+
       // Check if all seats were locked
       if (response && response.isAllSeatsLocked === false) {
         // Find failed seats from seatStatus
         const failed = (response.seatStatus || [])
-          .filter(s => s.status === false)
-          .map(s => {
+          .filter((s) => s.status === false)
+          .map((s) => {
             // Find seat number for this seatID
-            const seat = seatsData.find(sd => sd.seatID === s.seatID);
+            const seat = seatsData.find((sd) => sd.seatID === s.seatID);
             return seat ? seat.seatNo : null;
           })
           .filter(Boolean);
-        
+
         setFailedSeats(failed);
-        console.warn('Some seats failed to lock:', failed);
+        console.warn("Some seats failed to lock:", failed);
       } else {
         // If successful, clear failed seats
         setFailedSeats([]);
       }
-      
-      return { 
-        referenceNo, 
+
+      return {
+        referenceNo,
         isAllSeatsLocked: response?.isAllSeatsLocked !== false,
-        failedSeats: (response.seatStatus || []).filter(s => s.status === false).map(s => s.seatID)
+        failedSeats: (response.seatStatus || [])
+          .filter((s) => s.status === false)
+          .map((s) => s.seatID),
       };
     } catch (err) {
-      console.error('Error locking seats:', err);
+      console.error("Error locking seats:", err);
       if (err instanceof APIError) {
-        setError(err.message || 'Failed to lock seats. Please try again.');
+        setError(err.message || "Failed to lock seats. Please try again.");
       } else {
-        setError('Failed to lock seats. Please try again.');
+        setError("Failed to lock seats. Please try again.");
       }
       return null;
     } finally {
@@ -679,12 +763,12 @@ export default function SeatSelection() {
   // Release seat lock via API
   const releaseSeatLock = async (cinemaId, showId, referenceNo) => {
     if (!referenceNo) return;
-    
+
     setIsReleasing(true);
     try {
       await booking.releaseLockedSeats(cinemaId, showId, referenceNo, 0);
     } catch (err) {
-      console.error('Error releasing seat lock:', err);
+      console.error("Error releasing seat lock:", err);
       // Don't show error to user for release failures
     } finally {
       setIsReleasing(false);
@@ -693,12 +777,12 @@ export default function SeatSelection() {
 
   const releaseConfirmedSeatLock = async (cinemaId, showId, referenceNo) => {
     if (!referenceNo) return;
-    
+
     setIsReleasing(true);
     try {
       await booking.releaseConfirmedLockedSeats(cinemaId, showId, referenceNo);
     } catch (err) {
-      console.error('Error releasing confirmed seat lock:', err);
+      console.error("Error releasing confirmed seat lock:", err);
       // Don't show error to user for release failures
     } finally {
       setIsReleasing(false);
@@ -708,36 +792,63 @@ export default function SeatSelection() {
   // Helper function to map seats to tickets deterministically
   // Returns a map of seatNo -> priceDetail
   const mapSeatsToTickets = () => {
-    if (!ticketData?.priceDetails || !selectedTickets || selectedSeats.length === 0) return {};
+    if (
+      !ticketData?.priceDetails ||
+      !selectedTickets ||
+      selectedSeats.length === 0
+    )
+      return {};
 
     // Clone available tickets
     const availableTickets = { ...selectedTickets };
-    
+
     // Helper to categorize tickets
     const getTicketCategory = (ticketTypeID) => {
       const id = parseInt(ticketTypeID);
-      const priceDetail = ticketData.priceDetails?.find(p => p.ticketTypeID === id);
-      const name = priceDetail?.ticketTypeName?.toUpperCase() || '';
-      
+      const priceDetail = ticketData.priceDetails?.find(
+        (p) => p.ticketTypeID === id,
+      );
+      const name = priceDetail?.ticketTypeName?.toUpperCase() || "";
+
       // Twin keys
-      if (id === ticketData.generalInfo?.ticketTypeIDForTwinSeatsAndVIPSeats || name.includes('TWIN')) return 'TWIN';
+      if (
+        id === ticketData.generalInfo?.ticketTypeIDForTwinSeatsAndVIPSeats ||
+        name.includes("TWIN")
+      )
+        return "TWIN";
       // Kids keys
-      if (id === ticketData.generalInfo?.ticketTypeIDForKidsSeat || name.includes('KID') || name.includes('CHILD')) return 'KIDS';
+      if (
+        id === ticketData.generalInfo?.ticketTypeIDForKidsSeat ||
+        name.includes("KID") ||
+        name.includes("CHILD")
+      )
+        return "KIDS";
       // Sofa keys
-      if (id === ticketData.generalInfo?.ticketTypeIDForSofa || name.includes('SOFA') || name.includes('BED') || name.includes('FAMILY')) return 'SOFA';
+      if (
+        id === ticketData.generalInfo?.ticketTypeIDForSofa ||
+        name.includes("SOFA") ||
+        name.includes("BED") ||
+        name.includes("FAMILY")
+      )
+        return "SOFA";
       // Vip keys
-      if (name.includes('VIP')) return 'VIP';
+      if (name.includes("VIP")) return "VIP";
       // Handicap
-      if (name.includes('HANDICAP') || name.includes('OKU')) return 'HANDICAP';
+      if (name.includes("HANDICAP") || name.includes("OKU")) return "HANDICAP";
       // Normal
-      return 'NORMAL';
+      return "NORMAL";
     };
 
     // Group tickets by category
     const ticketsByCategory = {
-      'TWIN': [], 'KIDS': [], 'SOFA': [], 'VIP': [], 'HANDICAP': [], 'NORMAL': []
+      TWIN: [],
+      KIDS: [],
+      SOFA: [],
+      VIP: [],
+      HANDICAP: [],
+      NORMAL: [],
     };
-    
+
     Object.entries(availableTickets).forEach(([id, count]) => {
       if (count > 0) {
         const category = getTicketCategory(id);
@@ -752,49 +863,54 @@ export default function SeatSelection() {
     for (const seatNo of sortedSeats) {
       if (processedSeats.has(seatNo)) continue;
 
-      const seat = seatsData.find(s => s.seatNo === seatNo);
+      const seat = seatsData.find((s) => s.seatNo === seatNo);
       if (!seat) continue;
 
       const rawType = Number(seat.seatType);
-      let requiredCategory = 'NORMAL';
+      let requiredCategory = "NORMAL";
       let isTwinPair = false;
 
       // Determine Category
       if (rawType === 2 && seat.partnerSeatID) {
-        requiredCategory = 'TWIN';
+        requiredCategory = "TWIN";
         isTwinPair = true;
       } else if (rawType === 1) {
-         if (ticketsByCategory['VIP'].length > 0 && ticketsByCategory['HANDICAP'].length === 0) {
-           requiredCategory = 'VIP';
-         } else {
-           requiredCategory = 'HANDICAP';
-         }
-      } else if (rawType === 3) requiredCategory = 'KIDS';
-      else if (rawType === 4) requiredCategory = 'SOFA';
-      
+        if (
+          ticketsByCategory["VIP"].length > 0 &&
+          ticketsByCategory["HANDICAP"].length === 0
+        ) {
+          requiredCategory = "VIP";
+        } else {
+          requiredCategory = "HANDICAP";
+        }
+      } else if (rawType === 3) requiredCategory = "KIDS";
+      else if (rawType === 4) requiredCategory = "SOFA";
+
       // Find Ticket
       let assignedTicketID = null;
       let candidateList = ticketsByCategory[requiredCategory];
-      
+
       // Fallback strategies
-      let match = candidateList.find(t => t.count > 0);
-      
-      if (!match && requiredCategory !== 'NORMAL') {
-        const normalList = ticketsByCategory['NORMAL'];
-        match = normalList.find(t => t.count > 0);
+      let match = candidateList.find((t) => t.count > 0);
+
+      if (!match && requiredCategory !== "NORMAL") {
+        const normalList = ticketsByCategory["NORMAL"];
+        match = normalList.find((t) => t.count > 0);
       }
       if (!match) {
-         Object.values(ticketsByCategory).some(list => {
-           match = list.find(t => t.count > 0);
-           return !!match;
-         });
+        Object.values(ticketsByCategory).some((list) => {
+          match = list.find((t) => t.count > 0);
+          return !!match;
+        });
       }
 
       let priceDetail = null;
       if (match) {
         assignedTicketID = match.id;
         match.count--; // Decrement
-        priceDetail = ticketData.priceDetails.find(p => p.ticketTypeID === assignedTicketID);
+        priceDetail = ticketData.priceDetails.find(
+          (p) => p.ticketTypeID === assignedTicketID,
+        );
       } else {
         // No ticket left? Use default/first price
         priceDetail = ticketData.priceDetails[0];
@@ -807,39 +923,41 @@ export default function SeatSelection() {
       // Handle Partner
       if (isTwinPair) {
         // Find partner - use loose equality for ID
-        const partner = seatsData.find(s => s.seatID == seat.partnerSeatID);
+        const partner = seatsData.find((s) => s.seatID == seat.partnerSeatID);
         if (partner && selectedSeats.includes(partner.seatNo)) {
-           // Partner gets SAME ticket (and price)
-           
-           const ticketCategory = match ? getTicketCategory(match.id) : 'NORMAL';
-           
-           if (ticketCategory === 'TWIN') {
-             // Shared ticket
-             result[partner.seatNo] = priceDetail;
-             processedSeats.add(partner.seatNo);
-           } else {
-             // Should consume another ticket for the partner if possible
-             // Recursive-ish? 
-             // Let's just try to find another match for the partner
-             let partnerMatch = null;
-             // Try to find same type first
-             if (match && match.count > 0) {
-               partnerMatch = match;
-             } else {
-               // Find another normal/available
-               const normalList = ticketsByCategory['NORMAL'];
-               partnerMatch = normalList.find(t => t.count > 0);
-             }
-             
-             if (partnerMatch) {
-               partnerMatch.count--;
-               const partnerPrice = ticketData.priceDetails.find(p => p.ticketTypeID === partnerMatch.id);
-               result[partner.seatNo] = partnerPrice;
-             } else {
-               result[partner.seatNo] = priceDetail; // Fallback to same
-             }
-             processedSeats.add(partner.seatNo);
-           }
+          // Partner gets SAME ticket (and price)
+
+          const ticketCategory = match ? getTicketCategory(match.id) : "NORMAL";
+
+          if (ticketCategory === "TWIN") {
+            // Shared ticket
+            result[partner.seatNo] = priceDetail;
+            processedSeats.add(partner.seatNo);
+          } else {
+            // Should consume another ticket for the partner if possible
+            // Recursive-ish?
+            // Let's just try to find another match for the partner
+            let partnerMatch = null;
+            // Try to find same type first
+            if (match && match.count > 0) {
+              partnerMatch = match;
+            } else {
+              // Find another normal/available
+              const normalList = ticketsByCategory["NORMAL"];
+              partnerMatch = normalList.find((t) => t.count > 0);
+            }
+
+            if (partnerMatch) {
+              partnerMatch.count--;
+              const partnerPrice = ticketData.priceDetails.find(
+                (p) => p.ticketTypeID === partnerMatch.id,
+              );
+              result[partner.seatNo] = partnerPrice;
+            } else {
+              result[partner.seatNo] = priceDetail; // Fallback to same
+            }
+            processedSeats.add(partner.seatNo);
+          }
         }
       }
     }
@@ -851,51 +969,58 @@ export default function SeatSelection() {
     const map = mapSeatsToTickets();
     const priceDetail = map[seatNo];
     if (!priceDetail) return 0;
-    
+
     // For display, we use totalTicketPrice per seat
-    return priceDetail.totalTicketPrice || ((priceDetail.price || 0) + (priceDetail.entertainmentTax || 0));
+    return (
+      priceDetail.totalTicketPrice ||
+      (priceDetail.price || 0) + (priceDetail.entertainmentTax || 0)
+    );
   };
 
   // Remove a seat from selection
   const removeSeat = (seatNo) => {
-    setSelectedSeats(prev => {
+    setSelectedSeats((prev) => {
       // Find the seat object
-      const seat = seatsData.find(s => s.seatNo === seatNo);
-      
+      const seat = seatsData.find((s) => s.seatNo === seatNo);
+
       // If it's a twin seat, remove both seats
       if (seat && seat.seatType === 2 && seat.partnerSeatID) {
-        const partnerSeat = seatsData.find(s => s.seatID === seat.partnerSeatID);
+        const partnerSeat = seatsData.find(
+          (s) => s.seatID === seat.partnerSeatID,
+        );
         if (partnerSeat) {
-          return prev.filter(s => s !== seatNo && s !== partnerSeat.seatNo);
+          return prev.filter((s) => s !== seatNo && s !== partnerSeat.seatNo);
         }
       }
-      
+
       // Otherwise, just remove the single seat
-      return prev.filter(s => s !== seatNo);
+      return prev.filter((s) => s !== seatNo);
     });
   };
 
   // Toggle seat selection - NO API CALL, just local state
   const toggleSeat = (seat) => {
     if (!seat || seat.seatStatus !== 0) return; // Can't select occupied or invalid seats
-    
+
     // Clear failed seats and errors when user interacts with selection
     if (failedSeats.length > 0) setFailedSeats([]);
-    if (error) setError('');
-    
+    if (error) setError("");
+
     const seatNo = seat.seatNo;
-    
+
     // Handle double seats - if selecting one, select both
     if (seat.seatType === 2 && seat.partnerSeatID) {
-      const partnerSeat = seatsData.find(s => s.seatID === seat.partnerSeatID);
+      const partnerSeat = seatsData.find(
+        (s) => s.seatID === seat.partnerSeatID,
+      );
       if (partnerSeat && partnerSeat.seatStatus === 0) {
         const bothSeats = [seatNo, partnerSeat.seatNo].sort();
-        
-        setSelectedSeats(prev => {
-          const hasBoth = bothSeats.every(s => prev.includes(s));
+
+        setSelectedSeats((prev) => {
+          const hasBoth = bothSeats.every((s) => prev.includes(s));
           if (hasBoth) {
             // Deselect both - just remove from selection (no API call)
-            return prev.filter(s => !bothSeats.includes(s));
+            return prev.filter((s) => !bothSeats.includes(s));
           } else {
             // Check if we can select (2 seats for double)
             if (prev.length + 2 > maxSeats) {
@@ -908,11 +1033,11 @@ export default function SeatSelection() {
       }
     } else {
       // Single seat
-      setSelectedSeats(prev => {
+      setSelectedSeats((prev) => {
         const isSelected = prev.includes(seatNo);
         if (isSelected) {
           // Deselect - just remove from selection (no API call)
-          return prev.filter(s => s !== seatNo);
+          return prev.filter((s) => s !== seatNo);
         } else {
           // Check if we can select
           if (prev.length >= maxSeats) {
@@ -941,7 +1066,9 @@ export default function SeatSelection() {
 
   const isPartnerSeat = (seat) => {
     if (!seat || !seat.partnerSeatID) return false;
-    return seatsData.some(s => s.seatID === seat.partnerSeatID && s.seatColumn < seat.seatColumn);
+    return seatsData.some(
+      (s) => s.seatID === seat.partnerSeatID && s.seatColumn < seat.seatColumn,
+    );
   };
 
   // Get seat type: 'twin', 'handicap', or 'normal'
@@ -950,54 +1077,61 @@ export default function SeatSelection() {
   // - seatType: 1 = Handicap/OKU seats
   // - seatType: 0 = Normal seats
   const getSeatType = (seat) => {
-    if (!seat) return 'normal';
-    
+    if (!seat) return "normal";
+
     // Twin seats: seatType === 2 and has partnerSeatID
     if (seat.seatType === 2 && seat.partnerSeatID && seat.partnerSeatID > 0) {
-      return 'twin';
+      return "twin";
     }
-    
+
     // Handicap/OKU seats: seatType === 1
     if (seat.seatType === 1) {
-      return 'handicap';
+      return "handicap";
     }
 
     // Family Bed / Sofa: seatType === 4
     if (seat.seatType === 4) {
-      return 'family-bed';
+      return "family-bed";
     }
 
     // Kids: seatType === 3
     if (seat.seatType === 3) {
-      return 'kids';
+      return "kids";
     }
-    
+
     // Default: normal seats (seatType === 0)
-    return 'normal';
+    return "normal";
   };
 
   // Get ticket type counts by category
   // Handicap tickets are counted as normal tickets (same as adult/senior citizen)
   const getTicketTypeCounts = () => {
-    if (!ticketData || !selectedTickets) return { twin: 0, handicap: 0, normal: 0 };
-    
-    const twinSeatTypeID = ticketData.generalInfo?.ticketTypeIDForTwinSeatsAndVIPSeats;
+    if (!ticketData || !selectedTickets)
+      return { twin: 0, handicap: 0, normal: 0 };
+
+    const twinSeatTypeID =
+      ticketData.generalInfo?.ticketTypeIDForTwinSeatsAndVIPSeats;
     let twinCount = 0;
     let normalCount = 0;
-    
+
     Object.entries(selectedTickets).forEach(([ticketTypeID, count]) => {
       const ticketTypeIDNum = parseInt(ticketTypeID);
-      const priceDetail = ticketData.priceDetails?.find(p => p.ticketTypeID === ticketTypeIDNum);
-      const ticketTypeName = priceDetail?.ticketTypeName?.toUpperCase() || '';
-      
-      if (ticketTypeIDNum === twinSeatTypeID || ticketTypeName.includes('TWIN')) {
+      const priceDetail = ticketData.priceDetails?.find(
+        (p) => p.ticketTypeID === ticketTypeIDNum,
+      );
+      const ticketTypeName = priceDetail?.ticketTypeName?.toUpperCase() || "";
+
+      if (
+        ticketTypeIDNum === twinSeatTypeID ||
+        ticketTypeName.includes("TWIN")
+      ) {
         twinCount += count;
       } else {
         // All other tickets (adult, senior citizen, handicap) count as normal
         normalCount += count;
       }
     });
-    
+
     return { twin: twinCount, handicap: 0, normal: normalCount };
   };
 
@@ -1005,25 +1139,25 @@ export default function SeatSelection() {
   // Handicap seats are counted as normal seats (same as adult/senior citizen)
   const getSelectedSeatsByType = () => {
     const counts = { twin: 0, handicap: 0, normal: 0 };
-    const selectedSeatObjects = selectedSeats.map(seatNo => 
-      seatsData.find(s => s.seatNo === seatNo)
-    ).filter(Boolean);
-    
-    selectedSeatObjects.forEach(seat => {
+    const selectedSeatObjects = selectedSeats
+      .map((seatNo) => seatsData.find((s) => s.seatNo === seatNo))
+      .filter(Boolean);
+
+    selectedSeatObjects.forEach((seat) => {
       const seatType = getSeatType(seat);
-      if (seatType === 'twin') {
+      if (seatType === "twin") {
         // Count twin seats as pairs (each pair = 1)
         if (!isPartnerSeat(seat)) {
           counts.twin += 1;
         }
-      } else if (seatType === 'handicap') {
+      } else if (seatType === "handicap") {
         // Count handicap seats as normal seats (same category)
         counts.normal += 1;
       } else {
         counts[seatType] += 1;
       }
     });
-    
+
     return counts;
   };
 
@@ -1038,71 +1172,89 @@ export default function SeatSelection() {
   // If Twin tickets selected → only Twin seats (seatType: 2) can be selected
   const isSeatDisabled = (seat) => {
     if (!seat || seat.seatStatus !== 0) return true; // Disable occupied seats
-    
+
     // Allow deselection of already selected seats (check this first)
     const seatIsSelected = selectedSeats.includes(seat.seatNo);
     if (seatIsSelected) {
       // For twin seats, also check partner seat
       if (seat.seatType === 2 && seat.partnerSeatID) {
-        const partnerSeat = seatsData.find(s => s.seatID === seat.partnerSeatID);
+        const partnerSeat = seatsData.find(
+          (s) => s.seatID === seat.partnerSeatID,
+        );
         if (partnerSeat && selectedSeats.includes(partnerSeat.seatNo)) {
           return false; // Allow deselection of selected twin pair
         }
       }
       return false; // Allow deselection
     }
-    
+
     // Check if tickets are selected
     if (!selectedTickets || Object.keys(selectedTickets).length === 0) {
       return true; // No tickets selected
     }
-    
+
     if (!ticketData) {
       // If no ticket data, continue with default logic below
     } else {
       const currentSeatType = Number(seat.seatType);
-      
+
       // Get ticket type IDs
       const kidsTicketTypeID = ticketData.generalInfo?.ticketTypeIDForKidsSeat;
       const sofaTicketTypeID = ticketData.generalInfo?.ticketTypeIDForSofa;
-      const twinVIPTicketTypeID = ticketData.generalInfo?.ticketTypeIDForTwinSeatsAndVIPSeats;
-      
+      const twinVIPTicketTypeID =
+        ticketData.generalInfo?.ticketTypeIDForTwinSeatsAndVIPSeats;
+
       // Check which ticket types are selected
-      const hasKidsTickets = kidsTicketTypeID && (selectedTickets[String(kidsTicketTypeID)] || 0) > 0;
-      const hasSofaTickets = sofaTicketTypeID && (selectedTickets[String(sofaTicketTypeID)] || 0) > 0;
-      const hasTwinVIPTickets = twinVIPTicketTypeID && (selectedTickets[String(twinVIPTicketTypeID)] || 0) > 0;
-      
+      const hasKidsTickets =
+        kidsTicketTypeID &&
+        (selectedTickets[String(kidsTicketTypeID)] || 0) > 0;
+      const hasSofaTickets =
+        sofaTicketTypeID &&
+        (selectedTickets[String(sofaTicketTypeID)] || 0) > 0;
+      const hasTwinVIPTickets =
+        twinVIPTicketTypeID &&
+        (selectedTickets[String(twinVIPTicketTypeID)] || 0) > 0;
+
       // Check for Normal/Adult tickets (any ticket that's not Kids, Sofa, or Twin/VIP)
-      const hasNormalTickets = Object.entries(selectedTickets).some(([ticketTypeID, count]) => {
-        if (count === 0) return false;
-        const ticketTypeIDNum = parseInt(ticketTypeID);
-        return ticketTypeIDNum !== kidsTicketTypeID && 
-               ticketTypeIDNum !== sofaTicketTypeID && 
-               ticketTypeIDNum !== twinVIPTicketTypeID;
-      });
-      
+      const hasNormalTickets = Object.entries(selectedTickets).some(
+        ([ticketTypeID, count]) => {
+          if (count === 0) return false;
+          const ticketTypeIDNum = parseInt(ticketTypeID);
+          return (
+            ticketTypeIDNum !== kidsTicketTypeID &&
+            ticketTypeIDNum !== sofaTicketTypeID &&
+            ticketTypeIDNum !== twinVIPTicketTypeID
+          );
+        },
+      );
+
       // Determine if Twin or VIP based on ticket name
       let isTwinTicket = false;
       let isVIPTicket = false;
       if (hasTwinVIPTickets && twinVIPTicketTypeID) {
-        const priceDetail = ticketData.priceDetails?.find(p => p.ticketTypeID === twinVIPTicketTypeID);
-        const ticketTypeName = priceDetail?.ticketTypeName?.toUpperCase() || '';
-        isTwinTicket = ticketTypeName.includes('TWIN');
-        isVIPTicket = !isTwinTicket && (ticketTypeName.includes('VIP') || ticketTypeName.includes('VIP'));
+        const priceDetail = ticketData.priceDetails?.find(
+          (p) => p.ticketTypeID === twinVIPTicketTypeID,
+        );
+        const ticketTypeName = priceDetail?.ticketTypeName?.toUpperCase() || "";
+        isTwinTicket = ticketTypeName.includes("TWIN");
+        isVIPTicket =
+          !isTwinTicket &&
+          (ticketTypeName.includes("VIP") || ticketTypeName.includes("VIP"));
       }
-      
+
       // Check if this seat type matches any selected ticket type
       // Allow multiple ticket types to be selected simultaneously
-      
+
       // Check for Kids seats (seatType: 3)
       if (currentSeatType === 3) {
         if (hasKidsTickets) {
           // Count how many Kids seats are already selected
-          const selectedKidsSeats = selectedSeats.filter(seatNo => {
-            const s = seatsData.find(ss => ss.seatNo === seatNo);
+          const selectedKidsSeats = selectedSeats.filter((seatNo) => {
+            const s = seatsData.find((ss) => ss.seatNo === seatNo);
             return s && Number(s.seatType) === 3;
           }).length;
-          const kidsTicketCount = selectedTickets[String(kidsTicketTypeID)] || 0;
+          const kidsTicketCount =
+            selectedTickets[String(kidsTicketTypeID)] || 0;
           // If we've selected all Kids seats for the ticket count, disable remaining Kids seats
           if (selectedKidsSeats >= kidsTicketCount) return true;
           return false; // Can select more Kids seats
@@ -1110,16 +1262,17 @@ export default function SeatSelection() {
         // No Kids tickets selected, disable Kids seats
         return true;
       }
-      
+
       // Check for Sofa seats (seatType: 4)
       if (currentSeatType === 4) {
         if (hasSofaTickets) {
           // Count how many Sofa seats are already selected
-          const selectedSofaSeats = selectedSeats.filter(seatNo => {
-            const s = seatsData.find(ss => ss.seatNo === seatNo);
+          const selectedSofaSeats = selectedSeats.filter((seatNo) => {
+            const s = seatsData.find((ss) => ss.seatNo === seatNo);
             return s && Number(s.seatType) === 4;
           }).length;
-          const sofaTicketCount = selectedTickets[String(sofaTicketTypeID)] || 0;
+          const sofaTicketCount =
+            selectedTickets[String(sofaTicketTypeID)] || 0;
           // If we've selected all Sofa seats for the ticket count, disable remaining Sofa seats
           if (selectedSofaSeats >= sofaTicketCount) return true;
           return false; // Can select more Sofa seats
@@ -1127,16 +1280,17 @@ export default function SeatSelection() {
         // No Sofa tickets selected, disable Sofa seats
         return true;
       }
-      
+
       // Check for VIP seats (seatType: 1)
       if (currentSeatType === 1) {
         if (hasTwinVIPTickets && isVIPTicket) {
           // Count how many VIP seats are already selected
-          const selectedVIPSeats = selectedSeats.filter(seatNo => {
-            const s = seatsData.find(ss => ss.seatNo === seatNo);
+          const selectedVIPSeats = selectedSeats.filter((seatNo) => {
+            const s = seatsData.find((ss) => ss.seatNo === seatNo);
             return s && Number(s.seatType) === 1;
           }).length;
-          const vipTicketCount = selectedTickets[String(twinVIPTicketTypeID)] || 0;
+          const vipTicketCount =
+            selectedTickets[String(twinVIPTicketTypeID)] || 0;
           // If we've selected all VIP seats for the ticket count, disable remaining VIP seats
           if (selectedVIPSeats >= vipTicketCount) return true;
           return false; // Can select more VIP seats
@@ -1144,7 +1298,7 @@ export default function SeatSelection() {
         // No VIP tickets selected, disable VIP seats
         return true;
       }
-      
+
       // Check for Twin seats (seatType: 2) - handled by existing logic below
       if (currentSeatType === 2) {
         if (hasTwinVIPTickets && isTwinTicket) {
@@ -1154,22 +1308,24 @@ export default function SeatSelection() {
           // Continue to default logic below
         }
       }
-      
+
       // Check for Normal seats (seatType: 0)
       if (currentSeatType === 0) {
         if (hasNormalTickets) {
           // Count how many Normal seats are already selected
-          const selectedNormalSeats = selectedSeats.filter(seatNo => {
-            const s = seatsData.find(ss => ss.seatNo === seatNo);
+          const selectedNormalSeats = selectedSeats.filter((seatNo) => {
+            const s = seatsData.find((ss) => ss.seatNo === seatNo);
             return s && Number(s.seatType) === 0;
           }).length;
           // Count total normal tickets
           let normalTicketCount = 0;
           Object.entries(selectedTickets).forEach(([ticketTypeID, count]) => {
             const ticketTypeIDNum = parseInt(ticketTypeID);
-            if (ticketTypeIDNum !== kidsTicketTypeID && 
-                ticketTypeIDNum !== sofaTicketTypeID && 
-                ticketTypeIDNum !== twinVIPTicketTypeID) {
+            if (
+              ticketTypeIDNum !== kidsTicketTypeID &&
+              ticketTypeIDNum !== sofaTicketTypeID &&
+              ticketTypeIDNum !== twinVIPTicketTypeID
+            ) {
               normalTicketCount += count;
             }
           });
@@ -1181,115 +1337,125 @@ export default function SeatSelection() {
         return true;
       }
     }
-    
+
     // Check if this is Hall 6 or a Kids and Family hall
     const hallNo = seatLayout?.hallDetails?.hallNo;
-    const hallName = seatLayout?.hallDetails?.hallName || showTimeDetails?.hallName || '';
+    const hallName =
+      seatLayout?.hallDetails?.hallName || showTimeDetails?.hallName || "";
     const formattedHallName = formatHallName(hallName);
-    const isHall6 = hallNo === 6 || hallNo === '6' || hallName?.includes('6') || hallName?.toUpperCase()?.includes('HALL - 6') || formattedHallName === 'Hall-6 (Kids and Family)';
-    
+    const isHall6 =
+      hallNo === 6 ||
+      hallNo === "6" ||
+      hallName?.includes("6") ||
+      hallName?.toUpperCase()?.includes("HALL - 6") ||
+      formattedHallName === "Hall-6 (Kids and Family)";
+
     // Special logic for Hall 6
     if (isHall6) {
       // Map seat types to ticket types for Hall 6:
       // seatType 4 = ADULT (ticketTypeID: 17)
       // seatType 0 = KIDS (ticketTypeID: 37)
       // seatType 3 = FAMILY BED (ticketTypeID: 38)
-      
+
       // If this seat is already selected, don't disable it (allow deselection)
       // Note: seatIsSelected is already checked above, so this check is redundant but kept for clarity
       if (selectedSeats.includes(seat.seatNo)) return false;
-      
+
       // Check which ticket types are selected
       if (!selectedTickets || Object.keys(selectedTickets).length === 0) {
         return true; // No tickets selected
       }
-      
+
       // Get the seat's raw seatType value
       const rawSeatType = seat.seatType;
-      
+
       // Check if the seat type matches any selected ticket type
       let hasMatchingTicket = false;
       let selectedCountForThisType = 0;
       let totalCountForThisType = 0;
-      
+
       if (rawSeatType === 4) {
         // Adult seat - check if ADULT tickets (ticketTypeID: 17) are selected
-        const adultCount = selectedTickets['17'] || 0;
+        const adultCount = selectedTickets["17"] || 0;
         if (adultCount > 0) {
           hasMatchingTicket = true;
           totalCountForThisType = adultCount;
           // Count how many seatType 4 seats are already selected
-          selectedCountForThisType = selectedSeats.filter(seatNo => {
-            const s = seatsData.find(ss => ss.seatNo === seatNo);
+          selectedCountForThisType = selectedSeats.filter((seatNo) => {
+            const s = seatsData.find((ss) => ss.seatNo === seatNo);
             return s && s.seatType === 4;
           }).length;
         }
       } else if (rawSeatType === 0) {
         // Kids seat - check if KIDS tickets (ticketTypeID: 37) are selected
-        const kidsCount = selectedTickets['37'] || 0;
+        const kidsCount = selectedTickets["37"] || 0;
         if (kidsCount > 0) {
           hasMatchingTicket = true;
           totalCountForThisType = kidsCount;
           // Count how many seatType 0 seats are already selected
-          selectedCountForThisType = selectedSeats.filter(seatNo => {
-            const s = seatsData.find(ss => ss.seatNo === seatNo);
+          selectedCountForThisType = selectedSeats.filter((seatNo) => {
+            const s = seatsData.find((ss) => ss.seatNo === seatNo);
             return s && s.seatType === 0;
           }).length;
         }
       } else if (rawSeatType === 3) {
         // Family Bed seat - check if FAMILY BED tickets (ticketTypeID: 38) are selected
-        const familyBedCount = selectedTickets['38'] || 0;
+        const familyBedCount = selectedTickets["38"] || 0;
         if (familyBedCount > 0) {
           hasMatchingTicket = true;
           totalCountForThisType = familyBedCount;
           // Count how many seatType 3 seats are already selected
-          selectedCountForThisType = selectedSeats.filter(seatNo => {
-            const s = seatsData.find(ss => ss.seatNo === seatNo);
+          selectedCountForThisType = selectedSeats.filter((seatNo) => {
+            const s = seatsData.find((ss) => ss.seatNo === seatNo);
             return s && s.seatType === 3;
           }).length;
         }
       }
-      
+
       // If no matching ticket type is selected, disable this seat
       if (!hasMatchingTicket) return true;
-      
+
       // If we've already selected all seats for this ticket type, disable
       if (selectedCountForThisType >= totalCountForThisType) return true;
-      
+
       // Can select more seats of this type
       return false;
     }
-    
+
     // Default logic for other halls
     const seatType = getSeatType(seat);
     const ticketCounts = getTicketTypeCounts();
     const selectedCounts = getSelectedSeatsByType();
-    
+
     // If this seat is already selected, don't disable it (allow deselection)
     // Note: seatIsSelected is already checked at the top of the function
-    if (seatType === 'twin' && seat.partnerSeatID) {
-      const partnerSeat = seatsData.find(s => s.seatID === seat.partnerSeatID);
-      const partnerIsSelected = partnerSeat && selectedSeats.includes(partnerSeat.seatNo);
-      if (selectedSeats.includes(seat.seatNo) && partnerIsSelected) return false; // Don't disable selected pair
+    if (seatType === "twin" && seat.partnerSeatID) {
+      const partnerSeat = seatsData.find(
+        (s) => s.seatID === seat.partnerSeatID,
+      );
+      const partnerIsSelected =
+        partnerSeat && selectedSeats.includes(partnerSeat.seatNo);
+      if (selectedSeats.includes(seat.seatNo) && partnerIsSelected)
+        return false; // Don't disable selected pair
     } else {
       if (selectedSeats.includes(seat.seatNo)) return false; // Don't disable selected seat
     }
-    
+
     // Twin seats: only selectable if twin tickets selected, limited to ticket count
-    if (seatType === 'twin') {
+    if (seatType === "twin") {
       if (ticketCounts.twin === 0) return true; // No twin tickets selected
       if (selectedCounts.twin >= ticketCounts.twin) return true; // Already selected all twin seats needed
       return false; // Can select more twin seats
     }
-    
+
     // Normal and handicap seats: share the same restrictions (counted together)
     // Only selectable if normal tickets (adult/senior/handicap) selected, limited to total ticket count
-    if (seatType === 'normal' || seatType === 'handicap') {
+    if (seatType === "normal" || seatType === "handicap") {
       if (ticketCounts.normal === 0) return true; // No normal/handicap tickets selected
       if (selectedCounts.normal >= ticketCounts.normal) return true; // Already selected all normal/handicap seats needed
       return false; // Can select more normal/handicap seats
     }
-    
+
     return false;
   };
 
@@ -1301,57 +1467,61 @@ export default function SeatSelection() {
         setLockReferenceNo(null);
         setLockSeatResponse(null);
       } catch (e) {
-        console.error('Error releasing seats on back:', e);
+        console.error("Error releasing seats on back:", e);
       }
     }
-    
+
     // Stop timer
     setTimerActive(false);
-    
+
     // Clear selected seats when going back
     setSelectedSeats([]);
-    localStorage.removeItem('selectedSeats');
-    localStorage.removeItem('lockedSeats');
-    localStorage.removeItem('bookingData');
+    localStorage.removeItem("selectedSeats");
+    localStorage.removeItem("lockedSeats");
+    localStorage.removeItem("bookingData");
     router.back();
   };
 
   // Calculate total ticket price
   const calculateTotalPrice = () => {
-    if (!ticketData?.priceDetails || selectedSeats.length === 0) return { netPrice: 0, tax: 0, total: 0 };
-    
+    if (!ticketData?.priceDetails || selectedSeats.length === 0)
+      return { netPrice: 0, tax: 0, total: 0 };
+
     // Map selected seats to ticket types
     // For now, we'll use the first ticket type price for each seat
     // In a real scenario, you'd map seats to specific ticket types
     let netPrice = 0;
     let tax = 0;
-    
+
     // Get ticket counts from selectedTickets
     const ticketTypeCounts = {};
     Object.entries(selectedTickets).forEach(([ticketTypeID, count]) => {
       ticketTypeCounts[parseInt(ticketTypeID)] = count;
     });
-    
+
     // Calculate price based on ticket types
     ticketData.priceDetails.forEach((price) => {
       const count = ticketTypeCounts[price.ticketTypeID] || 0;
       if (count > 0) {
-        const isTwinSeats = ticketData?.generalInfo?.ticketTypeIDForTwinSeatsAndVIPSeats === price.ticketTypeID || price.ticketTypeName?.toUpperCase().includes('TWIN');
+        const isTwinSeats =
+          ticketData?.generalInfo?.ticketTypeIDForTwinSeatsAndVIPSeats ===
+            price.ticketTypeID ||
+          price.ticketTypeName?.toUpperCase().includes("TWIN");
         const seatsPerTicket = isTwinSeats ? 2 : 1;
-        
+
         const pricePerTicket = price.price || 0;
         const taxPerTicket = price.entertainmentTax || 0;
         netPrice += pricePerTicket * count * seatsPerTicket;
         tax += taxPerTicket * count * seatsPerTicket;
       }
     });
-    
+
     const total = netPrice + tax;
-    
+
     return {
       netPrice: netPrice.toFixed(2),
       tax: tax.toFixed(2),
-      total: total.toFixed(2)
+      total: total.toFixed(2),
     };
   };
 
@@ -1363,25 +1533,27 @@ export default function SeatSelection() {
     }
     // Check if seats are selected
     if (selectedSeats.length === 0) {
-      setError('Please select at least one seat.');
+      setError("Please select at least one seat.");
       return;
     }
-    
+
     // Check if we've selected the correct number of seats
     if (selectedSeats.length > maxSeats) {
-      setError(`You can only select up to ${maxSeats} seat(s). Please remove some seats.`);
+      setError(
+        `You can only select up to ${maxSeats} seat(s). Please remove some seats.`,
+      );
       return;
     }
-    
+
     // Allow booking if we have at least one seat and not exceeding max
-    
+
     setIsLocking(true);
-    setError('');
-    
+    setError("");
+
     try {
       // Validate that we have seat data for the current show
       if (!seatsData || seatsData.length === 0) {
-        setError('Seat layout not loaded. Please wait and try again.');
+        setError("Seat layout not loaded. Please wait and try again.");
         setIsLocking(false);
         return;
       }
@@ -1390,163 +1562,178 @@ export default function SeatSelection() {
       const seatMap = mapSeatsToTickets();
       const seatObjects = [];
       const sortedSeats = [...selectedSeats].sort();
-      
+
       for (const seatNo of sortedSeats) {
-        const seat = seatsData.find(s => s.seatNo === seatNo);
+        const seat = seatsData.find((s) => s.seatNo === seatNo);
         if (!seat) {
-           console.error(`Seat ${seatNo} not found in layout`);
-           continue; 
+          console.error(`Seat ${seatNo} not found in layout`);
+          continue;
         }
-        
+
         // Validate seatID exists
         if (!seat.seatID || seat.seatID === 0) {
           console.error(`Seat ${seatNo} has invalid seatID:`, seat);
           continue;
         }
-        
+
         const priceDetail = seatMap[seatNo];
         // If map fails (shouldn't if valid), fallback to 0 or first price
-        const priceID = priceDetail?.priceID || (ticketData?.priceDetails?.[0]?.priceID) || 0;
-        
+        const priceID =
+          priceDetail?.priceID || ticketData?.priceDetails?.[0]?.priceID || 0;
+
         seatObjects.push({
           seatID: seat.seatID,
-          priceID: priceID
+          priceID: priceID,
         });
       }
-      
+
       // Validate all selected seats were processed
       if (seatObjects.length !== selectedSeats.length) {
-      if (seatObjects.length === 0) {
-             setError('Error processing seat selection.');
-        setIsLocking(false);
-        return;
-         }
+        if (seatObjects.length === 0) {
+          setError("Error processing seat selection.");
+          setIsLocking(false);
+          return;
+        }
       }
-      
+
       // Call lockSeat API
       const lockResult = await lockSeat(seatObjects);
-      
-      if (!lockResult || (!lockResult.referenceNo && lockResult.isAllSeatsLocked)) {
-        setError('Failed to lock seats. Please try again.');
+
+      if (
+        !lockResult ||
+        (!lockResult.referenceNo && lockResult.isAllSeatsLocked)
+      ) {
+        setError("Failed to lock seats. Please try again.");
         setIsLocking(false);
         return;
       }
-      
+
       const { referenceNo, isAllSeatsLocked } = lockResult;
 
       if (!isAllSeatsLocked) {
-        setError('Some of the seats you selected have just been taken by another user. Please choose different seats (highlighted in red).');
+        setError(
+          "Some of the seats you selected have just been taken by another user. Please choose different seats (highlighted in red).",
+        );
         // Update local seats data to show these seats as occupied
         const failedSeatIds = lockResult.failedSeats;
         if (failedSeatIds && failedSeatIds.length > 0) {
-          setSeatsData(prev => prev.map(seat => {
-            if (failedSeatIds.includes(seat.seatID)) {
-              return { ...seat, seatStatus: 1 }; // Mark as occupied
-            }
-            return seat;
-          }));
-          
+          setSeatsData((prev) =>
+            prev.map((seat) => {
+              if (failedSeatIds.includes(seat.seatID)) {
+                return { ...seat, seatStatus: 1 }; // Mark as occupied
+              }
+              return seat;
+            }),
+          );
+
           // Remove failed seats from selection
           const failedSeatNos = seatsData
-            .filter(s => failedSeatIds.includes(s.seatID))
-            .map(s => s.seatNo);
-            
-          setSelectedSeats(prev => prev.filter(s => !failedSeatNos.includes(s)));
+            .filter((s) => failedSeatIds.includes(s.seatID))
+            .map((s) => s.seatNo);
+
+          setSelectedSeats((prev) =>
+            prev.filter((s) => !failedSeatNos.includes(s)),
+          );
         }
-        
+
         setIsLocking(false);
         return;
       }
-      
+
       // Store reference number and start timer
       setLockReferenceNo(referenceNo);
       setTimeLeft(300); // Reset to 5 minutes (300 seconds)
       setTimerActive(true);
-      
+
       // Store timer start time (lock time) in localStorage for payment page
       // This is the actual timestamp when seats were locked
       const lockTime = Date.now();
-      localStorage.setItem('timerStartTime', lockTime.toString());
-      localStorage.setItem('lockReferenceNo', referenceNo);
-      localStorage.setItem('lockTime', lockTime.toString()); // Also store as lockTime for clarity
-      
+      localStorage.setItem("timerStartTime", lockTime.toString());
+      localStorage.setItem("lockReferenceNo", referenceNo);
+      localStorage.setItem("lockTime", lockTime.toString()); // Also store as lockTime for clarity
+
       // Initialize form data with user data if available
       const userData = getUserData();
       setFormData({
-        name: userData?.name || userData?.Name || '',
-        email: userData?.email || userData?.Email || '',
-        passportNo: userData?.passportNo || userData?.PassportNo || '',
-        mobile: userData?.mobile || userData?.Mobile || userData?.mobileNo || userData?.MobileNo || '',
-        membershipNo: userData?.membershipNo || userData?.MembershipNo || ''
+        name: userData?.name || userData?.Name || "",
+        email: userData?.email || userData?.Email || "",
+        passportNo: userData?.passportNo || userData?.PassportNo || "",
+        mobile:
+          userData?.mobile ||
+          userData?.Mobile ||
+          userData?.mobileNo ||
+          userData?.MobileNo ||
+          "",
+        membershipNo: userData?.membershipNo || userData?.MembershipNo || "",
       });
       setFormErrors({});
-      
+
       // Show booking summary modal
       setShowBookingSummary(true);
     } catch (err) {
-      console.error('Error locking seats:', err);
-      setError('Failed to lock seats. Please try again.');
+      console.error("Error locking seats:", err);
+      setError("Failed to lock seats. Please try again.");
     } finally {
       setIsLocking(false);
     }
   };
 
   const handleInputChange = (field, value) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      [field]: value
+      [field]: value,
     }));
     // Clear error for this field when user starts typing
     if (formErrors[field]) {
-      setFormErrors(prev => ({
+      setFormErrors((prev) => ({
         ...prev,
-        [field]: ''
+        [field]: "",
       }));
     }
   };
 
   const validateForm = () => {
     const errors = {};
-    
+
     if (!formData.name || !formData.name.trim()) {
-      errors.name = 'Name is required';
+      errors.name = "Name is required";
     }
-    
+
     if (!formData.email || !formData.email.trim()) {
-      errors.email = 'Email is required';
+      errors.email = "Email is required";
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      errors.email = 'Please enter a valid email address';
+      errors.email = "Please enter a valid email address";
     }
-    
+
     if (!formData.mobile || !formData.mobile.trim()) {
-      errors.mobile = 'Mobile number is required';
+      errors.mobile = "Mobile number is required";
     }
-    
+
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
   };
 
   const handleProceedToPayment = async () => {
     // Clear any previous errors
-    setError('');
-    
+    setError("");
+
     // Validate form
     if (!validateForm()) {
-      setError('Please fill in all required fields correctly.');
+      setError("Please fill in all required fields correctly.");
       return;
     }
 
     // Use the reference number from lockSeat API
     if (!lockReferenceNo) {
-      setError('Seats are not locked. Please try selecting seats again.');
+      setError("Seats are not locked. Please try selecting seats again.");
       return;
     }
-    
+
     // Stop timer since we're proceeding
     setTimerActive(false);
 
     setIsConfirming(true);
-    setError('');
+    setError("");
     setFormErrors({});
 
     try {
@@ -1554,19 +1741,27 @@ export default function SeatSelection() {
       let membershipId = 0;
       if (formData.membershipNo && formData.membershipNo.trim()) {
         try {
-          const membershipResponse = await booking.isValidMember(formData.membershipNo.trim());
+          const membershipResponse = await booking.isValidMember(
+            formData.membershipNo.trim(),
+          );
           // Assuming API returns a valid response if membership is valid
           // Adjust based on actual API response structure
           if (membershipResponse) {
             membershipId = formData.membershipNo.trim();
           } else {
-            setFormErrors(prev => ({ ...prev, membershipNo: 'Invalid membership number' }));
+            setFormErrors((prev) => ({
+              ...prev,
+              membershipNo: "Invalid membership number",
+            }));
             setIsConfirming(false);
             return;
           }
         } catch (membershipErr) {
-          console.error('Membership validation error:', membershipErr);
-          setFormErrors(prev => ({ ...prev, membershipNo: 'Invalid membership number' }));
+          console.error("Membership validation error:", membershipErr);
+          setFormErrors((prev) => ({
+            ...prev,
+            membershipNo: "Invalid membership number",
+          }));
           setIsConfirming(false);
           return;
         }
@@ -1583,41 +1778,48 @@ export default function SeatSelection() {
         showId,
         lockReferenceNo,
         userId,
-        (formData.email || '').trim(),
+        (formData.email || "").trim(),
         membershipId,
         paymentVia,
-        (formData.name || '').trim(),
-        (formData.passportNo || '').trim(),
-        (formData.mobile || '').trim()
+        (formData.name || "").trim(),
+        (formData.passportNo || "").trim(),
+        (formData.mobile || "").trim(),
       );
-      
+
       // Check response - API returns {id: 0, remarks: "Failed"} or {id: 1, remarks: "Success"}
-      if (confirmResponse && confirmResponse.remarks === 'Failed') {
-        setError('Failed to confirm seats. Please try again.');
+      if (confirmResponse && confirmResponse.remarks === "Failed") {
+        setError("Failed to confirm seats. Please try again.");
         setIsConfirming(false);
         return;
       }
 
       // Check if confirmation was successful
       // API returns: {id: 0, remarks: "Failed"} on failure or {id: 1, remarks: "Success"} on success
-      const isSuccess = confirmResponse && confirmResponse.remarks !== 'Failed' && confirmResponse.id !== 0;
-      
+      const isSuccess =
+        confirmResponse &&
+        confirmResponse.remarks !== "Failed" &&
+        confirmResponse.id !== 0;
+
       if (!isSuccess) {
-        const errorMsg = confirmResponse?.remarks || 'Failed to confirm seats';
+        const errorMsg = confirmResponse?.remarks || "Failed to confirm seats";
         setError(errorMsg);
         setIsConfirming(false);
         return;
       }
 
       // Store confirmed reference number (might be same or different from lock reference)
-      const confirmedRef = confirmResponse?.referenceNo || confirmResponse?.reference || lockReferenceNo;
+      const confirmedRef =
+        confirmResponse?.referenceNo ||
+        confirmResponse?.reference ||
+        lockReferenceNo;
       setConfirmedReferenceNo(confirmedRef);
 
       // Update timer start time in localStorage for payment page (keep original lock time)
       // Don't reset timer when confirming - continue from lock time
-      const lockTime = localStorage.getItem('timerStartTime') || Date.now().toString();
-      localStorage.setItem('timerStartTime', lockTime);
-      localStorage.setItem('confirmedReferenceNo', confirmedRef);
+      const lockTime =
+        localStorage.getItem("timerStartTime") || Date.now().toString();
+      localStorage.setItem("timerStartTime", lockTime);
+      localStorage.setItem("confirmedReferenceNo", confirmedRef);
 
       // Store booking data for payment gateway
       const priceInfo = calculateDetailedPrice();
@@ -1625,14 +1827,19 @@ export default function SeatSelection() {
       const ticketTypeSummary = {};
       if (selectedTickets && ticketData?.priceDetails) {
         Object.entries(selectedTickets).forEach(([id, count]) => {
-           if (count > 0) {
-             const detail = ticketData.priceDetails.find(p => p.ticketTypeID == id);
-             const name = detail?.ticketTypeName || 'Standard';
-             ticketTypeSummary[name] = count;
-           }
+          if (count > 0) {
+            const detail = ticketData.priceDetails.find(
+              (p) => p.ticketTypeID == id,
+            );
+            const name = detail?.ticketTypeName || "Standard";
+            ticketTypeSummary[name] = count;
+          }
         });
       }
-      const ticketTypeString = Object.keys(ticketTypeSummary).length > 0 ? JSON.stringify(ticketTypeSummary) : 'Standard';
+      const ticketTypeString =
+        Object.keys(ticketTypeSummary).length > 0
+          ? JSON.stringify(ticketTypeSummary)
+          : "Standard";
 
       const bookingData = {
         cinemaId,
@@ -1651,23 +1858,25 @@ export default function SeatSelection() {
         // Include all details for payment page
         movieDetails: movieDetails,
         cinemaDetails: cinemaDetails,
-        showTimeDetails: showTimeDetails
+        showTimeDetails: showTimeDetails,
       };
-      
-      localStorage.setItem('bookingData', JSON.stringify(bookingData));
-      
+
+      localStorage.setItem("bookingData", JSON.stringify(bookingData));
+
       // Close booking summary modal
       setShowBookingSummary(false);
-      
+
       // Redirect to payment page (with encrypted IDs)
       const encrypted = encryptIds({ cinemaId, showId, movieId });
-      router.push(`/payment?cinemaId=${encrypted.cinemaId}&showId=${encrypted.showId}&movieId=${encrypted.movieId}&referenceNo=${confirmedRef}`);
+      router.push(
+        `/payment?cinemaId=${encrypted.cinemaId}&showId=${encrypted.showId}&movieId=${encrypted.movieId}&referenceNo=${confirmedRef}`,
+      );
     } catch (err) {
-      console.error('Error confirming locked seats:', err);
+      console.error("Error confirming locked seats:", err);
       if (err instanceof APIError) {
-        setError(err.message || 'Failed to confirm seats. Please try again.');
+        setError(err.message || "Failed to confirm seats. Please try again.");
       } else {
-        setError('Failed to confirm seats. Please try again.');
+        setError("Failed to confirm seats. Please try again.");
       }
     } finally {
       setIsConfirming(false);
@@ -1677,74 +1886,97 @@ export default function SeatSelection() {
   // Map seats to ticket types
   const getSeatsByTicketType = () => {
     // Use lockedSeats data from API response if available
-    if (lockSeatResponse?.lockedSeats && Array.isArray(lockSeatResponse.lockedSeats) && lockSeatResponse.lockedSeats.length > 0) {
+    if (
+      lockSeatResponse?.lockedSeats &&
+      Array.isArray(lockSeatResponse.lockedSeats) &&
+      lockSeatResponse.lockedSeats.length > 0
+    ) {
       // Group seats by ticket type name
       const seatsByTypeMap = {};
-      
+
       lockSeatResponse.lockedSeats.forEach((seat) => {
-        const ticketTypeName = seat.ticketTypeName || 'ADULT';
+        const ticketTypeName = seat.ticketTypeName || "ADULT";
         if (!seatsByTypeMap[ticketTypeName]) {
           seatsByTypeMap[ticketTypeName] = {
             ticketTypeName: ticketTypeName,
             seats: [],
             totalPrice: 0,
-            totalTax: 0
+            totalTax: 0,
           };
         }
         seatsByTypeMap[ticketTypeName].seats.push(seat.seatNo);
         seatsByTypeMap[ticketTypeName].totalPrice += seat.price || 0;
-        seatsByTypeMap[ticketTypeName].totalTax += (seat.entertainmentTax || 0) + (seat.govtTax || 0);
+        seatsByTypeMap[ticketTypeName].totalTax +=
+          (seat.entertainmentTax || 0) + (seat.govtTax || 0);
       });
-      
+
       return Object.values(seatsByTypeMap);
     }
-    
+
     // Fallback to old calculation if lockedSeats data not available
-    if (!selectedSeats.length || !ticketData?.priceDetails || !selectedTickets) {
+    if (
+      !selectedSeats.length ||
+      !ticketData?.priceDetails ||
+      !selectedTickets
+    ) {
       return [];
     }
 
     const seatsByType = [];
     let seatIndex = 0;
-    
+
     // Get ticket type entries in order
-    const ticketTypeEntries = Object.entries(selectedTickets).filter(([_, count]) => count > 0);
-    
+    const ticketTypeEntries = Object.entries(selectedTickets).filter(
+      ([_, count]) => count > 0,
+    );
+
     ticketTypeEntries.forEach(([ticketTypeID, count]) => {
       const ticketTypeIDNum = parseInt(ticketTypeID);
-      const priceDetail = ticketData.priceDetails.find(p => p.ticketTypeID === ticketTypeIDNum);
-      
+      const priceDetail = ticketData.priceDetails.find(
+        (p) => p.ticketTypeID === ticketTypeIDNum,
+      );
+
       if (priceDetail) {
-        const isTwinSeats = ticketData?.generalInfo?.ticketTypeIDForTwinSeatsAndVIPSeats === ticketTypeIDNum || priceDetail.ticketTypeName?.toUpperCase().includes('TWIN');
+        const isTwinSeats =
+          ticketData?.generalInfo?.ticketTypeIDForTwinSeatsAndVIPSeats ===
+            ticketTypeIDNum ||
+          priceDetail.ticketTypeName?.toUpperCase().includes("TWIN");
         const seatsPerTicket = isTwinSeats ? 2 : 1;
         const effectiveCount = count * seatsPerTicket;
-        
-        const seatsForThisType = selectedSeats.slice(seatIndex, seatIndex + effectiveCount);
+
+        const seatsForThisType = selectedSeats.slice(
+          seatIndex,
+          seatIndex + effectiveCount,
+        );
         if (seatsForThisType.length > 0) {
           seatsByType.push({
-            ticketTypeName: priceDetail.ticketTypeName || 'ADULT',
+            ticketTypeName: priceDetail.ticketTypeName || "ADULT",
             seats: seatsForThisType,
             priceID: priceDetail.priceID,
-            ticketTypeID: ticketTypeIDNum
+            ticketTypeID: ticketTypeIDNum,
           });
         }
         seatIndex += effectiveCount;
       }
     });
-    
+
     return seatsByType;
   };
 
   // Calculate detailed pricing
   const calculateDetailedPrice = () => {
     // Use lockedSeats data from API response if available
-    if (lockSeatResponse?.lockedSeats && Array.isArray(lockSeatResponse.lockedSeats) && lockSeatResponse.lockedSeats.length > 0) {
+    if (
+      lockSeatResponse?.lockedSeats &&
+      Array.isArray(lockSeatResponse.lockedSeats) &&
+      lockSeatResponse.lockedSeats.length > 0
+    ) {
       let netPrice = 0;
       let entertainmentTax = 0;
       let govtTax = 0;
       let onlineCharge = 0;
       let totalTicketPrice = 0;
-      
+
       // Calculate totals from lockedSeats array
       lockSeatResponse.lockedSeats.forEach((seat) => {
         netPrice += seat.price || 0;
@@ -1753,7 +1985,7 @@ export default function SeatSelection() {
         onlineCharge += seat.onlineCharge || 0;
         totalTicketPrice += seat.totalTicketPrice || 0;
       });
-      
+
       // totalTicketPrice already includes all charges (price + entertainmentTax + govtTax + onlineCharge)
       return {
         netPrice: parseFloat(netPrice.toFixed(2)),
@@ -1763,94 +1995,82 @@ export default function SeatSelection() {
         onlineCharge: parseFloat(onlineCharge.toFixed(2)),
         totalTicketPrice: parseFloat(totalTicketPrice.toFixed(2)),
         reservationFee: parseFloat(onlineCharge.toFixed(2)), // onlineCharge serves as reservation fee
-        grandTotal: parseFloat(totalTicketPrice.toFixed(2)) // totalTicketPrice already includes all charges
+        grandTotal: parseFloat(totalTicketPrice.toFixed(2)), // totalTicketPrice already includes all charges
       };
     }
-    
+
     // Fallback to old calculation if lockedSeats data not available
     if (!ticketData?.priceDetails || selectedSeats.length === 0) {
       return {
         netPrice: 0,
         tax: 0,
         totalTicketPrice: 0,
-        reservationFee: 2.10,
-        grandTotal: 0
+        reservationFee: 2.1,
+        grandTotal: 0,
       };
     }
-    
+
     let netPrice = 0;
     let tax = 0;
-    
+
     // Get ticket counts from selectedTickets
     const ticketTypeCounts = {};
     Object.entries(selectedTickets).forEach(([ticketTypeID, count]) => {
       ticketTypeCounts[parseInt(ticketTypeID)] = count;
     });
-    
+
     // Calculate price based on ticket types
     let totalTicketPriceSum = 0;
 
     ticketData.priceDetails.forEach((price) => {
       const count = ticketTypeCounts[price.ticketTypeID] || 0;
       if (count > 0) {
-        const isTwinSeats = ticketData?.generalInfo?.ticketTypeIDForTwinSeatsAndVIPSeats === price.ticketTypeID || price.ticketTypeName?.toUpperCase().includes('TWIN');
+        const isTwinSeats =
+          ticketData?.generalInfo?.ticketTypeIDForTwinSeatsAndVIPSeats ===
+            price.ticketTypeID ||
+          price.ticketTypeName?.toUpperCase().includes("TWIN");
         const seatsPerTicket = isTwinSeats ? 2 : 1;
-          
+
         const pricePerTicket = price.price || 0;
         const taxPerTicket = price.entertainmentTax || 0;
-        
+
         // Use totalTicketPrice if available, otherwise sum components
-        const totalPerTicket = price.totalTicketPrice || (pricePerTicket + taxPerTicket);
-        
+        const totalPerTicket =
+          price.totalTicketPrice || pricePerTicket + taxPerTicket;
+
         netPrice += pricePerTicket * count * seatsPerTicket;
         tax += taxPerTicket * count * seatsPerTicket;
-        
+
         totalTicketPriceSum += totalPerTicket * count * seatsPerTicket;
       }
     });
-    
+
     const totalTicketPrice = totalTicketPriceSum;
-    const reservationFee = 2.10; // Could come from API or config
+    const reservationFee = 2.1; // Could come from API or config
     const grandTotal = totalTicketPrice + reservationFee;
-    
+
     return {
       netPrice: parseFloat(netPrice.toFixed(2)),
       tax: parseFloat(tax.toFixed(2)),
       totalTicketPrice: parseFloat(totalTicketPrice.toFixed(2)),
       reservationFee: parseFloat(reservationFee.toFixed(2)),
-      grandTotal: parseFloat(grandTotal.toFixed(2))
+      grandTotal: parseFloat(grandTotal.toFixed(2)),
     };
   };
 
-  // Format show date and time
-  const formatShowDateTime = () => {
-    if (showTimeDetails?.showTime) {
-      try {
-        const date = new Date(showTimeDetails.showTime);
-        const dateStr = date.toLocaleDateString('en-MY', { 
-          timeZone: 'Asia/Kuala_Lumpur',
-          weekday: 'short',
-          day: 'numeric', 
-          month: 'short', 
-          year: 'numeric' 
-        });
-        const timeStr = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-        return `${dateStr}, ${timeStr}`;
-      } catch (e) {
-        return showTimeDetails.showTime;
-      }
-    }
-    return 'Show Time';
-  };
-
-  const movieTitle = movieDetails?.movieName?.replace(/^\./, '') || 'Movie Title';
-  const movieGenre = movieDetails?.genre || 'N/A';
-  const movieDuration = movieDetails?.duration || 'N/A';
-  const movieLanguage = movieDetails?.language || 'N/A';
-  const movieImage = movieDetails?.imageURL || 'img/banner.jpg';
-  const cinemaName = cinemaDetails?.displayName || cinemaDetails?.name || `Cinema ${cinemaId}`;
-  const experienceType = movieDetails?.type || '2D';
-  const hallNameRaw = showTimeDetails?.hallName || seatLayout?.hallDetails?.hallName || 'HALL - 1';
+  const movieTitle =
+    movieDetails?.movieName?.replace(/^\./, "") || "Movie Title";
+  const movieGenre = movieDetails?.genre || "N/A";
+  const movieDuration = movieDetails?.duration || "N/A";
+  const movieLanguage = movieDetails?.language || "N/A";
+  const movieImage = movieDetails?.imageURL || "img/banner.jpg";
+  const cinemaName =
+    cinemaDetails?.displayName || cinemaDetails?.name || `Cinema ${cinemaId}`;
+  const experienceType = movieDetails?.type || "2D";
+  const hallNameRaw =
+    showTimeDetails?.hallName ||
+    seatLayout?.hallDetails?.hallName ||
+    "HALL - 1";
   const hallName = formatHallName(hallNameRaw);
 
   if (isLoading) {
@@ -1865,7 +2085,9 @@ export default function SeatSelection() {
     return (
       <div className="min-h-screen bg-[#1c1c1c] text-white flex items-center justify-center">
         <div className="text-center">
-          <p className="text-red-400 mb-4">{error || 'Failed to load seat layout'}</p>
+          <p className="text-red-400 mb-4">
+            {error || "Failed to load seat layout"}
+          </p>
           <button
             onClick={loadData}
             className="px-4 py-2 bg-[#FFCA20] text-black rounded hover:bg-[#FFCA20]/90"
@@ -1877,11 +2099,50 @@ export default function SeatSelection() {
     );
   }
 
+  // Format show date and time
+  const formatShowDateTime = () => {
+    if (showTimeDetails?.showTime) {
+      try {
+        const val = showTimeDetails.showTime;
+
+        // split date and time manually (no timezone conversion)
+        const [datePart, timePart] = val.split(" ");
+
+        const [year, month, day] = datePart.split("-");
+        const [hour, minute] = timePart.split(":");
+
+        const date = new Date(year, month - 1, day, hour, minute);
+
+        const dateStr = date.toLocaleDateString("en-US", {
+          weekday: "short",
+          day: "numeric",
+          month: "short",
+          year: "numeric",
+        });
+
+        const timeStr = date.toLocaleTimeString("en-US", {
+          hour: "numeric",
+          minute: "2-digit",
+          hour12: true,
+        });
+
+        return `${dateStr}, ${timeStr}`;
+      } catch (e) {
+        return showTimeDetails.showTime;
+      }
+    }
+
+    if (showDate && showTime) {
+      return `${showDate}, ${showTime}`;
+    }
+
+    return "Show Time";
+  };
   // Format timer display (MM:SS)
   const formatTimer = (seconds) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
   return (
@@ -1911,739 +2172,1047 @@ export default function SeatSelection() {
         }
         @media (min-width: 1280px) {
           .seat-grid-responsive {
-            grid-template-columns: repeat(${globalMaxColumn}, minmax(44px, 1fr)) !important;
+            grid-template-columns: repeat(
+              ${globalMaxColumn},
+              minmax(44px, 1fr)
+            ) !important;
             gap: 0.5rem !important;
           }
         }
       `}</style>
       <div className="min-h-screen bg-[#1c1c1c] text-white pb-10">
-      {/* Countdown Timer */}
-      {/* {timerActive && lockReferenceNo && (
+        {/* Countdown Timer */}
+        {/* {timerActive && lockReferenceNo && (
         <div className="bg-[#FFCA20] text-black px-4 py-2 text-center font-bold text-sm">
           Time remaining: {formatTimer(timeLeft)}
         </div>
       )} */}
-      
-      {/* Header */}
-      <div className="relative">
-        <div className="absolute top-5 left-5 z-10">
-          <button 
-            className="flex items-center gap-2 text-white/70 hover:text-white text-sm" 
-            onClick={handleGoBack}
-          >
-            <ChevronLeft className="w-4 h-4" />
-            <span>Back</span>
-          </button>
-        </div>
 
-        {/* Breadcrumb */}
-        <div className="absolute top-5 right-3 sm:right-5 z-10 hidden sm:block">
-          <div className="flex items-center gap-2 text-xs text-white/50">
-            <span className="hover:text-white cursor-pointer">Select cinema</span>
-            <span>›</span>
-            <span className="hover:text-white cursor-pointer">Ticket type</span>
-            <span>›</span>
-            <span className="text-white font-medium">Select seat</span>
-            <span>›</span>
-            <span className="hover:text-white cursor-pointer">Payment</span>
+        {/* Header */}
+        <div className="relative">
+          <div className="absolute top-5 left-5 z-10">
+            <button
+              className="flex items-center gap-2 text-white/70 hover:text-white text-sm"
+              onClick={handleGoBack}
+            >
+              <ChevronLeft className="w-4 h-4" />
+              <span>Back</span>
+            </button>
+          </div>
+
+          {/* Breadcrumb */}
+          <div className="absolute top-5 right-3 sm:right-5 z-10 hidden sm:block">
+            <div className="flex items-center gap-2 text-xs text-white/50">
+              <span className="hover:text-white cursor-pointer">
+                Select cinema
+              </span>
+              <span>›</span>
+              <span className="hover:text-white cursor-pointer">
+                Ticket type
+              </span>
+              <span>›</span>
+              <span className="text-white font-medium">Select seat</span>
+              <span>›</span>
+              <span className="hover:text-white cursor-pointer">Payment</span>
+            </div>
+          </div>
+
+          {/* Hero Image */}
+          <div className="relative h-56 overflow-hidden">
+            <img
+              src={movieImage}
+              alt={movieTitle}
+              className="absolute inset-0 w-full h-full object-cover object-center"
+              onError={(e) => {
+                e.target.src = "img/banner.jpg";
+              }}
+            />
+            <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-[#1c1c1c]/70 to-[#1c1c1c]" />
+
+            {/* Movie Info */}
+            <div className="absolute bottom-5 left-8">
+              <h1 className="text-3xl font-bold mb-1.5">{movieTitle}</h1>
+              <div className="flex items-center gap-3 text-xs text-white/70 mb-3">
+                <RatingIcon rating={movieDetails?.rating} className="w-5 h-5" />
+                <span>{movieGenre}</span>
+                <span>|</span>
+                <span>{movieDuration}</span>
+                <span>|</span>
+                <span>{movieLanguage}</span>
+              </div>
+              <div className="flex items-center gap-4 text-xs text-white/80 flex-wrap">
+                <div className="flex items-center gap-1.5">
+                  <MapPin className="w-3.5 h-3.5" />
+                  <span>{cinemaName}</span>
+                </div>
+                <div className="flex items-center gap-1.5 bg-white/10 px-2 py-1 rounded">
+                  <span className="font-medium">{experienceType}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="font-medium">{hallName}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5" />
+                  <span>{formatShowDateTime()}</span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Hero Image */}
-        <div className="relative h-56 overflow-hidden">
-          <img 
-            src={movieImage} 
-            alt={movieTitle}
-            className="absolute inset-0 w-full h-full object-cover object-center"
-            onError={(e) => {
-              e.target.src = 'img/banner.jpg';
-            }}
-          />
-          <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-[#1c1c1c]/70 to-[#1c1c1c]" />
-          
-          {/* Movie Info */}
-          <div className="absolute bottom-5 left-8">
-            <h1 className="text-3xl font-bold mb-1.5">{movieTitle}</h1>
-            <div className="flex items-center gap-3 text-xs text-white/70 mb-3">
-              <RatingIcon rating={movieDetails?.rating} className="w-5 h-5" />
-              <span>{movieGenre}</span>
-              <span>|</span>
-              <span>{movieDuration}</span>
-              <span>|</span>
-              <span>{movieLanguage}</span>
-            </div>
-            <div className="flex items-center gap-4 text-xs text-white/80 flex-wrap">
-              <div className="flex items-center gap-1.5">
-                <MapPin className="w-3.5 h-3.5" />
-                <span>{cinemaName}</span>
+        <div className="w-full max-w-full mx-auto px-2 sm:px-4 md:px-6 lg:px-8 mt-4 sm:mt-8">
+          {/* Timer and Seat Legend Section */}
+          <div className="mb-4 sm:mb-8">
+            {/* 5-minute Timer - Right side above legend */}
+            {pageTimerActive && (
+              <div className="flex justify-end mb-4">
+                <div className="relative">
+                  <div className="bg-[#D4A574] h-1 w-full absolute -top-1"></div>
+                  <div className="bg-[#1a1a1a] px-4 py-2 rounded text-white font-semibold text-sm">
+                    Time Remaining: {formatTimer(pageTimer)}
+                  </div>
+                </div>
               </div>
-              <div className="flex items-center gap-1.5 bg-white/10 px-2 py-1 rounded">
-                <span className="font-medium">{experienceType}</span>
+            )}
+
+            {/* Seat Legend */}
+            <div className="flex items-center justify-center flex-wrap gap-3 sm:gap-6 text-[10px] sm:text-xs">
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <SeatIcon
+                  variant="outline"
+                  seatType="normal"
+                  className="text-gray-400"
+                />
+                <span className="text-white/70">Available</span>
               </div>
-              <div className="flex items-center gap-1.5">
-                <span className="font-medium">{hallName}</span>
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <SeatIcon variant="selected" seatType="normal" />
+                <span className="text-white/70">Selected</span>
               </div>
-              <div className="flex items-center gap-1.5">
-                <Clock className="w-3.5 h-3.5" />
-                <span>{formatShowDateTime()}</span>
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <SeatIcon variant="occupied" seatType="normal" />
+                <span className="text-white/70">Occupied</span>
+              </div>
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <SeatIcon
+                  variant="outline"
+                  seatType="handicap"
+                  className="text-gray-400"
+                />
+                <span className="text-white/70">OKU</span>
+              </div>
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <div className="flex items-center shrink-0">
+                  <SeatIcon
+                    variant="outline"
+                    seatType="twin"
+                    className="text-gray-400"
+                  />
+                  <SeatIcon
+                    variant="outline"
+                    seatType="twin"
+                    className="text-gray-400"
+                  />
+                </div>
+
+                <span className="text-white/70">Twins</span>
               </div>
             </div>
           </div>
-        </div>
-      </div>
 
-      <div className="w-full max-w-full mx-auto px-2 sm:px-4 md:px-6 lg:px-8 mt-4 sm:mt-8">
-       
+          {/* Seat Map Area */}
 
-        {/* Timer and Seat Legend Section */}
-        <div className="mb-4 sm:mb-8">
-          {/* 5-minute Timer - Right side above legend */}
-          {pageTimerActive && (
-            <div className="flex justify-end mb-4">
-              <div className="relative">
-                <div className="bg-[#D4A574] h-1 w-full absolute -top-1"></div>
-                <div className="bg-[#1a1a1a] px-4 py-2 rounded text-white font-semibold text-sm">
-                  Time Remaining: {formatTimer(pageTimer)}
+          {/* Screen - Full Width Fixed Top */}
+          <div className="mb-8 relative w-full px-4 sm:px-8 md:px-12 lg:px-16 mx-auto flex justify-center items-center">
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white/90 font-bold tracking-[1em] text-xs sm:text-sm md:text-base lg:text-lg select-none pointer-events-none whitespace-nowrap mt-4">
+              S C R E E N
+            </div>
+            <svg
+              width="100%"
+              height="65"
+              viewBox="0 0 898 65"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              className="w-full h-auto"
+              preserveAspectRatio="xMidYMid meet"
+            >
+              <g filter="url(#filter0_d_2065_2204)">
+                <path
+                  d="M19 39.5C19 39.5 280.919 15 449 15C617.081 15 879 39.5 879 39.5"
+                  stroke="#F0F0F0"
+                  strokeWidth="4"
+                  strokeLinecap="round"
+                />
+              </g>
+              <defs>
+                <filter
+                  id="filter0_d_2065_2204"
+                  x="0"
+                  y="0"
+                  width="898"
+                  height="62.5001"
+                  filterUnits="userSpaceOnUse"
+                  colorInterpolationFilters="sRGB"
+                >
+                  <feFlood floodOpacity="0" result="BackgroundImageFix" />
+                  <feColorMatrix
+                    in="SourceAlpha"
+                    type="matrix"
+                    values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0"
+                    result="hardAlpha"
+                  />
+                  <feOffset dy="4" />
+                  <feGaussianBlur stdDeviation="8.5" />
+                  <feComposite in2="hardAlpha" operator="out" />
+                  <feColorMatrix
+                    type="matrix"
+                    values="0 0 0 0 0.941176 0 0 0 0 0.941176 0 0 0 0 0.941176 0 0 0 1 0"
+                  />
+                  <feBlend
+                    mode="normal"
+                    in2="BackgroundImageFix"
+                    result="effect1_dropShadow_2065_2204"
+                  />
+                  <feBlend
+                    mode="normal"
+                    in="SourceGraphic"
+                    in2="effect1_dropShadow_2065_2204"
+                    result="shape"
+                  />
+                </filter>
+              </defs>
+            </svg>
+          </div>
+
+          {/* Seat Map Box (Dark Background) - Fixed Wrapper with Fixed Labels */}
+          <div className="bg-[#1a1a1a] rounded-lg p-2 sm:p-2 md:p-3 lg:p-4 xl:p-6 mb-6 w-full max-w-full mt-8 relative">
+            {/* Fixed Left Labels Column */}
+            <div className="absolute left-2 sm:left-2 md:left-3 lg:left-4 xl:left-6 top-2 sm:top-2 md:top-3 lg:top-4 xl:top-6 z-30 pointer-events-none">
+              <div className="flex flex-col gap-2 sm:gap-2.5 md:gap-3 lg:gap-4 xl:gap-6">
+                {rowLetters.map((rowLetter) => (
+                  <div
+                    key={`left-${rowLetter}`}
+                    className="text-[9px] sm:text-[10px] md:text-[10px] lg:text-xs text-white/40 w-5 sm:w-6 md:w-6 lg:w-8 xl:w-10 text-center font-medium flex items-center justify-center"
+                    style={{ height: "42px" }}
+                  >
+                    {rowLetter}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Fixed Right Labels Column */}
+            <div className="absolute right-2 sm:right-2 md:right-3 lg:right-4 xl:right-6 top-2 sm:top-2 md:top-3 lg:top-4 xl:top-6 z-30 pointer-events-none">
+              <div className="flex flex-col gap-2 sm:gap-2.5 md:gap-3 lg:gap-4 xl:gap-6">
+                {rowLetters.map((rowLetter) => (
+                  <div
+                    key={`right-${rowLetter}`}
+                    className="text-[9px] sm:text-[10px] md:text-[10px] lg:text-xs text-white/40 w-5 sm:w-6 md:w-6 lg:w-8 xl:w-10 text-center font-medium flex items-center justify-center"
+                    style={{ height: "42px" }}
+                  >
+                    {rowLetter}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Scrollable Container - Scrolls INSIDE the dark box with padding for labels */}
+            <div
+              className="w-full overflow-x-auto no-scrollbar relative pb-2 md:pb-3 px-6 sm:px-7 md:px-8 lg:px-10 xl:px-12"
+              style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+            >
+              <div
+                className="w-full flex flex-col items-stretch"
+                style={{ minWidth: `${globalMaxColumn * 38}px` }}
+              >
+                <div className="flex flex-col gap-2 sm:gap-2.5 md:gap-3 lg:gap-4 xl:gap-6 w-full">
+                  {rowLetters.map((rowLetter, rowIndex) => {
+                    const rowSeats = seatGrid[rowLetter];
+                    // Get max column from actual seat data in this row (or use 0 if no seats)
+                    const rowMaxColumn = rowSeats
+                      ? Math.max(
+                          ...Object.keys(rowSeats).map((k) => parseInt(k) || 0),
+                          0,
+                        )
+                      : 0;
+
+                    // Get dynamic gap class based on row seat count
+                    const dynamicGapClass = getDynamicGap(rowMaxColumn);
+
+                    // Check if this is Hall 6 or a Kids and Family hall for seat labeling
+                    const hallNo = seatLayout?.hallDetails?.hallNo;
+                    const hallName =
+                      seatLayout?.hallDetails?.hallName ||
+                      showTimeDetails?.hallName ||
+                      "";
+                    const formattedHallName = formatHallName(hallName);
+                    const isHall6 =
+                      hallNo === 6 ||
+                      hallNo === "6" ||
+                      hallName?.includes("6") ||
+                      hallName?.toUpperCase()?.includes("HALL - 6") ||
+                      formattedHallName === "Hall-6 (Kids and Family)";
+
+                    return (
+                      <div
+                        key={rowLetter}
+                        className="flex items-center w-full relative"
+                      >
+                        {/* Seats - Full Width Container */}
+                        <div className="w-full">
+                          <div
+                            className="grid w-full seat-grid-responsive"
+                            style={{
+                              minWidth: `${globalMaxColumn * 38}px`,
+                            }}
+                          >
+                            {Array.from({ length: globalMaxColumn }, (_, i) => {
+                              const column = globalMaxColumn - i;
+                              const seat = rowSeats[column];
+
+                              if (!seat) {
+                                // Empty grid cell - maintains column alignment
+                                return (
+                                  <div
+                                    key={`${rowLetter}-${column}`}
+                                    className="w-full"
+                                  ></div>
+                                );
+                              }
+
+                              const isSelected = isSeatSelected(seat);
+                              const isOccupied = isSeatOccupied(seat);
+                              const isFailed = failedSeats.includes(
+                                seat.seatNo,
+                              );
+                              const isDouble = isDoubleSeat(seat);
+                              const isPartner = isPartnerSeat(seat);
+                              const seatType = getSeatType(seat);
+                              const isDisabled = isSeatDisabled(seat);
+
+                              // Extract seat number from seatNo (e.g., "A10" -> "10")
+                              const seatNumber = seat.seatNo.replace(
+                                rowLetter,
+                                "",
+                              );
+
+                              // Get seat label based on seatType:
+                              // 0 = Normal (no label)
+                              // 1 = VIP (show "VIP")
+                              // 2 = Twin Seat (no label)
+                              // 3 = Kids Seat (show "KIDS")
+                              // 4 = Sofa (show "BED")
+                              const getSeatLabel = () => {
+                                if (!isHall6) return null;
+                                const rawSeatType = Number(seat.seatType); // Convert to number for proper comparison
+
+                                // Map seatType to labels:
+                                if (rawSeatType === 1) return "VIP"; // VIP seat
+                                if (rawSeatType === 3) return "KIDS"; // Kids seat
+                                if (rawSeatType === 4) return "BED"; // Sofa seat
+                                // seatType 0 (Normal) and 2 (Twin) - no label
+                                return null;
+                              };
+                              const seatLabel = getSeatLabel();
+
+                              // Get label for partner seat (for twin seats)
+                              const getPartnerSeatLabel = () => {
+                                if (!isHall6 || !isDouble || isPartner)
+                                  return null;
+                                const partnerSeat = seatsData.find(
+                                  (s) => s.seatID === seat.partnerSeatID,
+                                );
+                                if (!partnerSeat) return null;
+                                const rawSeatType = Number(
+                                  partnerSeat.seatType,
+                                ); // Convert to number for proper comparison
+
+                                // Map seatType to labels:
+                                if (rawSeatType === 1) return "VIP"; // VIP seat
+                                if (rawSeatType === 3) return "KIDS"; // Kids seat
+                                if (rawSeatType === 4) return "BED"; // Sofa seat
+                                // seatType 0 (Normal) and 2 (Twin) - no label
+                                return null;
+                              };
+                              const partnerSeatLabel = getPartnerSeatLabel();
+
+                              // For double/twin seats, render as pairs
+                              if (isDouble && !isPartner) {
+                                const partnerSeat = seatsData.find(
+                                  (s) => s.seatID === seat.partnerSeatID,
+                                );
+                                const partnerIsSelected = partnerSeat
+                                  ? isSeatSelected(partnerSeat)
+                                  : false;
+                                const partnerIsOccupied = partnerSeat
+                                  ? isSeatOccupied(partnerSeat)
+                                  : false;
+                                const partnerIsDisabled = partnerSeat
+                                  ? isSeatDisabled(partnerSeat)
+                                  : false;
+                                const bothSelected =
+                                  isSelected && partnerIsSelected;
+                                // Both seats in a twin pair have the same seatType (twin)
+                                const partnerSeatType = partnerSeat
+                                  ? getSeatType(partnerSeat)
+                                  : seatType;
+
+                                return (
+                                  <div
+                                    key={`${rowLetter}-${column}`}
+                                    className="flex flex-col items-center justify-center gap-0.5 w-full col-span-2"
+                                  >
+                                    <div className="flex items-center shrink-0 min-w-0">
+                                      <button
+                                        onClick={() => toggleSeat(seat)}
+                                        disabled={
+                                          isOccupied ||
+                                          partnerIsOccupied ||
+                                          isDisabled ||
+                                          partnerIsDisabled
+                                        }
+                                        className={`relative rounded-l shrink-0 transition-all ${
+                                          bothSelected
+                                            ? ""
+                                            : isOccupied ||
+                                                partnerIsOccupied ||
+                                                isDisabled ||
+                                                partnerIsDisabled
+                                              ? "cursor-not-allowed opacity-60"
+                                              : "hover:opacity-80"
+                                        }`}
+                                      >
+                                        <SeatIcon
+                                          seatType={seatType}
+                                          variant={
+                                            bothSelected
+                                              ? "selected"
+                                              : isOccupied ||
+                                                  partnerIsOccupied ||
+                                                  isFailed
+                                                ? "occupied"
+                                                : "outline"
+                                          }
+                                          className={
+                                            bothSelected
+                                              ? ""
+                                              : isOccupied ||
+                                                  partnerIsOccupied ||
+                                                  isFailed
+                                                ? ""
+                                                : "text-gray-400"
+                                          }
+                                        />
+                                      </button>
+                                      {partnerSeat && (
+                                        <button
+                                          onClick={() =>
+                                            toggleSeat(partnerSeat)
+                                          }
+                                          disabled={
+                                            isOccupied ||
+                                            partnerIsOccupied ||
+                                            isDisabled ||
+                                            partnerIsDisabled
+                                          }
+                                          className={`relative rounded-r shrink-0 transition-all ${
+                                            bothSelected
+                                              ? ""
+                                              : isOccupied ||
+                                                  partnerIsOccupied ||
+                                                  isDisabled ||
+                                                  partnerIsDisabled
+                                                ? "cursor-not-allowed opacity-60"
+                                                : "hover:opacity-80"
+                                          }`}
+                                        >
+                                          <SeatIcon
+                                            seatType={partnerSeatType}
+                                            variant={
+                                              bothSelected
+                                                ? "selected"
+                                                : isOccupied ||
+                                                    partnerIsOccupied ||
+                                                    isFailed
+                                                  ? "occupied"
+                                                  : "outline"
+                                            }
+                                            className={
+                                              bothSelected
+                                                ? ""
+                                                : isOccupied ||
+                                                    partnerIsOccupied ||
+                                                    isFailed
+                                                  ? ""
+                                                  : "text-gray-400"
+                                            }
+                                          />
+                                        </button>
+                                      )}
+                                    </div>
+                                    {/* Seat Number Below Icon */}
+                                    <div className="flex gap-2">
+                                      <span
+                                        className={`text-[9px] sm:text-[10px] font-semibold leading-tight whitespace-nowrap ${
+                                          isOccupied || partnerIsOccupied
+                                            ? "text-zinc-600"
+                                            : "text-zinc-400"
+                                        }`}
+                                      >
+                                        {/* Reconstruct full seat ID for display since seatNumber might be stripped */}
+                                        {seat.seatNo}
+                                      </span>
+                                      {partnerSeat && (
+                                        <span
+                                          className={`text-[9px] sm:text-[10px] font-semibold leading-tight whitespace-nowrap ${
+                                            isOccupied || partnerIsOccupied
+                                              ? "text-zinc-600"
+                                              : "text-zinc-400"
+                                          }`}
+                                        >
+                                          {partnerSeat.seatNo}
+                                        </span>
+                                      )}
+                                    </div>
+                                    {(seatLabel || partnerSeatLabel) && (
+                                      <span className="text-[9px] sm:text-[10px] text-[#FFCA20] font-semibold leading-tight whitespace-nowrap">
+                                        {seatLabel || partnerSeatLabel}
+                                      </span>
+                                    )}
+                                  </div>
+                                );
+                              } else if (isPartner) {
+                                // Skip partner seats (already rendered with main seat)
+                                return null;
+                              } else {
+                                // Single seat
+                                return (
+                                  <div
+                                    key={`${rowLetter}-${column}`}
+                                    className="flex flex-col items-center justify-center gap-0.5 w-full"
+                                  >
+                                    <button
+                                      onClick={() => toggleSeat(seat)}
+                                      disabled={isOccupied || isDisabled}
+                                      className={`relative rounded shrink-0 transition-all min-w-0 ${
+                                        isSelected
+                                          ? ""
+                                          : isOccupied || isDisabled
+                                            ? "cursor-not-allowed opacity-60"
+                                            : "hover:opacity-80"
+                                      }`}
+                                    >
+                                      <SeatIcon
+                                        seatType={seatType}
+                                        variant={
+                                          isSelected
+                                            ? "selected"
+                                            : isOccupied || isFailed
+                                              ? "occupied"
+                                              : "outline"
+                                        }
+                                        className={
+                                          isSelected
+                                            ? ""
+                                            : isOccupied || isFailed
+                                              ? ""
+                                              : "text-gray-400"
+                                        }
+                                      />
+                                    </button>
+
+                                    {/* Seat Number for Single Seat */}
+                                    <span
+                                      className={`text-[9px] sm:text-[10px] font-semibold leading-tight whitespace-nowrap ${
+                                        isOccupied
+                                          ? "text-zinc-600"
+                                          : "text-zinc-400"
+                                      }`}
+                                    >
+                                      {seat.seatNo}
+                                    </span>
+                                    {seatLabel && (
+                                      <span className="text-[9px] sm:text-[10px] text-[#FFCA20] font-semibold leading-tight whitespace-nowrap">
+                                        {seatLabel}
+                                      </span>
+                                    )}
+                                  </div>
+                                );
+                              }
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Footer - Selected Seats and Book Button - Full Width */}
+          <div className="w-full px-4 sm:px-6 md:px-8 lg:px-12 mt-4 sm:mt-6">
+            <div className="bg-[#1a1a1a] rounded-lg p-4 sm:p-5 md:p-6">
+              <div className="flex flex-col gap-4 sm:gap-5">
+                {/* Selected Seats Cards */}
+                {selectedSeats.length > 0 ? (
+                  <div className="flex flex-wrap gap-3 sm:gap-4">
+                    {selectedSeats.sort().map((seatNo) => {
+                      const seatPrice = getSeatPrice(seatNo);
+                      return (
+                        <div
+                          key={seatNo}
+                          className="bg-[#2a2a2a] rounded-lg px-4 py-3 flex items-center justify-between gap-3 min-w-[140px] sm:min-w-[160px]"
+                        >
+                          <div className="flex-1">
+                            <div className="text-white/70 text-xs sm:text-sm mb-1">
+                              {seatNo}
+                            </div>
+                            <div className="text-[#FFCA20] font-semibold text-sm sm:text-base">
+                              RM {seatPrice.toFixed(2)}
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => removeSeat(seatNo)}
+                            className="w-6 h-6 rounded-full bg-[#3a3a3a] hover:bg-[#4a4a4a] flex items-center justify-center transition flex-shrink-0"
+                            aria-label={`Remove ${seatNo}`}
+                          >
+                            <X className="w-4 h-4 text-white" />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-center text-white/50 text-sm py-2">
+                    No seats selected
+                  </div>
+                )}
+
+                {/* Book Button */}
+                <div className="flex flex-col items-center gap-3 sm:gap-4">
+                  <button
+                    onClick={handleBookSeat}
+                    disabled={selectedSeats.length !== maxSeats || isLocking}
+                    className={`px-8 sm:px-10 md:px-12 py-2.5 sm:py-3 md:py-3.5 rounded font-medium text-sm sm:text-base transition ${
+                      selectedSeats.length === maxSeats && !isLocking
+                        ? "bg-[#FFCA20] text-black hover:bg-[#FFCA20]/90"
+                        : "bg-[#FFCA20]/30 text-black/50 cursor-not-allowed"
+                    }`}
+                  >
+                    {isLocking ? "Locking seats..." : "Book seat"}
+                  </button>
+
+                  {error && (
+                    <div className="text-xs sm:text-sm text-red-400 text-center mt-1">
+                      {error}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Booking Summary Modal */}
+          {/* Maintenance Modal */}
+          {showMaintenanceModal && (
+            <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-60 p-4">
+              <div className="bg-[#1a1a1a] rounded-lg w-full max-w-md p-6 text-center">
+                <h2 className="text-2xl font-bold text-white mb-4">
+                  Maintenance
+                </h2>
+                <p className="text-white/80 mb-6">
+                  We are unable to process online booking now. Thank you for
+                  your patience.
+                </p>
+                <div className="flex justify-center">
+                  <button
+                    onClick={() => setShowMaintenanceModal(false)}
+                    className="px-6 py-2 rounded bg-[#FFCA20] text-black font-medium"
+                  >
+                    OK
+                  </button>
                 </div>
               </div>
             </div>
           )}
-          
-        {/* Seat Legend */}
-          <div className="flex items-center justify-center flex-wrap gap-3 sm:gap-6 text-[10px] sm:text-xs">
-          <div className="flex items-center gap-1.5 sm:gap-2">
-              <SeatIcon variant="outline" seatType="normal" className="text-gray-400" />
-            <span className="text-white/70">Available</span>
-          </div>
-          <div className="flex items-center gap-1.5 sm:gap-2">
-              <SeatIcon variant="selected" seatType="normal" />
-            <span className="text-white/70">Selected</span>
-          </div>
-          <div className="flex items-center gap-1.5 sm:gap-2">
-              <SeatIcon variant="occupied" seatType="normal" />
-            <span className="text-white/70">Occupied</span>
-          </div>
-          <div className="flex items-center gap-1.5 sm:gap-2">
-              <SeatIcon variant="outline" seatType="handicap" className="text-gray-400" />
-              <span className="text-white/70">OKU</span>
-          </div>
-          <div className="flex items-center gap-1.5 sm:gap-2">
-              <div className="flex items-center shrink-0">
-              <SeatIcon variant="outline" seatType="twin" className="text-gray-400" />
-              <SeatIcon variant="outline" seatType="twin" className="text-gray-400" />
-            </div>
-             
-              <span className="text-white/70">Twins</span>
-          </div>
-          </div>
-        </div>
+          {showBookingSummary &&
+            (() => {
+              const priceInfo = calculateDetailedPrice();
+              const seatsByType = getSeatsByTicketType();
+              const movieTitle =
+                movieDetails?.movieName || movieDetails?.title || "Movie";
+              const movieImage = movieDetails?.imageURL || "img/banner.jpg";
+              const movieGenre = movieDetails?.genre || "N/A";
+              const movieDuration = movieDetails?.duration || "N/A";
+              const movieLanguage = movieDetails?.language || "N/A";
+              const cinemaName =
+                cinemaDetails?.displayName ||
+                cinemaDetails?.name ||
+                `Cinema ${cinemaId}`;
+              const experienceType = movieDetails?.type || "2D";
 
-        {/* Seat Map Area */}
-        
-        {/* Screen - Full Width Fixed Top */}
-        <div className="mb-8 relative w-full px-4 sm:px-8 md:px-12 lg:px-16 mx-auto flex justify-center items-center">
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white/90 font-bold tracking-[1em] text-xs sm:text-sm md:text-base lg:text-lg select-none pointer-events-none whitespace-nowrap mt-4">
-            S C R E E N
-          </div>
-          <svg width="100%" height="65" viewBox="0 0 898 65" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-auto" preserveAspectRatio="xMidYMid meet">
-            <g filter="url(#filter0_d_2065_2204)">
-              <path d="M19 39.5C19 39.5 280.919 15 449 15C617.081 15 879 39.5 879 39.5" stroke="#F0F0F0" strokeWidth="4" strokeLinecap="round"/>
-            </g>
-            <defs>
-              <filter id="filter0_d_2065_2204" x="0" y="0" width="898" height="62.5001" filterUnits="userSpaceOnUse" colorInterpolationFilters="sRGB">
-                <feFlood floodOpacity="0" result="BackgroundImageFix"/>
-                <feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0" result="hardAlpha"/>
-                <feOffset dy="4"/>
-                <feGaussianBlur stdDeviation="8.5"/>
-                <feComposite in2="hardAlpha" operator="out"/>
-                <feColorMatrix type="matrix" values="0 0 0 0 0.941176 0 0 0 0 0.941176 0 0 0 0 0.941176 0 0 0 1 0"/>
-                <feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow_2065_2204"/>
-                <feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow_2065_2204" result="shape"/>
-              </filter>
-            </defs>
-          </svg>
-        </div>
+              // Format show date and time
+              const formatShowDateTime = () => {
+                if (showTimeDetails?.showTime) {
+                  try {
+                    const val = showTimeDetails.showTime;
 
-        {/* Seat Map Box (Dark Background) - Fixed Wrapper with Fixed Labels */}
-        <div className="bg-[#1a1a1a] rounded-lg p-2 sm:p-2 md:p-3 lg:p-4 xl:p-6 mb-6 w-full max-w-full mt-8 relative">
-          
-          {/* Fixed Left Labels Column */}
-          <div className="absolute left-2 sm:left-2 md:left-3 lg:left-4 xl:left-6 top-2 sm:top-2 md:top-3 lg:top-4 xl:top-6 z-30 pointer-events-none">
-            <div className="flex flex-col gap-2 sm:gap-2.5 md:gap-3 lg:gap-4 xl:gap-6">
-              {rowLetters.map((rowLetter) => (
-                <div key={`left-${rowLetter}`} className="text-[9px] sm:text-[10px] md:text-[10px] lg:text-xs text-white/40 w-5 sm:w-6 md:w-6 lg:w-8 xl:w-10 text-center font-medium flex items-center justify-center" style={{ height: '42px' }}>
-                  {rowLetter}
-                </div>
-              ))}
-            </div>
-          </div>
-          
-          {/* Fixed Right Labels Column */}
-          <div className="absolute right-2 sm:right-2 md:right-3 lg:right-4 xl:right-6 top-2 sm:top-2 md:top-3 lg:top-4 xl:top-6 z-30 pointer-events-none">
-            <div className="flex flex-col gap-2 sm:gap-2.5 md:gap-3 lg:gap-4 xl:gap-6">
-              {rowLetters.map((rowLetter) => (
-                <div key={`right-${rowLetter}`} className="text-[9px] sm:text-[10px] md:text-[10px] lg:text-xs text-white/40 w-5 sm:w-6 md:w-6 lg:w-8 xl:w-10 text-center font-medium flex items-center justify-center" style={{ height: '42px' }}>
-                  {rowLetter}
-                </div>
-              ))}
-            </div>
-          </div>
-          
-          {/* Scrollable Container - Scrolls INSIDE the dark box with padding for labels */}
-          <div className="w-full overflow-x-auto no-scrollbar relative pb-2 md:pb-3 px-6 sm:px-7 md:px-8 lg:px-10 xl:px-12" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-            <div className="w-full flex flex-col items-stretch" style={{ minWidth: `${globalMaxColumn * 38}px` }}>
-              <div className="flex flex-col gap-2 sm:gap-2.5 md:gap-3 lg:gap-4 xl:gap-6 w-full">
-            {rowLetters.map((rowLetter, rowIndex) => {
-              const rowSeats = seatGrid[rowLetter];
-              // Get max column from actual seat data in this row (or use 0 if no seats)
-              const rowMaxColumn = rowSeats ? Math.max(...Object.keys(rowSeats).map(k => parseInt(k) || 0), 0) : 0;
-              
-              // Get dynamic gap class based on row seat count
-              const dynamicGapClass = getDynamicGap(rowMaxColumn);
-              
-              // Check if this is Hall 6 or a Kids and Family hall for seat labeling
-              const hallNo = seatLayout?.hallDetails?.hallNo;
-              const hallName = seatLayout?.hallDetails?.hallName || showTimeDetails?.hallName || '';
-              const formattedHallName = formatHallName(hallName);
-              const isHall6 = hallNo === 6 || hallNo === '6' || hallName?.includes('6') || hallName?.toUpperCase()?.includes('HALL - 6') || formattedHallName === 'Hall-6 (Kids and Family)';
-              
-              return (
-                <div key={rowLetter} className="flex items-center w-full relative">
-                
-                {/* Seats - Full Width Container */}
-                <div className="w-full">
-                  <div 
-                    className="grid w-full seat-grid-responsive"
-                    style={{
-                      minWidth: `${globalMaxColumn * 38}px`
-                    }}
-                  >
-                    {Array.from({ length: globalMaxColumn }, (_, i) => {
-                      const column = globalMaxColumn - i;
-                      const seat = rowSeats[column];
-                      
-                      if (!seat) {
-                        // Empty grid cell - maintains column alignment
-                        return <div key={`${rowLetter}-${column}`} className="w-full"></div>;
-                      }
+                    // split date and time manually (no timezone conversion)
+                    const [datePart, timePart] = val.split(" ");
 
-                      const isSelected = isSeatSelected(seat);
-                      const isOccupied = isSeatOccupied(seat);
-                      const isFailed = failedSeats.includes(seat.seatNo);
-                      const isDouble = isDoubleSeat(seat);
-                      const isPartner = isPartnerSeat(seat);
-                      const seatType = getSeatType(seat);
-                      const isDisabled = isSeatDisabled(seat);
-                      
-                      // Extract seat number from seatNo (e.g., "A10" -> "10")
-                      const seatNumber = seat.seatNo.replace(rowLetter, '');
-                    
-                      // Get seat label based on seatType:
-                      // 0 = Normal (no label)
-                      // 1 = VIP (show "VIP")
-                      // 2 = Twin Seat (no label)
-                      // 3 = Kids Seat (show "KIDS")
-                      // 4 = Sofa (show "BED")
-                      const getSeatLabel = () => {
-                        if (!isHall6) return null;
-                        const rawSeatType = Number(seat.seatType); // Convert to number for proper comparison
-                        
-                        // Map seatType to labels:
-                        if (rawSeatType === 1) return 'VIP';      // VIP seat
-                        if (rawSeatType === 3) return 'KIDS';    // Kids seat
-                        if (rawSeatType === 4) return 'BED';     // Sofa seat
-                        // seatType 0 (Normal) and 2 (Twin) - no label
-                        return null;
-                      };
-                      const seatLabel = getSeatLabel();
-                      
-                      // Get label for partner seat (for twin seats)
-                      const getPartnerSeatLabel = () => {
-                        if (!isHall6 || !isDouble || isPartner) return null;
-                        const partnerSeat = seatsData.find(s => s.seatID === seat.partnerSeatID);
-                        if (!partnerSeat) return null;
-                        const rawSeatType = Number(partnerSeat.seatType); // Convert to number for proper comparison
-                        
-                        // Map seatType to labels:
-                        if (rawSeatType === 1) return 'VIP';      // VIP seat
-                        if (rawSeatType === 3) return 'KIDS';    // Kids seat
-                        if (rawSeatType === 4) return 'BED';     // Sofa seat
-                        // seatType 0 (Normal) and 2 (Twin) - no label
-                        return null;
-                      };
-                      const partnerSeatLabel = getPartnerSeatLabel();
-                    
-                      // For double/twin seats, render as pairs
-                      if (isDouble && !isPartner) {
-                        const partnerSeat = seatsData.find(s => s.seatID === seat.partnerSeatID);
-                        const partnerIsSelected = partnerSeat ? isSeatSelected(partnerSeat) : false;
-                        const partnerIsOccupied = partnerSeat ? isSeatOccupied(partnerSeat) : false;
-                        const partnerIsDisabled = partnerSeat ? isSeatDisabled(partnerSeat) : false;
-                        const bothSelected = isSelected && partnerIsSelected;
-                        // Both seats in a twin pair have the same seatType (twin)
-                        const partnerSeatType = partnerSeat ? getSeatType(partnerSeat) : seatType;
+                    const [year, month, day] = datePart.split("-");
+                    const [hour, minute] = timePart.split(":");
 
-                    return (
-                          <div key={`${rowLetter}-${column}`} className="flex flex-col items-center justify-center gap-0.5 w-full col-span-2">
-                            <div className="flex items-center shrink-0 min-w-0">
-                              <button
-                              onClick={() => toggleSeat(seat)}
-                              disabled={isOccupied || partnerIsOccupied || isDisabled || partnerIsDisabled}
-                              className={`relative rounded-l shrink-0 transition-all ${
-                                bothSelected
-                                  ? '' 
-                                  : (isOccupied || partnerIsOccupied || isDisabled || partnerIsDisabled)
-                                    ? 'cursor-not-allowed opacity-60' 
-                                    : 'hover:opacity-80'
-                                  }`}
-                              >
-                              <SeatIcon 
-                                seatType={seatType}
-                                variant={bothSelected ? 'selected' : (isOccupied || partnerIsOccupied || isFailed) ? 'occupied' : 'outline'}
-                                className={bothSelected ? '' : (isOccupied || partnerIsOccupied || isFailed) ? '' : 'text-gray-400'}
-                              />
-                              </button>
-                            {partnerSeat && (
-                              <button
-                                onClick={() => toggleSeat(partnerSeat)}
-                                disabled={isOccupied || partnerIsOccupied || isDisabled || partnerIsDisabled}
-                                className={`relative rounded-r shrink-0 transition-all ${
-                                  bothSelected
-                                    ? '' 
-                                    : (isOccupied || partnerIsOccupied || isDisabled || partnerIsDisabled)
-                                    ? 'cursor-not-allowed opacity-60' 
-                                    : 'hover:opacity-80'
-                                  }`}
-                              >
-                                <SeatIcon 
-                                  seatType={partnerSeatType}
-                                  variant={bothSelected ? 'selected' : (isOccupied || partnerIsOccupied || isFailed) ? 'occupied' : 'outline'}
-                                  className={bothSelected ? '' : (isOccupied || partnerIsOccupied || isFailed) ? '' : 'text-gray-400'}
-                                />
-                              </button>
-                            )}
-                            </div>
-                            {/* Seat Number Below Icon */}
-                            <div className="flex gap-2">
-                                <span className={`text-[9px] sm:text-[10px] font-semibold leading-tight whitespace-nowrap ${
-                                  (isOccupied || partnerIsOccupied) ? 'text-zinc-600' : 'text-zinc-400'
-                                }`}>
-                                  {/* Reconstruct full seat ID for display since seatNumber might be stripped */}
-                                  {seat.seatNo}
-                                </span>
-                                {partnerSeat && (
-                                  <span className={`text-[9px] sm:text-[10px] font-semibold leading-tight whitespace-nowrap ${
-                                    (isOccupied || partnerIsOccupied) ? 'text-zinc-600' : 'text-zinc-400'
-                                  }`}>
-                                    {partnerSeat.seatNo}
-                                  </span>
-                                )}
-                            </div>
-                            {(seatLabel || partnerSeatLabel) && (
-                              <span className="text-[9px] sm:text-[10px] text-[#FFCA20] font-semibold leading-tight whitespace-nowrap">
-                                {seatLabel || partnerSeatLabel}
-                              </span>
-                            )}
-                            </div>
-                        );
-                      } else if (isPartner) {
-                        // Skip partner seats (already rendered with main seat)
-                        return null;
-                      } else {
-                        // Single seat
-                        return (
-                          <div key={`${rowLetter}-${column}`} className="flex flex-col items-center justify-center gap-0.5 w-full">
-                          <button
-                            onClick={() => toggleSeat(seat)}
-                              disabled={isOccupied || isDisabled}
-                              className={`relative rounded shrink-0 transition-all min-w-0 ${
-                              isSelected 
-                                  ? '' 
-                                  : (isOccupied || isDisabled)
-                                  ? 'cursor-not-allowed opacity-60' 
-                                  : 'hover:opacity-80'
-                              }`}
-                            >
-                              <SeatIcon 
-                                seatType={seatType}
-                                variant={isSelected ? 'selected' : (isOccupied || isFailed) ? 'occupied' : 'outline'}
-                                className={isSelected ? '' : (isOccupied || isFailed) ? '' : 'text-gray-400'}
-                              />
-                          </button>
-                          
-                          {/* Seat Number for Single Seat */}
-                          <span className={`text-[9px] sm:text-[10px] font-semibold leading-tight whitespace-nowrap ${
-                            isOccupied ? 'text-zinc-600' : 'text-zinc-400'
-                          }`}>
-                            {seat.seatNo}
-                          </span>
-                            {seatLabel && (
-                              <span className="text-[9px] sm:text-[10px] text-[#FFCA20] font-semibold leading-tight whitespace-nowrap">{seatLabel}</span>
-                            )}
-                          </div>
-                    );
-                      }
-                  })}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-          </div>
-        </div>
-      </div>
+                    const date = new Date(year, month - 1, day, hour, minute);
 
+                    const dateStr = date.toLocaleDateString("en-US", {
+                      weekday: "short",
+                      day: "numeric",
+                      month: "short",
+                      year: "numeric",
+                    });
 
+                    const timeStr = date.toLocaleTimeString("en-US", {
+                      hour: "numeric",
+                      minute: "2-digit",
+                      hour12: true,
+                    });
 
-            </div>
-
-      {/* Footer - Selected Seats and Book Button - Full Width */}
-      <div className="w-full px-4 sm:px-6 md:px-8 lg:px-12 mt-4 sm:mt-6">
-        <div className="bg-[#1a1a1a] rounded-lg p-4 sm:p-5 md:p-6">
-          <div className="flex flex-col gap-4 sm:gap-5">
-            {/* Selected Seats Cards */}
-            {selectedSeats.length > 0 ? (
-              <div className="flex flex-wrap gap-3 sm:gap-4">
-                {selectedSeats.sort().map((seatNo) => {
-                  const seatPrice = getSeatPrice(seatNo);
-                  return (
-                    <div
-                      key={seatNo}
-                      className="bg-[#2a2a2a] rounded-lg px-4 py-3 flex items-center justify-between gap-3 min-w-[140px] sm:min-w-[160px]"
-                    >
-                      <div className="flex-1">
-                        <div className="text-white/70 text-xs sm:text-sm mb-1">{seatNo}</div>
-                        <div className="text-[#FFCA20] font-semibold text-sm sm:text-base">
-                          RM {seatPrice.toFixed(2)}
-            </div>
-                      </div>
-                      <button
-                        onClick={() => removeSeat(seatNo)}
-                        className="w-6 h-6 rounded-full bg-[#3a3a3a] hover:bg-[#4a4a4a] flex items-center justify-center transition flex-shrink-0"
-                        aria-label={`Remove ${seatNo}`}
-                      >
-                        <X className="w-4 h-4 text-white" />
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="text-center text-white/50 text-sm py-2">No seats selected</div>
-            )}
-
-            {/* Book Button */}
-            <div className="flex flex-col items-center gap-3 sm:gap-4">
-            <button 
-              onClick={handleBookSeat}
-                disabled={selectedSeats.length !== maxSeats || isLocking}
-                className={`px-8 sm:px-10 md:px-12 py-2.5 sm:py-3 md:py-3.5 rounded font-medium text-sm sm:text-base transition ${
-                  selectedSeats.length === maxSeats && !isLocking
-                  ? 'bg-[#FFCA20] text-black hover:bg-[#FFCA20]/90' 
-                  : 'bg-[#FFCA20]/30 text-black/50 cursor-not-allowed'
-              }`}
-            >
-              {isLocking ? 'Locking seats...' : 'Book seat'}
-            </button>
-
-            {error && (
-                <div className="text-xs sm:text-sm text-red-400 text-center mt-1">{error}</div>
-            )}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Booking Summary Modal */}
-      {/* Maintenance Modal */}
-      {showMaintenanceModal && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-60 p-4">
-          <div className="bg-[#1a1a1a] rounded-lg w-full max-w-md p-6 text-center">
-            <h2 className="text-2xl font-bold text-white mb-4">Maintenance</h2>
-            <p className="text-white/80 mb-6">We are unable to process online booking now. Thank you for your patience.</p>
-            <div className="flex justify-center">
-              <button
-                onClick={() => setShowMaintenanceModal(false)}
-                className="px-6 py-2 rounded bg-[#FFCA20] text-black font-medium"
-              >
-                OK
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      {showBookingSummary && (() => {
-        const priceInfo = calculateDetailedPrice();
-        const seatsByType = getSeatsByTicketType();
-        const movieTitle = movieDetails?.movieName || movieDetails?.title || 'Movie';
-        const movieImage = movieDetails?.imageURL || 'img/banner.jpg';
-        const movieGenre = movieDetails?.genre || 'N/A';
-        const movieDuration = movieDetails?.duration || 'N/A';
-        const movieLanguage = movieDetails?.language || 'N/A';
-        const cinemaName = cinemaDetails?.displayName || cinemaDetails?.name || `Cinema ${cinemaId}`;
-        const experienceType = movieDetails?.type || '2D';
-        
-        const formatShowDateTime = () => {
-          if (showTimeDetails?.showTime) {
-            try {
-              const date = new Date(showTimeDetails.showTime);
-              const dateStr = date.toLocaleDateString('en-MY', { timeZone: 'Asia/Kuala_Lumpur', day: 'numeric', month: 'short', year: 'numeric' });
-              const timeStr = date.toLocaleTimeString('en-MY', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Asia/Kuala_Lumpur' });
-              return `${dateStr}, ${timeStr}`;
-            } catch (e) {
-              return showTimeDetails.showTime;
-            }
-          }
-          return 'N/A';
-        };
-
-        return (
-          <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 overflow-y-auto">
-            <div className="bg-[#1a1a1a] rounded-lg w-full max-w-6xl relative max-h-[90vh] overflow-y-auto">
-              {/* Close Button */}
-            <button 
-                onClick={async () => {
-                  // Release locked seats when closing modal
-                  if (lockReferenceNo) {
-                    try {
-                      await releaseSeatLock(cinemaId, showId, lockReferenceNo);
-                      setLockReferenceNo(null);
-                      setLockSeatResponse(null);
-                      setTimerActive(false);
-                      setSelectedSeats([]);
-                    } catch (e) {
-                      console.error('Error releasing seats on modal close:', e);
-                    }
+                    return `${dateStr}, ${timeStr}`;
+                  } catch (e) {
+                    return showTimeDetails.showTime;
                   }
-                  setShowBookingSummary(false);
-                }}
-                className="absolute top-4 right-4 text-white/70 hover:text-white z-10"
-            >
-                <X className="w-5 h-5" />
-            </button>
+                }
 
-              {/* Header */}
-              <div className="p-6 border-b border-[#2a2a2a]">
-                <h2 className="text-2xl font-bold text-white">Booking Details</h2>
-            </div>
+                if (showDate && showTime) {
+                  return `${showDate}, ${showTime}`;
+                }
 
-              {/* Two Column Layout */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 p-6">
-                {/* Left Column - Form */}
-                  <div className="space-y-6">
-                    <div>
-                      <h3 className="text-lg font-semibold text-white mb-4">Customer Information</h3>
-                      <div className="space-y-4">
-                        {/* Name */}
-                        <div>
-                          <label className="block text-sm font-medium text-white/80 mb-2">
-                            Name <span className="text-red-400">*</span>
-                          </label>
-                          <input
-                            type="text"
-                            name="name"
-                            value={formData.name}
-                            onChange={(e) => handleInputChange('name', e.target.value)}
-                            className={`w-full px-4 py-2.5 bg-[#2a2a2a] border rounded-lg text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-[#FFCA20] ${
-                              formErrors.name ? 'border-red-500' : 'border-[#3a3a3a]'
-                            }`}
-                            placeholder="Enter your name"
-                          />
-                          {formErrors.name && (
-                            <p className="text-xs text-red-400 mt-1">{formErrors.name}</p>
-                          )}
-                        </div>
+                return "Show Time";
+              };
 
-                        {/* Email */}
-                        <div>
-                          <label className="block text-sm font-medium text-white/80 mb-2">
-                            Email <span className="text-red-400">*</span>
-                          </label>
-                          <input
-                            type="email"
-                            name="email"
-                            value={formData.email}
-                            onChange={(e) => handleInputChange('email', e.target.value)}
-                            className={`w-full px-4 py-2.5 bg-[#2a2a2a] border rounded-lg text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-[#FFCA20] ${
-                              formErrors.email ? 'border-red-500' : 'border-[#3a3a3a]'
-                            }`}
-                            placeholder="Enter your email"
-                          />
-                          {formErrors.email && (
-                            <p className="text-xs text-red-400 mt-1">{formErrors.email}</p>
-                          )}
-                        </div>
+              return (
+                <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 overflow-y-auto">
+                  <div className="bg-[#1a1a1a] rounded-lg w-full max-w-6xl relative max-h-[90vh] overflow-y-auto">
+                    {/* Close Button */}
+                    <button
+                      onClick={async () => {
+                        // Release locked seats when closing modal
+                        if (lockReferenceNo) {
+                          try {
+                            await releaseSeatLock(
+                              cinemaId,
+                              showId,
+                              lockReferenceNo,
+                            );
+                            setLockReferenceNo(null);
+                            setLockSeatResponse(null);
+                            setTimerActive(false);
+                            setSelectedSeats([]);
+                          } catch (e) {
+                            console.error(
+                              "Error releasing seats on modal close:",
+                              e,
+                            );
+                          }
+                        }
+                        setShowBookingSummary(false);
+                      }}
+                      className="absolute top-4 right-4 text-white/70 hover:text-white z-10"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
 
-                        {/* Mobile */}
-                        <div>
-                          <label className="block text-sm font-medium text-white/80 mb-2">
-                            Mobile <span className="text-red-400">*</span>
-                          </label>
-                          <input
-                            type="tel"
-                            name="mobile"
-                            value={formData.mobile}
-                            onChange={(e) => handleInputChange('mobile', e.target.value)}
-                            className={`w-full px-4 py-2.5 bg-[#2a2a2a] border rounded-lg text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-[#FFCA20] ${
-                              formErrors.mobile ? 'border-red-500' : 'border-[#3a3a3a]'
-                            }`}
-                            placeholder="Enter mobile number"
-                          />
-                          {formErrors.mobile && (
-                            <p className="text-xs text-red-400 mt-1">{formErrors.mobile}</p>
-                          )}
-                        </div>
-
-                        {/* Membership No */}
-                        <div>
-                          <label className="block text-sm font-medium text-white/80 mb-2">
-                            Membership No
-                          </label>
-                          <input
-                            type="text"
-                            name="membershipNo"
-                            value={formData.membershipNo}
-                            onChange={(e) => handleInputChange('membershipNo', e.target.value)}
-                            className={`w-full px-4 py-2.5 bg-[#2a2a2a] border rounded-lg text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-[#FFCA20] ${
-                              formErrors.membershipNo ? 'border-red-500' : 'border-[#3a3a3a]'
-                            }`}
-                            placeholder="Enter membership number (optional)"
-                          />
-                          {formErrors.membershipNo && (
-                            <p className="text-xs text-red-400 mt-1">{formErrors.membershipNo}</p>
-                          )}
-                        </div>
-                      </div>
+                    {/* Header */}
+                    <div className="p-6 border-b border-[#2a2a2a]">
+                      <h2 className="text-2xl font-bold text-white">
+                        Booking Details
+                      </h2>
                     </div>
-                  </div>
 
-                {/* Right Column - Summary */}
-                <div className="space-y-6">
-                  <div>
-                    <div className="flex justify-between items-center mb-4">
-                      <h3 className="text-lg font-semibold text-white">Booking Summary</h3>
-                      {/* Timer Display */}
-                      {pageTimerActive && pageTimer > 0 && (
-                        <div className="relative">
-                          <div className="bg-[#D4A574] h-1 w-full absolute -top-1"></div>
-                          <div className="bg-[#1a1a1a] px-4 py-2 rounded text-white font-semibold text-sm">
-                            Time Remaining: {formatTimer(pageTimer)}
+                    {/* Two Column Layout */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 p-6">
+                      {/* Left Column - Form */}
+                      <div className="space-y-6">
+                        <div>
+                          <h3 className="text-lg font-semibold text-white mb-4">
+                            Customer Information
+                          </h3>
+                          <div className="space-y-4">
+                            {/* Name */}
+                            <div>
+                              <label className="block text-sm font-medium text-white/80 mb-2">
+                                Name <span className="text-red-400">*</span>
+                              </label>
+                              <input
+                                type="text"
+                                name="name"
+                                value={formData.name}
+                                onChange={(e) =>
+                                  handleInputChange("name", e.target.value)
+                                }
+                                className={`w-full px-4 py-2.5 bg-[#2a2a2a] border rounded-lg text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-[#FFCA20] ${
+                                  formErrors.name
+                                    ? "border-red-500"
+                                    : "border-[#3a3a3a]"
+                                }`}
+                                placeholder="Enter your name"
+                              />
+                              {formErrors.name && (
+                                <p className="text-xs text-red-400 mt-1">
+                                  {formErrors.name}
+                                </p>
+                              )}
+                            </div>
+
+                            {/* Email */}
+                            <div>
+                              <label className="block text-sm font-medium text-white/80 mb-2">
+                                Email <span className="text-red-400">*</span>
+                              </label>
+                              <input
+                                type="email"
+                                name="email"
+                                value={formData.email}
+                                onChange={(e) =>
+                                  handleInputChange("email", e.target.value)
+                                }
+                                className={`w-full px-4 py-2.5 bg-[#2a2a2a] border rounded-lg text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-[#FFCA20] ${
+                                  formErrors.email
+                                    ? "border-red-500"
+                                    : "border-[#3a3a3a]"
+                                }`}
+                                placeholder="Enter your email"
+                              />
+                              {formErrors.email && (
+                                <p className="text-xs text-red-400 mt-1">
+                                  {formErrors.email}
+                                </p>
+                              )}
+                            </div>
+
+                            {/* Mobile */}
+                            <div>
+                              <label className="block text-sm font-medium text-white/80 mb-2">
+                                Mobile <span className="text-red-400">*</span>
+                              </label>
+                              <input
+                                type="tel"
+                                name="mobile"
+                                value={formData.mobile}
+                                onChange={(e) =>
+                                  handleInputChange("mobile", e.target.value)
+                                }
+                                className={`w-full px-4 py-2.5 bg-[#2a2a2a] border rounded-lg text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-[#FFCA20] ${
+                                  formErrors.mobile
+                                    ? "border-red-500"
+                                    : "border-[#3a3a3a]"
+                                }`}
+                                placeholder="Enter mobile number"
+                              />
+                              {formErrors.mobile && (
+                                <p className="text-xs text-red-400 mt-1">
+                                  {formErrors.mobile}
+                                </p>
+                              )}
+                            </div>
+
+                            {/* Membership No */}
+                            <div>
+                              <label className="block text-sm font-medium text-white/80 mb-2">
+                                Membership No
+                              </label>
+                              <input
+                                type="text"
+                                name="membershipNo"
+                                value={formData.membershipNo}
+                                onChange={(e) =>
+                                  handleInputChange(
+                                    "membershipNo",
+                                    e.target.value,
+                                  )
+                                }
+                                className={`w-full px-4 py-2.5 bg-[#2a2a2a] border rounded-lg text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-[#FFCA20] ${
+                                  formErrors.membershipNo
+                                    ? "border-red-500"
+                                    : "border-[#3a3a3a]"
+                                }`}
+                                placeholder="Enter membership number (optional)"
+                              />
+                              {formErrors.membershipNo && (
+                                <p className="text-xs text-red-400 mt-1">
+                                  {formErrors.membershipNo}
+                                </p>
+                              )}
+                            </div>
                           </div>
                         </div>
-                      )}
-                    </div>
-                    
-                {/* Movie Details */}
-                    <div className="flex gap-4 mb-6 pb-6 border-b border-[#2a2a2a]">
-                  <img
-                    src={movieImage}
-                    alt={movieTitle}
-                    className="w-24 h-36 object-cover rounded"
-                    onError={(e) => {
-                      e.target.src = 'img/banner.jpg';
-                    }}
-                />
-                <div className="flex-1">
-                        <h4 className="text-lg font-bold text-white mb-2">{movieTitle}</h4>
-                    <div className="text-xs text-white/70 space-y-1">
-                      <p>{movieGenre}</p>
-                      <p>{movieDuration}</p>
-                      <p>{movieLanguage}</p>
-                      <p>{cinemaName}</p>
-                      <p>{experienceType}</p>
-                      <p>{hallName}</p>
-                      <p>{formatShowDateTime()}</p>
-                  </div>
-                </div>
-              </div>
+                      </div>
 
-                {/* Seat Info */}
-                    <div className="mb-6 pb-6 border-b border-[#2a2a2a]">
-                  <h4 className="text-sm font-semibold text-white mb-3">Seat info</h4>
-                  <div className="space-y-2">
-                    {seatsByType.map((item, index) => (
-                      <div key={index} className="flex items-center gap-2">
-                            <span className="text-xs text-white/70 min-w-[80px]">{item.ticketTypeName}</span>
-                  <div className="flex gap-1 flex-wrap">
-                          {item.seats.map((seatNo, idx) => (
-                            <span
-                              key={idx}
-                              className="bg-[#FFCA20] text-black text-xs font-medium px-2 py-1 rounded"
-                            >
-                              {seatNo}
-                      </span>
-                          ))}
+                      {/* Right Column - Summary */}
+                      <div className="space-y-6">
+                        <div>
+                          <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-lg font-semibold text-white">
+                              Booking Summary
+                            </h3>
+                            {/* Timer Display */}
+                            {pageTimerActive && pageTimer > 0 && (
+                              <div className="relative">
+                                <div className="bg-[#D4A574] h-1 w-full absolute -top-1"></div>
+                                <div className="bg-[#1a1a1a] px-4 py-2 rounded text-white font-semibold text-sm">
+                                  Time Remaining: {formatTimer(pageTimer)}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Movie Details */}
+                          <div className="flex gap-4 mb-6 pb-6 border-b border-[#2a2a2a]">
+                            <img
+                              src={movieImage}
+                              alt={movieTitle}
+                              className="w-24 h-36 object-cover rounded"
+                              onError={(e) => {
+                                e.target.src = "img/banner.jpg";
+                              }}
+                            />
+                            <div className="flex-1">
+                              <h4 className="text-lg font-bold text-white mb-2">
+                                {movieTitle}
+                              </h4>
+                              <div className="text-xs text-white/70 space-y-1">
+                                <p>{movieGenre}</p>
+                                <p>{movieDuration}</p>
+                                <p>{movieLanguage}</p>
+                                <p>{cinemaName}</p>
+                                <p>{experienceType}</p>
+                                <p>{hallName}</p>
+                                <p>{formatShowDateTime()}</p>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Seat Info */}
+                          <div className="mb-6 pb-6 border-b border-[#2a2a2a]">
+                            <h4 className="text-sm font-semibold text-white mb-3">
+                              Seat info
+                            </h4>
+                            <div className="space-y-2">
+                              {seatsByType.map((item, index) => (
+                                <div
+                                  key={index}
+                                  className="flex items-center gap-2"
+                                >
+                                  <span className="text-xs text-white/70 min-w-[80px]">
+                                    {item.ticketTypeName}
+                                  </span>
+                                  <div className="flex gap-1 flex-wrap">
+                                    {item.seats.map((seatNo, idx) => (
+                                      <span
+                                        key={idx}
+                                        className="bg-[#FFCA20] text-black text-xs font-medium px-2 py-1 rounded"
+                                      >
+                                        {seatNo}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Tickets */}
+                          <div className="mb-6 pb-6 border-b border-[#2a2a2a]">
+                            <h4 className="text-sm font-semibold text-white mb-3">
+                              Tickets
+                            </h4>
+                            <div className="space-y-2 text-sm">
+                              <div className="flex justify-between text-white/70">
+                                <span>
+                                  Net Price ({selectedSeats.length} X Ticket(s))
+                                </span>
+                                <span className="text-white">
+                                  RM {priceInfo.netPrice.toFixed(2)}
+                                </span>
+                              </div>
+                              {priceInfo.entertainmentTax !== undefined &&
+                                priceInfo.entertainmentTax > 0 && (
+                                  <div className="flex justify-between text-white/70">
+                                    <span>Entertainment Tax</span>
+                                    <span className="text-white">
+                                      RM {priceInfo.entertainmentTax.toFixed(2)}
+                                    </span>
+                                  </div>
+                                )}
+                              {priceInfo.govtTax !== undefined &&
+                                priceInfo.govtTax > 0 && (
+                                  <div className="flex justify-between text-white/70">
+                                    <span>Government Tax</span>
+                                    <span className="text-white">
+                                      RM {priceInfo.govtTax.toFixed(2)}
+                                    </span>
+                                  </div>
+                                )}
+                              {priceInfo.onlineCharge !== undefined &&
+                                priceInfo.onlineCharge > 0 && (
+                                  <div className="flex justify-between text-white/70">
+                                    <span>Online Charge</span>
+                                    <span className="text-white">
+                                      RM {priceInfo.onlineCharge.toFixed(2)}
+                                    </span>
+                                  </div>
+                                )}
+                              {priceInfo.tax !== undefined &&
+                                priceInfo.tax > 0 &&
+                                !priceInfo.entertainmentTax &&
+                                !priceInfo.govtTax && (
+                                  <div className="flex justify-between text-white/70">
+                                    <span>Tax</span>
+                                    <span className="text-white">
+                                      RM {priceInfo.tax.toFixed(2)}
+                                    </span>
+                                  </div>
+                                )}
+                              <div className="flex justify-between text-white font-semibold pt-2 border-t border-[#2a2a2a]">
+                                <span>Total Ticket Price</span>
+                                <span>
+                                  RM {priceInfo.totalTicketPrice.toFixed(2)}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Proceed to Payment Button */}
+                          <button
+                            onClick={handleProceedToPayment}
+                            disabled={isConfirming}
+                            className={`w-full bg-[#FFCA20] text-black font-bold py-3 rounded-lg transition ${
+                              isConfirming
+                                ? "opacity-50 cursor-not-allowed"
+                                : "hover:bg-[#FFCA20]/90"
+                            }`}
+                          >
+                            {isConfirming
+                              ? "Processing..."
+                              : "Proceed to Payment RM " +
+                                priceInfo.grandTotal.toFixed(2)}
+                          </button>
+
+                          {error && (
+                            <div className="text-xs text-red-400 text-center mt-2">
+                              {error}
+                            </div>
+                          )}
                         </div>
                       </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Tickets */}
-                    <div className="mb-6 pb-6 border-b border-[#2a2a2a]">
-                  <h4 className="text-sm font-semibold text-white mb-3">Tickets</h4>
-                      <div className="space-y-2 text-sm">
-                    <div className="flex justify-between text-white/70">
-                      <span>Net Price ({selectedSeats.length} X Ticket(s))</span>
-                      <span className="text-white">RM {priceInfo.netPrice.toFixed(2)}</span>
                     </div>
-                    {priceInfo.entertainmentTax !== undefined && priceInfo.entertainmentTax > 0 && (
-                      <div className="flex justify-between text-white/70">
-                        <span>Entertainment Tax</span>
-                        <span className="text-white">RM {priceInfo.entertainmentTax.toFixed(2)}</span>
-                      </div>
-                    )}
-                    {priceInfo.govtTax !== undefined && priceInfo.govtTax > 0 && (
-                      <div className="flex justify-between text-white/70">
-                        <span>Government Tax</span>
-                        <span className="text-white">RM {priceInfo.govtTax.toFixed(2)}</span>
-                      </div>
-                    )}
-                    {priceInfo.onlineCharge !== undefined && priceInfo.onlineCharge > 0 && (
-                      <div className="flex justify-between text-white/70">
-                        <span>Online Charge</span>
-                        <span className="text-white">RM {priceInfo.onlineCharge.toFixed(2)}</span>
-                      </div>
-                    )}
-                    {priceInfo.tax !== undefined && priceInfo.tax > 0 && (!priceInfo.entertainmentTax && !priceInfo.govtTax) && (
-                    <div className="flex justify-between text-white/70">
-                      <span>Tax</span>
-                      <span className="text-white">RM {priceInfo.tax.toFixed(2)}</span>
-              </div>
-                    )}
-                    <div className="flex justify-between text-white font-semibold pt-2 border-t border-[#2a2a2a]">
-                      <span>Total Ticket Price</span>
-                      <span>RM {priceInfo.totalTicketPrice.toFixed(2)}</span>
                   </div>
                 </div>
-              </div>
-
-                
-
-                {/* Proceed to Payment Button */}
-              <button 
-                  onClick={handleProceedToPayment}
-                  disabled={isConfirming}
-                  className={`w-full bg-[#FFCA20] text-black font-bold py-3 rounded-lg transition ${
-                    isConfirming 
-                      ? 'opacity-50 cursor-not-allowed' 
-                      : 'hover:bg-[#FFCA20]/90'
-                  }`}
-              >
-                      {isConfirming ? 'Processing...' : 'Proceed to Payment RM ' + priceInfo.grandTotal.toFixed(2)}
-              </button>
-              
-              {error && (
-                <div className="text-xs text-red-400 text-center mt-2">{error}</div>
-              )}
-                  </div>
-                </div>
-            </div>
-          </div>
+              );
+            })()}
         </div>
-        );
-      })()}
-      </div>
       </div>
     </>
   );

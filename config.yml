@@ -1,0 +1,7 @@
+tunnel: 18c54d7f-2ac0-4b94-a2ed-30526fc0028a
+credentials-file: /Users/rnkhatri/.cloudflared/18c54d7f-2ac0-4b94-a2ed-30526fc0028a.json
+
+ingress:
+  - hostname: staging.mscinemas.my
+    service: http://localhost:3000
+  - service: http_status:404
