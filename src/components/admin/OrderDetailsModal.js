@@ -5,17 +5,24 @@ export default function OrderDetailsModal({ isOpen, onClose, order }) {
     if (!isOpen || !order) return null;
 
     const formatDate = (dateString) => {
-        if (!dateString) return '-';
-        try {
-            return new Date(dateString).toLocaleString('en-US', {
-                timeZone: 'Asia/Kuala_Lumpur',
-                dateStyle: 'medium',
-                timeStyle: 'medium'
-            });
-        } catch (e) {
-            return dateString;
-        }
-    };
+    if (!dateString) return '-';
+
+    try {
+        const [datePart, timePart] = dateString.replace('Z','').split('T');
+        const [year, month, day] = datePart.split('-');
+        let [hour, minute] = timePart.split(':');
+
+        const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+        let h = parseInt(hour);
+        const ampm = h >= 12 ? 'PM' : 'AM';
+        h = h % 12 || 12;
+
+        return `${months[parseInt(month)-1]} ${parseInt(day)}, ${year} ${h}:${minute} ${ampm}`;
+    } catch {
+        return dateString;
+    }
+};
 
     const getStatusColor = (status) => {
         switch (status?.toUpperCase()) {
