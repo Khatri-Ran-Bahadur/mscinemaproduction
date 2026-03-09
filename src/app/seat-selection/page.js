@@ -56,6 +56,7 @@ export default function SeatSelection() {
   const [confirmedReferenceNo, setConfirmedReferenceNo] = useState(null); // Store confirmed reference number
   const [lockReferenceNo, setLockReferenceNo] = useState(null); // Store referenceNo from lockSeat API
   const [timeLeft, setTimeLeft] = useState(300); // 5 minutes = 300 seconds
+  const [failedSeats, setFailedSeats] = useState([]); // Track seats that failed to lock recently
   // Form state for booking modal
   const [formData, setFormData] = useState({
     name: '',
@@ -638,7 +639,30 @@ export default function SeatSelection() {
       // Store the full response including lockedSeats array
       setLockSeatResponse(response);
       
-      return referenceNo;
+      // Check if all seats were locked
+      if (response && response.isAllSeatsLocked === false) {
+        // Find failed seats from seatStatus
+        const failed = (response.seatStatus || [])
+          .filter(s => s.status === false)
+          .map(s => {
+            // Find seat number for this seatID
+            const seat = seatsData.find(sd => sd.seatID === s.seatID);
+            return seat ? seat.seatNo : null;
+          })
+          .filter(Boolean);
+        
+        setFailedSeats(failed);
+        console.warn('Some seats failed to lock:', failed);
+      } else {
+        // If successful, clear failed seats
+        setFailedSeats([]);
+      }
+      
+      return { 
+        referenceNo, 
+        isAllSeatsLocked: response?.isAllSeatsLocked !== false,
+        failedSeats: (response.seatStatus || []).filter(s => s.status === false).map(s => s.seatID)
+      };
     } catch (err) {
       console.error('Error locking seats:', err);
       if (err instanceof APIError) {
@@ -854,6 +878,10 @@ export default function SeatSelection() {
   // Toggle seat selection - NO API CALL, just local state
   const toggleSeat = (seat) => {
     if (!seat || seat.seatStatus !== 0) return; // Can't select occupied or invalid seats
+    
+    // Clear failed seats and errors when user interacts with selection
+    if (failedSeats.length > 0) setFailedSeats([]);
+    if (error) setError('');
     
     const seatNo = seat.seatNo;
     
@@ -1311,10 +1339,9 @@ export default function SeatSelection() {
         const isTwinSeats = ticketData?.generalInfo?.ticketTypeIDForTwinSeatsAndVIPSeats === price.ticketTypeID || price.ticketTypeName?.toUpperCase().includes('TWIN');
         const seatsPerTicket = isTwinSeats ? 2 : 1;
         
-        const pricePerTicket = Number(price.price) || 0;
-        const surChargePerTicket = Number(price.surCharge || price.surcharge) || 0;
-        const taxPerTicket = Number(price.entertainmentTax) || 0;
-        netPrice += (pricePerTicket + surChargePerTicket) * count * seatsPerTicket;
+        const pricePerTicket = price.price || 0;
+        const taxPerTicket = price.entertainmentTax || 0;
+        netPrice += pricePerTicket * count * seatsPerTicket;
         tax += taxPerTicket * count * seatsPerTicket;
       }
     });
@@ -1397,10 +1424,36 @@ export default function SeatSelection() {
       }
       
       // Call lockSeat API
-      const referenceNo = await lockSeat(seatObjects);
+      const lockResult = await lockSeat(seatObjects);
       
-      if (!referenceNo) {
+      if (!lockResult || (!lockResult.referenceNo && lockResult.isAllSeatsLocked)) {
         setError('Failed to lock seats. Please try again.');
+        setIsLocking(false);
+        return;
+      }
+      
+      const { referenceNo, isAllSeatsLocked } = lockResult;
+
+      if (!isAllSeatsLocked) {
+        setError('Some of the seats you selected have just been taken by another user. Please choose different seats (highlighted in red).');
+        // Update local seats data to show these seats as occupied
+        const failedSeatIds = lockResult.failedSeats;
+        if (failedSeatIds && failedSeatIds.length > 0) {
+          setSeatsData(prev => prev.map(seat => {
+            if (failedSeatIds.includes(seat.seatID)) {
+              return { ...seat, seatStatus: 1 }; // Mark as occupied
+            }
+            return seat;
+          }));
+          
+          // Remove failed seats from selection
+          const failedSeatNos = seatsData
+            .filter(s => failedSeatIds.includes(s.seatID))
+            .map(s => s.seatNo);
+            
+          setSelectedSeats(prev => prev.filter(s => !failedSeatNos.includes(s)));
+        }
+        
         setIsLocking(false);
         return;
       }
@@ -1694,9 +1747,7 @@ export default function SeatSelection() {
       
       // Calculate totals from lockedSeats array
       lockSeatResponse.lockedSeats.forEach((seat) => {
-        const seatPrice = Number(seat.price) || 0;
-        const seatSurcharge = Number(seat.surCharge || seat.surcharge) || 0;
-        netPrice += seatPrice + seatSurcharge;
+        netPrice += seat.price || 0;
         entertainmentTax += seat.entertainmentTax || 0;
         govtTax += seat.govtTax || 0;
         onlineCharge += seat.onlineCharge || 0;
@@ -1745,16 +1796,14 @@ export default function SeatSelection() {
         const isTwinSeats = ticketData?.generalInfo?.ticketTypeIDForTwinSeatsAndVIPSeats === price.ticketTypeID || price.ticketTypeName?.toUpperCase().includes('TWIN');
         const seatsPerTicket = isTwinSeats ? 2 : 1;
           
-        const pricePerTicket = Number(price.price) || 0;
-        const surChargePerTicket = Number(price.surCharge || price.surcharge) || 0;
-        const taxPerTicket = Number(price.entertainmentTax) || 0;
-        const govtTaxPerTicket = Number(price.govtTax) || 0;
+        const pricePerTicket = price.price || 0;
+        const taxPerTicket = price.entertainmentTax || 0;
         
         // Use totalTicketPrice if available, otherwise sum components
-        const totalPerTicket = Number(price.totalTicketPrice) || (pricePerTicket + surChargePerTicket + taxPerTicket + govtTaxPerTicket);
+        const totalPerTicket = price.totalTicketPrice || (pricePerTicket + taxPerTicket);
         
-        netPrice += (pricePerTicket + surChargePerTicket) * count * seatsPerTicket;
-        tax += (taxPerTicket + govtTaxPerTicket) * count * seatsPerTicket;
+        netPrice += pricePerTicket * count * seatsPerTicket;
+        tax += taxPerTicket * count * seatsPerTicket;
         
         totalTicketPriceSum += totalPerTicket * count * seatsPerTicket;
       }
@@ -2080,6 +2129,7 @@ export default function SeatSelection() {
 
                       const isSelected = isSeatSelected(seat);
                       const isOccupied = isSeatOccupied(seat);
+                      const isFailed = failedSeats.includes(seat.seatNo);
                       const isDouble = isDoubleSeat(seat);
                       const isPartner = isPartnerSeat(seat);
                       const seatType = getSeatType(seat);
@@ -2149,8 +2199,8 @@ export default function SeatSelection() {
                               >
                               <SeatIcon 
                                 seatType={seatType}
-                                variant={bothSelected ? 'selected' : (isOccupied || partnerIsOccupied) ? 'occupied' : 'outline'}
-                                className={bothSelected ? '' : (isOccupied || partnerIsOccupied) ? '' : 'text-gray-400'}
+                                variant={bothSelected ? 'selected' : (isOccupied || partnerIsOccupied || isFailed) ? 'occupied' : 'outline'}
+                                className={bothSelected ? '' : (isOccupied || partnerIsOccupied || isFailed) ? '' : 'text-gray-400'}
                               />
                               </button>
                             {partnerSeat && (
@@ -2167,8 +2217,8 @@ export default function SeatSelection() {
                               >
                                 <SeatIcon 
                                   seatType={partnerSeatType}
-                                  variant={bothSelected ? 'selected' : (isOccupied || partnerIsOccupied) ? 'occupied' : 'outline'}
-                                  className={bothSelected ? '' : (isOccupied || partnerIsOccupied) ? '' : 'text-gray-400'}
+                                  variant={bothSelected ? 'selected' : (isOccupied || partnerIsOccupied || isFailed) ? 'occupied' : 'outline'}
+                                  className={bothSelected ? '' : (isOccupied || partnerIsOccupied || isFailed) ? '' : 'text-gray-400'}
                                 />
                               </button>
                             )}
@@ -2216,8 +2266,8 @@ export default function SeatSelection() {
                             >
                               <SeatIcon 
                                 seatType={seatType}
-                                variant={isSelected ? 'selected' : isOccupied ? 'occupied' : 'outline'}
-                                className={isSelected ? '' : isOccupied ? '' : 'text-gray-400'}
+                                variant={isSelected ? 'selected' : (isOccupied || isFailed) ? 'occupied' : 'outline'}
+                                className={isSelected ? '' : (isOccupied || isFailed) ? '' : 'text-gray-400'}
                               />
                           </button>
                           

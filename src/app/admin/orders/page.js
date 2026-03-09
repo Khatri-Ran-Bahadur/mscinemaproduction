@@ -252,6 +252,26 @@ export default function AdminOrdersPage() {
             return dateString;
         }
     };
+const formatDate2 = (dateString) => {
+    if (!dateString) return '-';
+
+    try {
+        const [datePart, timePart] = dateString.replace('Z','').split('T');
+        const [year, month, day] = datePart.split('-');
+        let [hour, minute] = timePart.split(':');
+
+        const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+        let h = parseInt(hour);
+        const ampm = h >= 12 ? 'PM' : 'AM';
+        h = h % 12 || 12;
+
+        return `${months[parseInt(month)-1]} ${parseInt(day)}, ${year} ${h}:${minute} ${ampm}`;
+    } catch {
+        return dateString;
+    }
+};
+
 
     const getStatusColor = (status) => {
         switch (status?.toUpperCase()) {
@@ -701,7 +721,7 @@ export default function AdminOrdersPage() {
                                                     <span className="text-[10px] text-[#888]">{order.cinemaName} - {order.hallName}</span>
                                                     <span className="text-[10px] text-[#888] flex items-center gap-1 mt-0.5">
                                                         <Clock className="w-3 h-3" />
-                                                        {formatDate(order.showTime)}
+                                                        {formatDate2(order.showTime)}
                                                     </span>
                                                 </div>
                                             </td>
