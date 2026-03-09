@@ -1,1180 +1,1434 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import { 
-    Search, 
-    Filter, 
-    ChevronDown, 
-    ChevronLeft,
-    ChevronRight,
-    MoreVertical, 
-    Calendar,
-    CreditCard,
-    Film,
-    User,
-    CheckCircle,
-    XCircle,
-    Clock,
-    Eye,
-    Trash2,
-    RotateCcw,
-    Edit,
-    Mail,
-    RefreshCw,
-    Undo2,
-    Activity,
-    Code2
-} from 'lucide-react';
-import TicketModal from '@/components/TicketModal';
-import OrderDetailsModal from '@/components/admin/OrderDetailsModal';
-import { booking } from '@/services/api';
-import { timeAgo } from '@/utils/timeAgo';
-import { adminFetch } from '@/utils/admin-api';
+import React, { useState, useEffect } from "react";
+import {
+  Search,
+  Filter,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  MoreVertical,
+  Calendar,
+  CreditCard,
+  Film,
+  User,
+  CheckCircle,
+  XCircle,
+  Clock,
+  Eye,
+  Trash2,
+  RotateCcw,
+  Edit,
+  Mail,
+  RefreshCw,
+  Undo2,
+  Activity,
+  Code2,
+} from "lucide-react";
+import TicketModal from "@/components/TicketModal";
+import OrderDetailsModal from "@/components/admin/OrderDetailsModal";
+import { booking } from "@/services/api";
+import { timeAgo } from "@/utils/timeAgo";
+import { adminFetch } from "@/utils/admin-api";
+import { formatMalaysiaShowDateTime } from "@/utils/dateformatter";
 
 export default function AdminOrdersPage() {
-    const [orders, setOrders] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [searchQuery, setSearchQuery] = useState('');
-    const [filterStatus, setFilterStatus] = useState('All');
-    const [filterPaymentStatus, setFilterPaymentStatus] = useState('All');
-    const [startDate, setStartDate] = useState('');
-    const [endDate, setEndDate] = useState('');
-    const [selectedOrder, setSelectedOrder] = useState(null);
-    const [ticketData, setTicketData] = useState(null);
-    const [showTicketModal, setShowTicketModal] = useState(false);
-    const [viewOrder, setViewOrder] = useState(null);
-    const [showViewOrderModal, setShowViewOrderModal] = useState(false);
-    const [selectedOrders, setSelectedOrders] = useState([]);
-    const [isDeleting, setIsDeleting] = useState(false);
-    
-    // Pagination State
-    const [page, setPage] = useState(1);
-    const [limit, setLimit] = useState(10);
-    const [totalPages, setTotalPages] = useState(1);
-    const [totalOrders, setTotalOrders] = useState(0);
-    const [totalAmountSum, setTotalAmountSum] = useState(0);
-    const [paidAmountSum, setPaidAmountSum] = useState(0);
-    const [unpaidAmountSum, setUnpaidAmountSum] = useState(0);
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterStatus, setFilterStatus] = useState("All");
+  const [filterPaymentStatus, setFilterPaymentStatus] = useState("All");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [ticketData, setTicketData] = useState(null);
+  const [showTicketModal, setShowTicketModal] = useState(false);
+  const [viewOrder, setViewOrder] = useState(null);
+  const [showViewOrderModal, setShowViewOrderModal] = useState(false);
+  const [selectedOrders, setSelectedOrders] = useState([]);
+  const [isDeleting, setIsDeleting] = useState(false);
 
-    // Status Modal State
-    const [showStatusModal, setShowStatusModal] = useState(false);
-    const [statusOrder, setStatusOrder] = useState(null);
-    const [newPaymentStatus, setNewPaymentStatus] = useState('PENDING');
-    const [newBookingStatus, setNewBookingStatus] = useState('PENDING');
+  // Pagination State
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalOrders, setTotalOrders] = useState(0);
+  const [totalAmountSum, setTotalAmountSum] = useState(0);
+  const [paidAmountSum, setPaidAmountSum] = useState(0);
+  const [unpaidAmountSum, setUnpaidAmountSum] = useState(0);
 
-    // Action Menu State
-    const [openActionMenuId, setOpenActionMenuId] = useState(null);
+  // Status Modal State
+  const [showStatusModal, setShowStatusModal] = useState(false);
+  const [statusOrder, setStatusOrder] = useState(null);
+  const [newPaymentStatus, setNewPaymentStatus] = useState("PENDING");
+  const [newBookingStatus, setNewBookingStatus] = useState("PENDING");
 
-    // Reserve Modal State
-    const [showReserveModal, setShowReserveModal] = useState(false);
-    const [reserveOrder, setReserveOrder] = useState(null);
-    const [processingReserve, setProcessingReserve] = useState(false);
+  // Action Menu State
+  const [openActionMenuId, setOpenActionMenuId] = useState(null);
 
-    // New API States
-    const [actionLoading, setActionLoading] = useState(false);
-    const [processingId, setProcessingId] = useState(null);
-    
-    // Fiuu Status Modal State
-    const [showFiuuStatusModal, setShowFiuuStatusModal] = useState(false);
-    const [statusModalData, setStatusModalData] = useState(null);
+  // Reserve Modal State
+  const [showReserveModal, setShowReserveModal] = useState(false);
+  const [reserveOrder, setReserveOrder] = useState(null);
+  const [processingReserve, setProcessingReserve] = useState(false);
 
-    useEffect(() => {
-        const timeoutId = setTimeout(() => {
-            fetchOrders();
-        }, 300); // Debounce search
-        return () => clearTimeout(timeoutId);
-    }, [page, limit, searchQuery, filterStatus, filterPaymentStatus, startDate, endDate]);
+  // New API States
+  const [actionLoading, setActionLoading] = useState(false);
+  const [processingId, setProcessingId] = useState(null);
 
-    const fetchOrders = async () => {
-        setLoading(true);
-        try {
-            const params = new URLSearchParams({
-                page: page.toString(),
-                limit: limit.toString(),
-                search: searchQuery,
-                status: filterStatus,
-                paymentStatus: filterPaymentStatus,
-                startDate: startDate,
-                endDate: endDate
-            });
-            
-            const res = await adminFetch(`/api/admin/orders?${params.toString()}`);
-            const data = await res.json();
-            if (data.success) {
-                setOrders(data.orders);
-                setTotalAmountSum(data.totalAmountSum || 0);
-                setPaidAmountSum(data.paidAmountSum || 0);
-                setUnpaidAmountSum(data.unpaidAmountSum || 0);
-                if (data.pagination) {
-                    setTotalPages(data.pagination.totalPages);
-                    setTotalOrders(data.pagination.total);
-                }
-            } else {
-                setOrders([]);
-                setTotalAmountSum(0);
-                setPaidAmountSum(0);
-                setUnpaidAmountSum(0);
-            }
-        } catch (error) {
-            console.error('Failed to fetch orders:', error);
-            setOrders([]);
-        } finally {
-            setLoading(false);
+  // Fiuu Status Modal State
+  const [showFiuuStatusModal, setShowFiuuStatusModal] = useState(false);
+  const [statusModalData, setStatusModalData] = useState(null);
+
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      fetchOrders();
+    }, 300); // Debounce search
+    return () => clearTimeout(timeoutId);
+  }, [
+    page,
+    limit,
+    searchQuery,
+    filterStatus,
+    filterPaymentStatus,
+    startDate,
+    endDate,
+  ]);
+
+  const fetchOrders = async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: limit.toString(),
+        search: searchQuery,
+        status: filterStatus,
+        paymentStatus: filterPaymentStatus,
+        startDate: startDate,
+        endDate: endDate,
+      });
+
+      const res = await adminFetch(`/api/admin/orders?${params.toString()}`);
+      const data = await res.json();
+      if (data.success) {
+        setOrders(data.orders);
+        setTotalAmountSum(data.totalAmountSum || 0);
+        setPaidAmountSum(data.paidAmountSum || 0);
+        setUnpaidAmountSum(data.unpaidAmountSum || 0);
+        if (data.pagination) {
+          setTotalPages(data.pagination.totalPages);
+          setTotalOrders(data.pagination.total);
         }
-    };
+      } else {
+        setOrders([]);
+        setTotalAmountSum(0);
+        setPaidAmountSum(0);
+        setUnpaidAmountSum(0);
+      }
+    } catch (error) {
+      console.error("Failed to fetch orders:", error);
+      setOrders([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    const handleSearchChange = (e) => {
-        setSearchQuery(e.target.value);
-        setPage(1); // Reset to page 1 on search
-    };
+  const handleSearchChange = (e) => {
+    setSearchQuery(e.target.value);
+    setPage(1); // Reset to page 1 on search
+  };
 
-    const handleStatusChange = (e) => {
-        setFilterStatus(e.target.value);
-        setPage(1); // Reset to page 1 on filter change
-    };
+  const handleStatusChange = (e) => {
+    setFilterStatus(e.target.value);
+    setPage(1); // Reset to page 1 on filter change
+  };
 
-    const handlePaymentStatusChange = (e) => {
-        setFilterPaymentStatus(e.target.value);
-        setPage(1);
-    };
+  const handlePaymentStatusChange = (e) => {
+    setFilterPaymentStatus(e.target.value);
+    setPage(1);
+  };
 
-    const handleStartDateChange = (e) => {
-        setStartDate(e.target.value);
-        setPage(1);
-    };
+  const handleStartDateChange = (e) => {
+    setStartDate(e.target.value);
+    setPage(1);
+  };
 
-    const handleEndDateChange = (e) => {
-        setEndDate(e.target.value);
-        setPage(1);
-    };
+  const handleEndDateChange = (e) => {
+    setEndDate(e.target.value);
+    setPage(1);
+  };
 
-    const handleReset = () => {
-        setSearchQuery('');
-        setFilterStatus('All');
-        setFilterPaymentStatus('All');
-        setStartDate('');
-        setEndDate('');
-        setPage(1);
+  const handleReset = () => {
+    setSearchQuery("");
+    setFilterStatus("All");
+    setFilterPaymentStatus("All");
+    setStartDate("");
+    setEndDate("");
+    setPage(1);
+    setSelectedOrders([]);
+  };
+
+  const handleSelectOrder = (orderId) => {
+    setSelectedOrders((prev) => {
+      if (prev.includes(orderId)) {
+        return prev.filter((id) => id !== orderId);
+      } else {
+        return [...prev, orderId];
+      }
+    });
+  };
+
+  const handleSelectAll = (e) => {
+    if (e.target.checked) {
+      setSelectedOrders(orders.map((order) => order.id));
+    } else {
+      setSelectedOrders([]);
+    }
+  };
+
+  const handleDeleteSingle = async (orderId) => {
+    if (!confirm("Are you sure you want to delete this order?")) return;
+
+    setIsDeleting(true);
+    try {
+      const res = await adminFetch("/api/admin/orders", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: [orderId] }),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        alert("Order deleted successfully");
+        fetchOrders();
         setSelectedOrders([]);
-    };
+      } else {
+        alert("Failed to delete order");
+      }
+    } catch (error) {
+      console.error("Delete error:", error);
+      alert("Failed to delete order");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
-    const handleSelectOrder = (orderId) => {
-        setSelectedOrders(prev => {
-            if (prev.includes(orderId)) {
-                return prev.filter(id => id !== orderId);
-            } else {
-                return [...prev, orderId];
-            }
-        });
-    };
+  const handleBulkDelete = async () => {
+    if (selectedOrders.length === 0) {
+      alert("Please select orders to delete");
+      return;
+    }
 
-    const handleSelectAll = (e) => {
-        if (e.target.checked) {
-            setSelectedOrders(orders.map(order => order.id));
-        } else {
-            setSelectedOrders([]);
-        }
-    };
+    if (
+      !confirm(
+        `Are you sure you want to delete ${selectedOrders.length} order(s)?`,
+      )
+    )
+      return;
 
-    const handleDeleteSingle = async (orderId) => {
-        if (!confirm('Are you sure you want to delete this order?')) return;
-        
-        setIsDeleting(true);
-        try {
-            const res = await adminFetch('/api/admin/orders', {
-                method: 'DELETE',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ids: [orderId] })
-            });
-            
-            const data = await res.json();
-            if (data.success) {
-                alert('Order deleted successfully');
-                fetchOrders();
-                setSelectedOrders([]);
-            } else {
-                alert('Failed to delete order');
-            }
-        } catch (error) {
-            console.error('Delete error:', error);
-            alert('Failed to delete order');
-        } finally {
-            setIsDeleting(false);
-        }
-    };
+    setIsDeleting(true);
+    try {
+      const res = await adminFetch("/api/admin/orders", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: selectedOrders }),
+      });
 
-    const handleBulkDelete = async () => {
-        if (selectedOrders.length === 0) {
-            alert('Please select orders to delete');
-            return;
-        }
+      const data = await res.json();
+      if (data.success) {
+        alert(`${data.count} order(s) deleted successfully`);
+        fetchOrders();
+        setSelectedOrders([]);
+      } else {
+        alert("Failed to delete orders");
+      }
+    } catch (error) {
+      console.error("Delete error:", error);
+      alert("Failed to delete orders");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
-        if (!confirm(`Are you sure you want to delete ${selectedOrders.length} order(s)?`)) return;
-        
-        setIsDeleting(true);
-        try {
-            const res = await adminFetch('/api/admin/orders', {
-                method: 'DELETE',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ids: selectedOrders })
-            });
-            
-            const data = await res.json();
-            if (data.success) {
-                alert(`${data.count} order(s) deleted successfully`);
-                fetchOrders();
-                setSelectedOrders([]);
-            } else {
-                alert('Failed to delete orders');
-            }
-        } catch (error) {
-            console.error('Delete error:', error);
-            alert('Failed to delete orders');
-        } finally {
-            setIsDeleting(false);
-        }
-    };
+  const handleOpenViewModal = (order) => {
+    setViewOrder(order);
+    setShowViewOrderModal(true);
+  };
 
-    const handleOpenViewModal = (order) => {
-        setViewOrder(order);
-        setShowViewOrderModal(true);
-    };
-
-    const formatDate = (dateString) => {
-        if (!dateString) return '-';
-        try {
-            return new Date(dateString).toLocaleString('en-US', {
-                timeZone: 'Asia/Kuala_Lumpur',
-                dateStyle: 'medium',
-                timeStyle: 'short'
-            });
-        } catch (e) {
-            return dateString;
-        }
-    };
-const formatDate2 = (dateString) => {
-    if (!dateString) return '-';
+  const formatDate = (dateString) => {
+    if (!dateString) return "-";
+    try {
+      return new Date(dateString).toLocaleString("en-US", {
+        timeZone: "Asia/Kuala_Lumpur",
+        dateStyle: "medium",
+        timeStyle: "short",
+      });
+    } catch (e) {
+      return dateString;
+    }
+  };
+  const formatDate2 = (dateString) => {
+    if (!dateString) return "-";
 
     try {
-        const [datePart, timePart] = dateString.replace('Z','').split('T');
-        const [year, month, day] = datePart.split('-');
-        let [hour, minute] = timePart.split(':');
+      const [datePart, timePart] = dateString.replace("Z", "").split("T");
+      const [year, month, day] = datePart.split("-");
+      let [hour, minute] = timePart.split(":");
 
-        const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+      const months = [
+        "Jan",
+        "Feb",
+        "Mar",
+        "Apr",
+        "May",
+        "Jun",
+        "Jul",
+        "Aug",
+        "Sep",
+        "Oct",
+        "Nov",
+        "Dec",
+      ];
 
-        let h = parseInt(hour);
-        const ampm = h >= 12 ? 'PM' : 'AM';
-        h = h % 12 || 12;
+      let h = parseInt(hour);
+      const ampm = h >= 12 ? "PM" : "AM";
+      h = h % 12 || 12;
 
-        return `${months[parseInt(month)-1]} ${parseInt(day)}, ${year} ${h}:${minute} ${ampm}`;
+      return `${months[parseInt(month) - 1]} ${parseInt(day)}, ${year} ${h}:${minute} ${ampm}`;
     } catch {
-        return dateString;
+      return dateString;
     }
-};
+  };
 
+  const getStatusColor = (status) => {
+    switch (status?.toUpperCase()) {
+      case "CONFIRMED":
+        return "bg-green-500/10 text-green-500 border-green-500/20";
+      case "PENDING":
+        return "bg-yellow-500/10 text-yellow-500 border-yellow-500/20";
+      case "CANCELLED":
+        return "bg-red-500/10 text-red-500 border-red-500/20";
+      case "REFUNDED":
+        return "bg-purple-500/10 text-purple-500 border-purple-500/20";
+      default:
+        return "bg-gray-500/10 text-gray-500 border-gray-500/20";
+    }
+  };
 
-    const getStatusColor = (status) => {
-        switch (status?.toUpperCase()) {
-            case 'CONFIRMED': return 'bg-green-500/10 text-green-500 border-green-500/20';
-            case 'PENDING': return 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20';
-            case 'CANCELLED': return 'bg-red-500/10 text-red-500 border-red-500/20';
-            case 'REFUNDED': return 'bg-purple-500/10 text-purple-500 border-purple-500/20';
-            default: return 'bg-gray-500/10 text-gray-500 border-gray-500/20';
-        }
-    };
+  const getPaymentStatusColor = (status) => {
+    switch (status?.toUpperCase()) {
+      case "PAID":
+        return "text-green-400";
+      case "PENDING":
+        return "text-yellow-400";
+      case "FAILED":
+        return "text-red-400";
+      case "REFUNDED":
+        return "text-purple-400";
+      default:
+        return "text-gray-400";
+    }
+  };
 
-    const getPaymentStatusColor = (status) => {
-        switch (status?.toUpperCase()) {
-            case 'PAID': return 'text-green-400';
-            case 'PENDING': return 'text-yellow-400';
-            case 'FAILED': return 'text-red-400';
-            case 'REFUNDED': return 'text-purple-400';
-            default: return 'text-gray-400';
-        }
-    };
+  const parseSeats = (seatsData) => {
+    try {
+      // If it's a JSON string array e.g. "[\"A1\",\"A2\"]"
+      const parsed = JSON.parse(seatsData);
+      if (Array.isArray(parsed)) return parsed.join(", ");
+      return seatsData;
+    } catch (e) {
+      return seatsData;
+    }
+  };
 
-    const parseSeats = (seatsData) => {
-        try {
-            // If it's a JSON string array e.g. "[\"A1\",\"A2\"]"
-            const parsed = JSON.parse(seatsData);
-            if (Array.isArray(parsed)) return parsed.join(', ');
-            return seatsData;
-        } catch (e) {
-            return seatsData;
-        }
-    };
+  const parseTicketType = (ticketTypeData) => {
+    if (!ticketTypeData) return "-";
+    try {
+      const parsed = JSON.parse(ticketTypeData);
 
-    const parseTicketType = (ticketTypeData) => {
-        if (!ticketTypeData) return '-';
-        try {
-            const parsed = JSON.parse(ticketTypeData);
-            
-            // Case 1: Array of Strings ["Adult", "Child"]
-            if (Array.isArray(parsed) && typeof parsed[0] === 'string') {
-                return parsed.join(', ');
-            }
+      // Case 1: Array of Strings ["Adult", "Child"]
+      if (Array.isArray(parsed) && typeof parsed[0] === "string") {
+        return parsed.join(", ");
+      }
 
-            // Case 2: Array of Objects [{ type: "Adult", price: 10 }, ...]
-            if (Array.isArray(parsed) && typeof parsed[0] === 'object') {
-                return parsed.map(p => {
-                    const type = p.ticketType || p.type || p.name || p.Name || 'Ticket';
-                    const price = p.price || p.amount || p.Price || '';
-                    return price ? `${type} (RM${price})` : type;
-                }).join(', ');
-            }
+      // Case 2: Array of Objects [{ type: "Adult", price: 10 }, ...]
+      if (Array.isArray(parsed) && typeof parsed[0] === "object") {
+        return parsed
+          .map((p) => {
+            const type = p.ticketType || p.type || p.name || p.Name || "Ticket";
+            const price = p.price || p.amount || p.Price || "";
+            return price ? `${type} (RM${price})` : type;
+          })
+          .join(", ");
+      }
 
-            // Case 3: Object { "Adult": 2, "Child": 1 }
-            if (typeof parsed === 'object' && !Array.isArray(parsed)) {
-                return Object.entries(parsed).map(([key, val]) => `${key}: ${val}`).join(', ');
-            }
+      // Case 3: Object { "Adult": 2, "Child": 1 }
+      if (typeof parsed === "object" && !Array.isArray(parsed)) {
+        return Object.entries(parsed)
+          .map(([key, val]) => `${key}: ${val}`)
+          .join(", ");
+      }
 
-            return ticketTypeData;
-        } catch (e) {
-            // Not JSON, return as is
-            return ticketTypeData;
-        }
-    };
+      return ticketTypeData;
+    } catch (e) {
+      // Not JSON, return as is
+      return ticketTypeData;
+    }
+  };
 
-    const handleViewTicket = async (order) => {
-        setSelectedOrder(order);
-        // Call GetTickets API first
-        if (order.cinemaId && order.showId && order.referenceNo) {
-             try {
-                 const fetchedData = await booking.getTickets(order.cinemaId, order.showId, order.referenceNo);
-                 if (fetchedData) {
-                     // Merge hallName from order into ticketData
-                     const enrichedTicketData = {
-                         ...fetchedData,
-                         bookingDetails: {
-                             ...fetchedData.bookingDetails,
-                             hallName: order.hallName || fetchedData.bookingDetails?.hallName
-                         }
-                     };
-                     setTicketData(enrichedTicketData);
-                     setShowTicketModal(true);
-                 } else {
-                     alert("Could not fetch details from GetTickets API");
-                 }
-             } catch (e) {
-                 console.error("Error fetching tickets:", e);
-                 alert("Error fetching ticket details");
-             }
+  const handleViewTicket = async (order) => {
+    setSelectedOrder(order);
+    // Call GetTickets API first
+    if (order.cinemaId && order.showId && order.referenceNo) {
+      try {
+        const fetchedData = await booking.getTickets(
+          order.cinemaId,
+          order.showId,
+          order.referenceNo,
+        );
+        if (fetchedData) {
+          // Merge hallName from order into ticketData
+          const enrichedTicketData = {
+            ...fetchedData,
+            bookingDetails: {
+              ...fetchedData.bookingDetails,
+              hallName: order.hallName || fetchedData.bookingDetails?.hallName,
+            },
+          };
+          setTicketData(enrichedTicketData);
+          setShowTicketModal(true);
         } else {
-            alert("This order is missing CinemaID/ShowID to fetch details.");
+          alert("Could not fetch details from GetTickets API");
         }
-    };
+      } catch (e) {
+        console.error("Error fetching tickets:", e);
+        alert("Error fetching ticket details");
+      }
+    } else {
+      alert("This order is missing CinemaID/ShowID to fetch details.");
+    }
+  };
 
-    const handleStatusUpdate = (order) => {
-        setStatusOrder(order);
-        setNewPaymentStatus(order.paymentStatus || 'PENDING');
-        setNewBookingStatus(order.status || 'PENDING');
-        setShowStatusModal(true);
-    };
+  const handleStatusUpdate = (order) => {
+    setStatusOrder(order);
+    setNewPaymentStatus(order.paymentStatus || "PENDING");
+    setNewBookingStatus(order.status || "PENDING");
+    setShowStatusModal(true);
+  };
 
-    const confirmStatusUpdate = async () => {
-        if (!statusOrder) return;
+  const confirmStatusUpdate = async () => {
+    if (!statusOrder) return;
 
-        try {
-            const res = await adminFetch(`/api/admin/orders/${statusOrder.id}/status`, {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ 
-                    paymentStatus: newPaymentStatus,
-                    status: newBookingStatus
-                })
-            });
-            const data = await res.json();
-            if (data.success) {
-                alert("Status updated successfully");
-                fetchOrders();
-                setShowStatusModal(false);
-                setStatusOrder(null);
-            } else {
-                alert(data.error || "Failed to update status");
-            }
-        } catch(e) {
-            console.error(e);
-            alert("Error updating status");
+    try {
+      const res = await adminFetch(
+        `/api/admin/orders/${statusOrder.id}/status`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            paymentStatus: newPaymentStatus,
+            status: newBookingStatus,
+          }),
+        },
+      );
+      const data = await res.json();
+      if (data.success) {
+        alert("Status updated successfully");
+        fetchOrders();
+        setShowStatusModal(false);
+        setStatusOrder(null);
+      } else {
+        alert(data.error || "Failed to update status");
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Error updating status");
+    }
+  };
+
+  const handleResendEmail = async (order) => {
+    if (!confirm(`Resend ticket email to ${order.customerEmail}?`)) return;
+
+    try {
+      const res = await adminFetch(
+        `/api/admin/orders/${order.id}/resend-email`,
+        {
+          method: "POST",
+        },
+      );
+      const data = await res.json();
+      if (data.success) {
+        alert("Email sent successfully");
+      } else {
+        alert(data.error || "Failed to send email");
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Error sending email");
+    }
+  };
+
+  const handleReserve = (order) => {
+    setReserveOrder(order);
+    setShowReserveModal(true);
+  };
+
+  const confirmReserve = async () => {
+    if (!reserveOrder) return;
+    setProcessingReserve(true);
+    try {
+      const res = await adminFetch(
+        `/api/admin/orders/${reserveOrder.id}/reserve`,
+        {
+          method: "POST",
+        },
+      );
+      const data = await res.json();
+      if (data.success) {
+        alert("Reservation successful!");
+        fetchOrders(); // Refresh status
+        setShowReserveModal(false);
+      } else {
+        alert(data.error || "Reservation failed");
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Error calling reserve API");
+    } finally {
+      setProcessingReserve(false);
+    }
+  };
+
+  const handleCheckStatus = async (order) => {
+    setProcessingId(order.id);
+    try {
+      const res = await adminFetch("/api/admin/orders/check-status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId: order.orderId }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setStatusModalData(data);
+        setShowFiuuStatusModal(true);
+        fetchOrders();
+      } else {
+        alert(data.error || "Failed to check status");
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Error checking status");
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const handleRefund = async (order) => {
+    // Quick check before showing loader
+    if (order.reserve_ticket) {
+      alert(
+        "Cannot refund: A ticket has already been reserved for this order.",
+      );
+      return;
+    }
+
+    setProcessingId(order.id);
+    try {
+      // Step 1: Check if ticket already exists in cinema system
+      try {
+        const ticketCheck = await booking.getTickets(
+          order.cinemaId,
+          order.showId,
+          order.referenceNo,
+        );
+        // The API might return the reference number at the top level or inside bookingDetails
+        if (
+          ticketCheck &&
+          (ticketCheck.referenceNo ||
+            ticketCheck.bookingDetails ||
+            ticketCheck.BookingDetails)
+        ) {
+          alert(
+            "Cannot refund: A ticket already exists for this order in the cinema system. Please cancel the ticket first if needed.",
+          );
+          setProcessingId(null);
+          return;
         }
-    };
+      } catch (checkErr) {}
 
-    const handleResendEmail = async (order) => {
-        if (!confirm(`Resend ticket email to ${order.customerEmail}?`)) return;
-        
-        try {
-            const res = await adminFetch(`/api/admin/orders/${order.id}/resend-email`, {
-                method: 'POST'
-            });
-            const data = await res.json();
-            if (data.success) {
-                alert("Email sent successfully");
-            } else {
-                alert(data.error || "Failed to send email");
-            }
-        } catch(e) {
-            console.error(e);
-            alert("Error sending email");
-        }
-    };
+      // Step 2: Confirm refund with admin
+      if (
+        !confirm(
+          `Are you sure you want to refund RM ${order.totalAmount} for order ${order.orderId}? This cannot be undone.`,
+        )
+      ) {
+        setProcessingId(null);
+        return;
+      }
 
-    const handleReserve = (order) => {
-        setReserveOrder(order);
-        setShowReserveModal(true);
-    };
+      const res = await adminFetch("/api/admin/orders/refund", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orderId: order.orderId,
+          reason: "Admin Manual Refund",
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert("Refund successful!");
+        fetchOrders();
+      } else {
+        alert(data.error || "Refund failed");
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Error processing refund");
+    } finally {
+      setProcessingId(null);
+    }
+  };
 
-    const confirmReserve = async () => {
-        if (!reserveOrder) return;
-        setProcessingReserve(true);
-        try {
-            const res = await adminFetch(`/api/admin/orders/${reserveOrder.id}/reserve`, {
-                method: 'POST'
-            });
-            const data = await res.json();
-            if (data.success) {
-                alert("Reservation successful!");
-                fetchOrders(); // Refresh status
-                setShowReserveModal(false);
-            } else {
-                alert(data.error || "Reservation failed");
-            }
-        } catch(e) {
-            console.error(e);
-            alert("Error calling reserve API");
-        } finally {
-            setProcessingReserve(false);
-        }
-    };
-
-    const handleCheckStatus = async (order) => {
-        setProcessingId(order.id);
-        try {
-            const res = await adminFetch('/api/admin/orders/check-status', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ orderId: order.orderId })
-            });
-            const data = await res.json();
-            if (data.success) {
-                setStatusModalData(data);
-                setShowFiuuStatusModal(true);
-                fetchOrders();
-            } else {
-                alert(data.error || "Failed to check status");
-            }
-        } catch (e) {
-            console.error(e);
-            alert("Error checking status");
-        } finally {
-            setProcessingId(null);
-        }
-    };
-
-    const handleRefund = async (order) => {
-        // Quick check before showing loader
-        if (order.reserve_ticket) {
-            alert("Cannot refund: A ticket has already been reserved for this order.");
-            return;
-        }
-
-        setProcessingId(order.id);
-        try {
-            // Step 1: Check if ticket already exists in cinema system
-            try {
-                const ticketCheck = await booking.getTickets(order.cinemaId, order.showId, order.referenceNo);
-                // The API might return the reference number at the top level or inside bookingDetails
-                if (ticketCheck && (ticketCheck.referenceNo || ticketCheck.bookingDetails || ticketCheck.BookingDetails)) {
-                    alert("Cannot refund: A ticket already exists for this order in the cinema system. Please cancel the ticket first if needed.");
-                    setProcessingId(null);
-                    return;
-                }
-            } catch (checkErr) {
-                
-            }
-
-            // Step 2: Confirm refund with admin
-            if (!confirm(`Are you sure you want to refund RM ${order.totalAmount} for order ${order.orderId}? This cannot be undone.`)) {
-                setProcessingId(null);
-                return;
-            }
-
-            const res = await adminFetch('/api/admin/orders/refund', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    orderId: order.orderId,
-                    reason: 'Admin Manual Refund'
-                })
-            });
-            const data = await res.json();
-            if (data.success) {
-                alert("Refund successful!");
-                fetchOrders();
-            } else {
-                alert(data.error || "Refund failed");
-            }
-        } catch (e) {
-            console.error(e);
-            alert("Error processing refund");
-        } finally {
-            setProcessingId(null);
-        }
-    };
-
-    return (
-        <div className="p-8 relative">
-            <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center mb-8 gap-4">
-                <div>
-                    <h1 className="text-3xl font-bold text-[#FFCA20] mb-2">Booking Orders</h1>
-                    <p className="text-[#888]">Manage and view all customer ticket bookings</p>
-                </div>
-                
-                <div className="flex gap-3 flex-wrap">
-                    <div className="relative">
-                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[#666]" />
-                        <input 
-                            type="text" 
-                            placeholder="Search orders..." 
-                            value={searchQuery}
-                            onChange={handleSearchChange}
-                            className="bg-[#2a2a2a] border border-[#3a3a3a] text-white pl-10 pr-4 py-2 rounded-lg focus:border-[#FFCA20] outline-none w-64"
-                        />
-                    </div>
-                    <div className="flex items-center bg-[#2a2a2a] border border-[#3a3a3a] rounded-lg px-2 gap-2">
-                        <span className="text-[10px] text-[#666] uppercase font-bold pl-1">From</span>
-                        <input 
-                            type="date" 
-                            value={startDate}
-                            onChange={handleStartDateChange}
-                            className="bg-transparent text-white py-2 outline-none appearance-none cursor-pointer [color-scheme:dark] text-sm"
-                        />
-                        <span className="text-[#3a3a3a]">|</span>
-                        <span className="text-[10px] text-[#666] uppercase font-bold">To</span>
-                        <input 
-                            type="date" 
-                            value={endDate}
-                            onChange={handleEndDateChange}
-                            className="bg-transparent text-white py-2 outline-none appearance-none cursor-pointer [color-scheme:dark] text-sm"
-                        />
-                    </div>
-                    <div className="relative">
-                        <select 
-                            value={filterStatus}
-                            onChange={handleStatusChange}
-                            className="bg-[#2a2a2a] border border-[#3a3a3a] text-white pl-4 pr-10 py-2 rounded-lg focus:border-[#FFCA20] outline-none appearance-none cursor-pointer"
-                        >
-                            <option value="All">All Status</option>
-                            <option value="CONFIRMED">Confirmed</option>
-                            <option value="PENDING">Pending</option>
-                            <option value="CANCELLED">Cancelled</option>
-                        </select>
-                        <Filter className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[#666] pointer-events-none" />
-                    </div>
-                    <div className="relative">
-                        <select 
-                            value={filterPaymentStatus}
-                            onChange={handlePaymentStatusChange}
-                            className="bg-[#2a2a2a] border border-[#3a3a3a] text-white pl-4 pr-10 py-2 rounded-lg focus:border-[#FFCA20] outline-none appearance-none cursor-pointer"
-                        >
-                            <option value="All">All Payments</option>
-                            <option value="PAID">Paid</option>
-                            <option value="PENDING">Pending</option>
-                            <option value="FAILED">Failed</option>
-                            <option value="REFUNDED">Refunded</option>
-                        </select>
-                        <CreditCard className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[#666] pointer-events-none" />
-                    </div>
-                    
-                    <button
-                        onClick={handleReset}
-                        className="flex items-center gap-2 px-3 py-2 bg-[#333] border border-[#3a3a3a] text-white rounded-lg hover:bg-[#444] hover:text-[#FFCA20] transition h-10"
-                        title="Reset Filters"
-                    >
-                        <RotateCcw className="w-4 h-4" />
-                        <span className="hidden xl:inline text-sm">Reset</span>
-                    </button>
-
-                    {selectedOrders.length > 0 && (
-                        <button
-                            onClick={handleBulkDelete}
-                            disabled={isDeleting}
-                            className="flex items-center gap-2 px-4 py-2 bg-red-500/10 border border-red-500/30 text-red-400 rounded-lg hover:bg-red-500/20 transition disabled:opacity-50"
-                        >
-                            <Trash2 className="w-4 h-4" />
-                            Delete ({selectedOrders.length})
-                        </button>
-                    )}
-                </div>
-            </div>
-            {/* Total Amount Summary - TOP VERSION */}
-            {!loading && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-                    <div className="bg-[#2a2a2a] p-4 rounded-xl border border-[#3a3a3a] flex items-center gap-4">
-                        <div className="bg-[#FFCA20]/10 p-3 rounded-lg">
-                            <Activity className="w-5 h-5 text-[#FFCA20]" />
-                        </div>
-                        <div>
-                            <span className="text-xs text-[#888] uppercase block font-semibold tracking-wider">Filtered Count</span>
-                            <span className="text-white font-bold text-xl">{totalOrders}</span>
-                        </div>
-                    </div>
-                    
-                    <div className="bg-[#2a2a2a] p-4 rounded-xl border border-[#3a3a3a] flex items-center gap-4">
-                        <div className="bg-white/10 p-3 rounded-lg">
-                            <CreditCard className="w-5 h-5 text-white" />
-                        </div>
-                        <div>
-                            <span className="text-xs text-[#888] uppercase block font-semibold tracking-wider">Filtered Total</span>
-                            <span className="text-white font-bold text-xl">RM {parseFloat(totalAmountSum).toFixed(2)}</span>
-                        </div>
-                    </div>
-
-                    <div className="bg-[#2a2a2a] p-4 rounded-xl border border-green-500/20 flex items-center gap-4 relative overflow-hidden group">
-                        <div className="bg-green-500/10 p-3 rounded-lg">
-                            <CheckCircle className="w-5 h-5 text-green-500" />
-                        </div>
-                        <div>
-                            <span className="text-xs text-green-500/70 uppercase block font-semibold tracking-wider">Grand Paid (Period)</span>
-                            <span className="text-green-500 font-bold text-xl">RM {parseFloat(paidAmountSum).toFixed(2)}</span>
-                        </div>
-                    </div>
-
-                    <div className="bg-[#2a2a2a] p-4 rounded-xl border border-red-500/20 flex items-center gap-4">
-                        <div className="bg-red-500/10 p-3 rounded-lg">
-                            <XCircle className="w-5 h-5 text-red-500" />
-                        </div>
-                        <div>
-                            <span className="text-xs text-red-500/70 uppercase block font-semibold tracking-wider">Grand Unpaid (Period)</span>
-                            <span className="text-red-500 font-bold text-xl">RM {parseFloat(unpaidAmountSum).toFixed(2)}</span>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {loading && orders.length === 0 ? (
-                <div className="text-center py-20 text-[#888]">Loading orders...</div>
-            ) : (
-                <div className="bg-[#2a2a2a] rounded-xl border border-[#3a3a3a] overflow-hidden flex flex-col">
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left">
-                            <thead className="bg-[#222] border-b border-[#3a3a3a]">
-                                <tr>
-                                    <th className="px-3 py-3 text-[#888] font-medium text-xs w-[40px]">
-                                        <input
-                                            type="checkbox"
-                                            checked={selectedOrders.length === orders.length && orders.length > 0}
-                                            onChange={handleSelectAll}
-                                            className="w-4 h-4 rounded border-[#666] bg-[#333] text-[#FFCA20] focus:ring-[#FFCA20] focus:ring-offset-0 cursor-pointer"
-                                        />
-                                    </th>
-                                    <th className="px-3 py-3 text-[#888] font-medium text-xs w-[180px]">Ticket / Payment Ref</th>
-                                    <th className="px-3 py-3 text-[#888] font-medium text-xs hidden md:table-cell">Customer</th>
-                                    <th className="px-3 py-3 text-[#888] font-medium text-xs hidden sm:table-cell">Movie Details</th>
-                                    <th className="px-3 py-3 text-[#888] font-medium text-xs hidden lg:table-cell">Details</th>
-                                    <th className="px-3 py-3 text-[#888] font-medium text-xs hidden sm:table-cell">Amount</th>
-                                    <th className="px-3 py-3 text-[#888] font-medium text-xs hidden md:table-cell">Payment</th>
-                                    {/* <th className="px-3 py-3 text-[#888] font-medium text-xs hidden lg:table-cell">Flags</th> */}
-                                   
-                                    <th className="px-3 py-3 text-[#888] font-medium text-xs">Status</th>
-                                    <th className="px-3 py-3 text-[#888] font-medium text-xs hidden lg:table-cell">Time Ago</th>
-                                    <th className="px-3 py-3 text-[#888] font-medium text-xs">Email</th>
-                                    <th className="px-3 py-3 text-[#888] font-medium text-xs text-right">Action</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-[#3a3a3a]">
-                                {orders.length > 0 ? (
-                                    orders.map((order) => (
-                                        <tr key={order.id} className="hover:bg-[#333] transition">
-                                            <td className="px-3 py-2">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={selectedOrders.includes(order.id)}
-                                                    onChange={() => handleSelectOrder(order.id)}
-                                                    className="w-4 h-4 rounded border-[#666] bg-[#333] text-[#FFCA20] focus:ring-[#FFCA20] focus:ring-offset-0 cursor-pointer"
-                                                />
-                                            </td>
-                                            <td className="px-3 py-2">
-                                                <div className="flex flex-col">
-                                                    <span className="font-mono text-[#FFCA20] font-bold text-xs">{order.referenceNo}</span>
-                                                    <span className="text-[10px] text-[#888] font-mono mt-0.5" title="Payment Order ID">
-                                                        {order.orderId || '-'}
-                                                    </span>
-                                                    {order.transactionNo && (
-                                                        <span className="text-[10px] text-[#666] font-mono" title="Transaction ID">
-                                                            Tx: {order.transactionNo}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            </td>
-                                            <td className="px-3 py-2 hidden md:table-cell">
-                                                <div className="flex flex-col">
-                                                    <span className="text-white font-medium text-xs">{order.customerName || 'Guest'}</span>
-                                                    <span className="text-[10px] text-[#888]">{order.customerEmail}</span>
-                                                    <span className="text-[10px] text-[#888]">{order.customerPhone}</span>
-                                                </div>
-                                            </td>
-                                            <td className="px-3 py-2 hidden sm:table-cell">
-                                                <div className="flex flex-col">
-                                                    <span className="text-white flex items-center gap-1 text-xs">
-                                                        <Film className="w-3 h-3 text-[#FFCA20]" />
-                                                        {order.movieTitle}
-                                                    </span>
-                                                    <span className="text-[10px] text-[#888]">{order.cinemaName} - {order.hallName}</span>
-                                                    <span className="text-[10px] text-[#888] flex items-center gap-1 mt-0.5">
-                                                        <Clock className="w-3 h-3" />
-                                                        {formatDate2(order.showTime)}
-                                                    </span>
-                                                </div>
-                                            </td>
-                                            <td className="px-3 py-2 hidden lg:table-cell">
-                                                 <div className="text-xs text-[#ccc]">
-                                                    <span className="block">Seats: <span className="text-white">{parseSeats(order.seats)}</span></span>
-                                                    <span className="text-[10px] text-[#888]">{parseTicketType(order.ticketType)}</span>
-                                                 </div>
-                                            </td>
-                                            <td className="px-3 py-2 hidden sm:table-cell">
-                                                <span className="text-white font-bold text-xs">
-                                                    RM {parseFloat(order.totalAmount).toFixed(2)}
-                                                </span>
-                                            </td>
-                                            <td className="px-3 py-2 hidden md:table-cell">
-                                                <div className="flex flex-col">
-                                                    <span className={`text-[10px] font-medium flex items-center gap-1 ${getPaymentStatusColor(order.paymentStatus)}`}>
-                                                        {order.paymentStatus}
-                                                    </span>
-                                                    <span className="text-[#666] text-[10px] font-normal">{order.paymentMethod}</span>
-                                                </div>
-                                            </td>
-                                           
-                                            <td className="px-3 py-2">
-                                                <span className={`px-1.5 py-0.5 rounded text-[10px] border ${getStatusColor(order.status)}`}>
-                                                    {order.status}
-                                                </span>
-                                            </td>
-                                            <td className="px-3 py-2 hidden lg:table-cell">
-                                                <span className="text-[10px] font-mono text-gray-400 bg-[#333] px-1.5 py-0.5 rounded whitespace-nowrap">
-                                                    {timeAgo(order.createdAt)}
-                                                </span>
-                                            </td>
-                                             <td className="px-3 py-2">
-                                                <div className="flex items-center justify-between gap-2">
-                                                    {order.isSendMail ? (
-                                                        <div className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-green-500/10 text-green-500 shrink-0" title="Email Sent">
-                                                            <CheckCircle className="w-3 h-3" />
-                                                        </div>
-                                                    ) : (
-                                                        <div className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-red-500/10 text-red-500 shrink-0" title="Not Sent">
-                                                            <XCircle className="w-3 h-3" />
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </td>
-                                            <td className="px-3 py-2 text-right">
-                                                <div className="flex items-center justify-end gap-2 relative">
-                                                    {order.paymentStatus === 'PAID' && (
-                                                        <button 
-                                                            onClick={() => handleViewTicket(order)}
-                                                            className="px-3 py-1 bg-[#FFCA20] text-black text-xs font-bold rounded hover:bg-[#FFCA20]/90 transition inline-flex items-center gap-1 shadow-sm"
-                                                        >
-                                                            Ticket
-                                                        </button>
-                                                    )}
-
-                                                    <div className="relative">
-                                                        <button 
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                setOpenActionMenuId(openActionMenuId === order.id ? null : order.id);
-                                                            }}
-                                                            disabled={processingId === order.id}
-                                                            className={`p-1.5 rounded transition ${openActionMenuId === order.id ? 'bg-[#444] text-white' : 'text-[#888] hover:text-white hover:bg-[#333]'} ${processingId === order.id ? 'animate-pulse' : ''}`}
-                                                        >
-                                                            {processingId === order.id ? <RefreshCw className="w-4 h-4 animate-spin" /> : <MoreVertical className="w-4 h-4" />}
-                                                        </button>
-                                                        
-                                                        {openActionMenuId === order.id && (
-                                                            <>
-                                                                <div className="fixed inset-0 z-40 cursor-default" onClick={() => setOpenActionMenuId(null)}></div>
-                                                                <div className="absolute right-0 top-full mt-2 w-48 bg-[#1a1a1a] border border-[#444] rounded-lg shadow-xl z-50 flex flex-col py-1 overflow-hidden">
-                                                                    <button 
-                                                                        onClick={() => { handleOpenViewModal(order); setOpenActionMenuId(null); }} 
-                                                                        className="text-left px-4 py-2.5 hover:bg-[#333] text-sm flex items-center gap-2 text-gray-300 hover:text-white transition"
-                                                                    >
-                                                                        <Eye className="w-4 h-4" /> View Details
-                                                                    </button>
-                                                                    
-                                                                    <button 
-                                                                        onClick={() => { handleStatusUpdate(order); setOpenActionMenuId(null); }} 
-                                                                        className="text-left px-4 py-2.5 hover:bg-[#333] text-sm flex items-center gap-2 text-blue-400 hover:text-blue-300 transition"
-                                                                    >
-                                                                        <Edit className="w-4 h-4" /> Edit Status
-                                                                    </button>
-                                                                    
-                                                                    <button 
-                                                                        onClick={() => { handleResendEmail(order); setOpenActionMenuId(null); }} 
-                                                                        // Enable only if PAID and NOT yet sent
-                                                                        disabled={order.paymentStatus !== 'PAID' || order.isSendMail}
-                                                                        className={`text-left px-4 py-2.5 hover:bg-[#333] text-sm flex items-center gap-2 transition ${
-                                                                            order.paymentStatus === 'PAID' && !order.isSendMail 
-                                                                                ? 'text-yellow-400 hover:text-yellow-300' 
-                                                                                : 'text-gray-600 cursor-not-allowed opacity-50'
-                                                                        }`}
-                                                                    >
-                                                                        <Mail className="w-4 h-4" /> Resend Email
-                                                                    </button>
-
-                                                                    {order.paymentStatus === 'PAID' && !order.reserve_ticket && (
-                                                                        <button 
-                                                                            onClick={() => { handleReserve(order); setOpenActionMenuId(null); }} 
-                                                                            className="text-left px-4 py-2.5 hover:bg-[#333] text-sm flex items-center gap-2 text-green-400 hover:text-green-300 transition"
-                                                                        >
-                                                                            <CheckCircle className="w-4 h-4" /> Reserve Ticket
-                                                                        </button>
-                                                                    )}
-
-                                                                    {order.paymentStatus === 'PENDING' && (
-                                                                         <button 
-                                                                            onClick={() => { handleCheckStatus(order); setOpenActionMenuId(null); }} 
-                                                                            className="text-left px-4 py-2.5 hover:bg-[#333] text-sm flex items-center gap-2 text-[#FFCA20] hover:text-[#FFCA20]/80 transition"
-                                                                        >
-                                                                            <RefreshCw className="w-4 h-4" /> Check Fiuu Status
-                                                                        </button>
-                                                                    )}
-
-                                                                     {order.paymentStatus === 'PAID' && (
-                                                                         <button 
-                                                                            onClick={() => { handleRefund(order); setOpenActionMenuId(null); }} 
-                                                                            className="text-left px-4 py-2.5 hover:bg-red-500/10 text-sm flex items-center gap-2 text-red-500 hover:text-red-400 transition"
-                                                                        >
-                                                                            <Undo2 className="w-4 h-4" /> Refund Customer
-                                                                        </button>
-                                                                    )}
-                                                                    
-                                                                    <div className="border-t border-[#333] my-1"></div>
-                                                                    
-                                                                    <button 
-                                                                        onClick={() => { handleDeleteSingle(order.id); setOpenActionMenuId(null); }} 
-                                                                        className="text-left px-4 py-2.5 hover:bg-red-500/10 text-sm flex items-center gap-2 text-red-400 hover:text-red-300 transition"
-                                                                    >
-                                                                        <Trash2 className="w-4 h-4" /> Delete Order
-                                                                    </button>
-                                                                </div>
-                                                            </>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))
-                                ) : (
-                                    <tr>
-                                        <td colSpan="10" className="p-8 text-center text-[#666]">
-                                            {loading ? 'Searching...' : 'No orders found matching your criteria.'}
-                                        </td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-
-                    {/* Pagination Controls */}
-                    <div className="p-4 border-t border-[#3a3a3a] flex items-center justify-between bg-[#222]">
-                        <div className="text-xs text-[#888]">
-                            Showing <span className="text-white">{(page - 1) * limit + 1}</span> to <span className="text-white">{Math.min(page * limit, totalOrders)}</span> of <span className="text-white">{totalOrders}</span> orders
-                        </div>
-                        <div className="flex items-center gap-2">
-                            {/* Rows per page selector */}
-                            <div className="flex items-center gap-2 mr-4">
-                                <span className="text-xs text-[#888]">Rows per page:</span>
-                                <select
-                                    value={limit}
-                                    onChange={(e) => {
-                                        setLimit(Number(e.target.value));
-                                        setPage(1);
-                                    }}
-                                    className="bg-[#333] border border-[#444] text-white text-xs rounded px-2 py-1 focus:border-[#FFCA20] outline-none cursor-pointer"
-                                >
-                                    <option value={10}>10</option>
-                                    <option value={20}>20</option>
-                                    <option value={50}>50</option>
-                                    <option value={100}>100</option>
-                                </select>
-                            </div>
-
-                            <button
-                                onClick={() => setPage(p => Math.max(1, p - 1))}
-                                disabled={page === 1 || loading}
-                                className="p-2 rounded bg-[#333] text-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#444] transition"
-                            >
-                                <ChevronLeft className="w-4 h-4" />
-                            </button>
-                            
-                            <div className="flex items-center gap-1">
-                                {(() => {
-                                    // Logic to show max 5 page numbers centered around current page
-                                    let startPage = Math.max(1, page - 2);
-                                    let endPage = Math.min(totalPages, startPage + 4);
-                                    
-                                    // Adjust start if close to end
-                                    if (endPage - startPage < 4) {
-                                        startPage = Math.max(1, endPage - 4);
-                                    }
-
-                                    const pages = [];
-                                    for (let i = startPage; i <= endPage; i++) {
-                                        pages.push(i);
-                                    }
-                                    return pages.map(p => (
-                                        <button
-                                            key={p}
-                                            onClick={() => setPage(p)}
-                                            className={`w-8 h-8 rounded text-xs font-medium transition ${
-                                                p === page 
-                                                    ? 'bg-[#FFCA20] text-black font-bold' 
-                                                    : 'bg-[#333] text-white hover:bg-[#444]'
-                                            }`}
-                                        >
-                                            {p}
-                                        </button>
-                                    ));
-                                })()}
-                            </div>
-
-                            <button
-                                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                                disabled={page === totalPages || loading}
-                                className="p-2 rounded bg-[#333] text-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#444] transition"
-                            >
-                                <ChevronRight className="w-4 h-4" />
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Replaced Custom Modal with TicketModal */}
-            <TicketModal 
-                isOpen={showTicketModal}
-                onClose={() => setShowTicketModal(false)}
-                ticketData={ticketData}
-                bookingId={selectedOrder?.referenceNo}
-            />
-
-            <OrderDetailsModal 
-                isOpen={showViewOrderModal}
-                onClose={() => setShowViewOrderModal(false)}
-                order={viewOrder}
-            />
-
-            {/* Status Update Modal */}
-            {showStatusModal && (
-                <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-                    <div className="bg-[#2a2a2a] border border-[#3a3a3a] rounded-lg p-6 w-full max-w-sm shadow-2xl transform transition-all scale-100">
-                        <h3 className="text-xl font-bold text-white mb-4">Update Payment Status</h3>
-                        <p className="text-sm text-gray-400 mb-6">
-                            Changing status for Order <span className="text-[#FFCA20] font-mono bg-black/30 px-1 rounded">{statusOrder?.referenceNo}</span>
-                        </p>
-                        
-                        <div className="space-y-4 mb-8">
-                            <div>
-                                <label className="block text-[10px] text-gray-500 uppercase tracking-widest mb-1.5 font-bold">Booking Status</label>
-                                <div className="relative">
-                                    <select
-                                        value={newBookingStatus}
-                                        onChange={(e) => setNewBookingStatus(e.target.value)}
-                                        className="w-full bg-[#1a1a1a] border border-[#3a3a3a] text-white rounded px-3 py-2 text-sm focus:border-[#FFCA20] outline-none appearance-none cursor-pointer"
-                                    >
-                                        <option value="CONFIRMED">CONFIRMED</option>
-                                        <option value="PENDING">PENDING</option>
-                                        <option value="CANCELLED">CANCELLED</option>
-                                    </select>
-                                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none" />
-                                </div>
-                            </div>
-                            
-                            <div>
-                                <label className="block text-[10px] text-gray-500 uppercase tracking-widest mb-1.5 font-bold">Payment Status</label>
-                                <div className="relative">
-                                    <select
-                                        value={newPaymentStatus}
-                                        onChange={(e) => setNewPaymentStatus(e.target.value)}
-                                        className="w-full bg-[#1a1a1a] border border-[#3a3a3a] text-white rounded px-3 py-2 text-sm focus:border-[#FFCA20] outline-none appearance-none cursor-pointer"
-                                    >
-                                        <option value="PAID">PAID</option>
-                                        <option value="PENDING">PENDING</option>
-                                        <option value="FAILED">FAILED</option>
-                                        <option value="REFUNDED">REFUNDED</option>
-                                        <option value="CANCELLED">CANCELLED</option>
-                                    </select>
-                                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none" />
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div className="flex justify-end gap-3">
-                            <button 
-                                onClick={() => setShowStatusModal(false)}
-                                className="px-4 py-2 rounded text-gray-400 hover:text-white hover:bg-[#333] transition font-medium"
-                            >
-                                Cancel
-                            </button>
-                            <button 
-                                onClick={confirmStatusUpdate}
-                                className="px-4 py-2 rounded bg-[#FFCA20] text-black font-bold hover:bg-[#FFCA20]/90 transition shadow-lg shadow-[#FFCA20]/20"
-                            >
-                                Update Status
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Manual Reserve Confirmation Modal */}
-            {showReserveModal && (
-                <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-                    <div className="bg-[#2a2a2a] border border-[#3a3a3a] rounded-lg p-6 w-full max-w-sm shadow-2xl transform transition-all scale-100">
-                        <div className="flex items-center gap-3 mb-4 text-[#FFCA20]">
-                            <CheckCircle className="w-8 h-8" />
-                            <h3 className="text-xl font-bold text-white">Confirm Reservation?</h3>
-                        </div>
-                        <p className="text-sm text-gray-300 mb-4">
-                            You are about to manually trigger the <span className="font-bold text-white">ReserveBooking</span> API for order <span className="font-mono text-[#FFCA20]">{reserveOrder?.referenceNo}</span>.
-                        </p>
-                        <p className="text-xs text-gray-500 mb-6 bg-black/20 p-3 rounded border border-[#333]">
-                            This should only be done if the payment is successful but the ticket reservation failed to sync. This will lock the seats in the ticketing system.
-                        </p>
-                        
-                        <div className="flex justify-end gap-3">
-                            <button 
-                                onClick={() => setShowReserveModal(false)}
-                                className="px-4 py-2 rounded text-gray-400 hover:text-white hover:bg-[#333] transition font-medium"
-                            >
-                                Cancel
-                            </button>
-                            <button 
-                                onClick={confirmReserve}
-                                disabled={processingReserve}
-                                className="px-4 py-2 rounded bg-[#FFCA20] text-black font-bold hover:bg-[#FFCA20]/90 transition shadow-lg shadow-[#FFCA20]/20 disabled:opacity-50 flex items-center gap-2"
-                            >
-                                {processingReserve ? (
-                                    <>Processing...</>
-                                ) : (
-                                    <>Confirm Reserve</>
-                                )}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-            {/* Fiuu Status Response Modal */}
-            {showFiuuStatusModal && statusModalData && (
-                <div className="fixed inset-0 bg-black/85 flex items-center justify-center z-[100] p-4 backdrop-blur-md">
-                    <div className="bg-[#1e1e1e] border border-[#333] rounded-xl w-full max-w-2xl shadow-2xl flex flex-col max-h-[90vh]">
-                        {/* Modal Header */}
-                        <div className="p-5 border-b border-[#333] flex justify-between items-center bg-[#252525] rounded-t-xl">
-                            <div className="flex items-center gap-3">
-                                <div className={`p-2 rounded-lg ${statusModalData.fiuuStatus.success ? 'bg-green-500/10 text-green-500' : 'bg-[#FFCA20]/10 text-[#FFCA20]'}`}>
-                                    <Activity className="w-6 h-6" />
-                                </div>
-                                <div>
-                                    <h3 className="text-xl font-bold text-white">Fiuu Payment Status</h3>
-                                    <p className="text-xs text-gray-500 font-mono">{statusModalData.fiuuStatus.orderID}</p>
-                                </div>
-                            </div>
-                            <button 
-                                onClick={() => setShowFiuuStatusModal(false)}
-                                className="p-2 hover:bg-[#333] rounded-full transition"
-                            >
-                                <Trash2 className="w-5 h-5 text-gray-400 rotate-45" /> {/* Using Trash2 as X close icon */}
-                            </button>
-                        </div>
-
-                        {/* Modal Content */}
-                        <div className="p-6 overflow-y-auto space-y-6">
-                            {/* Sync Status Alert */}
-                            {statusModalData.dbUpdated && (
-                                <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4 flex items-center gap-3">
-                                    <CheckCircle className="w-5 h-5 text-green-500" />
-                                    <div>
-                                        <p className="text-sm font-bold text-green-500">Database Synchronized!</p>
-                                        <p className="text-xs text-green-500/80">Order payment status was updated to PAID based on Fiuu response.</p>
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Summary Grid */}
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="bg-[#252525] p-4 rounded-lg border border-[#333]">
-                                    <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Status Name</p>
-                                    <p className={`font-bold ${statusModalData.fiuuStatus.success ? 'text-green-500' : 'text-red-500'}`}>
-                                        {statusModalData.fiuuStatus.statusName}
-                                    </p>
-                                </div>
-                                <div className="bg-[#252525] p-4 rounded-lg border border-[#333]">
-                                    <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Tran ID</p>
-                                    <p className="text-white font-mono font-bold">{statusModalData.fiuuStatus.tranID || 'N/A'}</p>
-                                </div>
-                                <div className="bg-[#252525] p-4 rounded-lg border border-[#333]">
-                                    <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Amount</p>
-                                    <p className="text-[#FFCA20] font-bold">RM {statusModalData.fiuuStatus.amount}</p>
-                                </div>
-                                <div className="bg-[#252525] p-4 rounded-lg border border-[#333]">
-                                    <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Payment Date</p>
-                                    <p className="text-white text-sm">{statusModalData.fiuuStatus.raw.PayDate || 'N/A'}</p>
-                                </div>
-                            </div>
-
-                            {/* Raw Data Breakdown */}
-                            <div>
-                                <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-2">
-                                    <Code2 className="w-4 h-4" /> Full API Response
-                                </h4>
-                                <div className="bg-black/40 rounded-lg p-4 border border-[#333] font-mono text-[11px] leading-relaxed">
-                                    <div className="grid grid-cols-2 gap-y-2">
-                                        {Object.entries(statusModalData.fiuuStatus.raw).map(([key, value]) => (
-                                            <React.Fragment key={key}>
-                                                <span className="text-blue-400">{key}:</span>
-                                                <span className="text-gray-300 break-all">{String(value)}</span>
-                                            </React.Fragment>
-                                        ))}
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Logic Flags */}
-                            <div className="flex gap-4">
-                               <div className={`flex-1 p-3 rounded-lg border ${statusModalData.isPaidButNotReserved ? 'bg-orange-500/10 border-orange-500/30' : 'bg-[#333] border-[#444]'}`}>
-                                    <p className="text-[10px] text-gray-500 uppercase mb-1">Potential Action Required</p>
-                                    <p className={`text-xs font-bold ${statusModalData.isPaidButNotReserved ? 'text-orange-500' : 'text-gray-400'}`}>
-                                        {statusModalData.isPaidButNotReserved ? 'Paid but NOT Reserved' : 'No Action Required'}
-                                    </p>
-                               </div>
-                            </div>
-                        </div>
-
-                        {/* Modal Footer */}
-                        <div className="p-5 border-t border-[#333] flex justify-end bg-[#252525] rounded-b-xl gap-3">
-                             {statusModalData.isPaidButNotReserved && (
-                                <button 
-                                    onClick={() => {
-                                        setShowFiuuStatusModal(false);
-                                        // Trigger reserve logic or redirect
-                                        alert("You can now use the 'Reserve Ticket' button in the action menu.");
-                                    }}
-                                    className="px-4 py-2 rounded bg-green-600 text-white text-sm font-bold hover:bg-green-700 transition"
-                                >
-                                    Needs Manual Reservation
-                                </button>
-                            )}
-                            <button 
-                                onClick={() => setShowFiuuStatusModal(false)}
-                                className="px-6 py-2 rounded bg-[#FFCA20] text-black text-sm font-bold hover:bg-[#FFCA20]/90 transition"
-                            >
-                                Close Response
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+  return (
+    <div className="p-8 relative">
+      <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center mb-8 gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-[#FFCA20] mb-2">
+            Booking Orders
+          </h1>
+          <p className="text-[#888]">
+            Manage and view all customer ticket bookings
+          </p>
         </div>
-    );
+
+        <div className="flex gap-3 flex-wrap">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[#666]" />
+            <input
+              type="text"
+              placeholder="Search orders..."
+              value={searchQuery}
+              onChange={handleSearchChange}
+              className="bg-[#2a2a2a] border border-[#3a3a3a] text-white pl-10 pr-4 py-2 rounded-lg focus:border-[#FFCA20] outline-none w-64"
+            />
+          </div>
+          <div className="flex items-center bg-[#2a2a2a] border border-[#3a3a3a] rounded-lg px-2 gap-2">
+            <span className="text-[10px] text-[#666] uppercase font-bold pl-1">
+              From
+            </span>
+            <input
+              type="date"
+              value={startDate}
+              onChange={handleStartDateChange}
+              className="bg-transparent text-white py-2 outline-none appearance-none cursor-pointer [color-scheme:dark] text-sm"
+            />
+            <span className="text-[#3a3a3a]">|</span>
+            <span className="text-[10px] text-[#666] uppercase font-bold">
+              To
+            </span>
+            <input
+              type="date"
+              value={endDate}
+              onChange={handleEndDateChange}
+              className="bg-transparent text-white py-2 outline-none appearance-none cursor-pointer [color-scheme:dark] text-sm"
+            />
+          </div>
+          <div className="relative">
+            <select
+              value={filterStatus}
+              onChange={handleStatusChange}
+              className="bg-[#2a2a2a] border border-[#3a3a3a] text-white pl-4 pr-10 py-2 rounded-lg focus:border-[#FFCA20] outline-none appearance-none cursor-pointer"
+            >
+              <option value="All">All Status</option>
+              <option value="CONFIRMED">Confirmed</option>
+              <option value="PENDING">Pending</option>
+              <option value="CANCELLED">Cancelled</option>
+            </select>
+            <Filter className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[#666] pointer-events-none" />
+          </div>
+          <div className="relative">
+            <select
+              value={filterPaymentStatus}
+              onChange={handlePaymentStatusChange}
+              className="bg-[#2a2a2a] border border-[#3a3a3a] text-white pl-4 pr-10 py-2 rounded-lg focus:border-[#FFCA20] outline-none appearance-none cursor-pointer"
+            >
+              <option value="All">All Payments</option>
+              <option value="PAID">Paid</option>
+              <option value="PENDING">Pending</option>
+              <option value="FAILED">Failed</option>
+              <option value="REFUNDED">Refunded</option>
+            </select>
+            <CreditCard className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[#666] pointer-events-none" />
+          </div>
+
+          <button
+            onClick={handleReset}
+            className="flex items-center gap-2 px-3 py-2 bg-[#333] border border-[#3a3a3a] text-white rounded-lg hover:bg-[#444] hover:text-[#FFCA20] transition h-10"
+            title="Reset Filters"
+          >
+            <RotateCcw className="w-4 h-4" />
+            <span className="hidden xl:inline text-sm">Reset</span>
+          </button>
+
+          {selectedOrders.length > 0 && (
+            <button
+              onClick={handleBulkDelete}
+              disabled={isDeleting}
+              className="flex items-center gap-2 px-4 py-2 bg-red-500/10 border border-red-500/30 text-red-400 rounded-lg hover:bg-red-500/20 transition disabled:opacity-50"
+            >
+              <Trash2 className="w-4 h-4" />
+              Delete ({selectedOrders.length})
+            </button>
+          )}
+        </div>
+      </div>
+      {/* Total Amount Summary - TOP VERSION */}
+      {!loading && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          <div className="bg-[#2a2a2a] p-4 rounded-xl border border-[#3a3a3a] flex items-center gap-4">
+            <div className="bg-[#FFCA20]/10 p-3 rounded-lg">
+              <Activity className="w-5 h-5 text-[#FFCA20]" />
+            </div>
+            <div>
+              <span className="text-xs text-[#888] uppercase block font-semibold tracking-wider">
+                Filtered Count
+              </span>
+              <span className="text-white font-bold text-xl">
+                {totalOrders}
+              </span>
+            </div>
+          </div>
+
+          <div className="bg-[#2a2a2a] p-4 rounded-xl border border-[#3a3a3a] flex items-center gap-4">
+            <div className="bg-white/10 p-3 rounded-lg">
+              <CreditCard className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <span className="text-xs text-[#888] uppercase block font-semibold tracking-wider">
+                Filtered Total
+              </span>
+              <span className="text-white font-bold text-xl">
+                RM {parseFloat(totalAmountSum).toFixed(2)}
+              </span>
+            </div>
+          </div>
+
+          <div className="bg-[#2a2a2a] p-4 rounded-xl border border-green-500/20 flex items-center gap-4 relative overflow-hidden group">
+            <div className="bg-green-500/10 p-3 rounded-lg">
+              <CheckCircle className="w-5 h-5 text-green-500" />
+            </div>
+            <div>
+              <span className="text-xs text-green-500/70 uppercase block font-semibold tracking-wider">
+                Grand Paid (Period)
+              </span>
+              <span className="text-green-500 font-bold text-xl">
+                RM {parseFloat(paidAmountSum).toFixed(2)}
+              </span>
+            </div>
+          </div>
+
+          <div className="bg-[#2a2a2a] p-4 rounded-xl border border-red-500/20 flex items-center gap-4">
+            <div className="bg-red-500/10 p-3 rounded-lg">
+              <XCircle className="w-5 h-5 text-red-500" />
+            </div>
+            <div>
+              <span className="text-xs text-red-500/70 uppercase block font-semibold tracking-wider">
+                Grand Unpaid (Period)
+              </span>
+              <span className="text-red-500 font-bold text-xl">
+                RM {parseFloat(unpaidAmountSum).toFixed(2)}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {loading && orders.length === 0 ? (
+        <div className="text-center py-20 text-[#888]">Loading orders...</div>
+      ) : (
+        <div className="bg-[#2a2a2a] rounded-xl border border-[#3a3a3a] overflow-hidden flex flex-col">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead className="bg-[#222] border-b border-[#3a3a3a]">
+                <tr>
+                  <th className="px-3 py-3 text-[#888] font-medium text-xs w-[40px]">
+                    <input
+                      type="checkbox"
+                      checked={
+                        selectedOrders.length === orders.length &&
+                        orders.length > 0
+                      }
+                      onChange={handleSelectAll}
+                      className="w-4 h-4 rounded border-[#666] bg-[#333] text-[#FFCA20] focus:ring-[#FFCA20] focus:ring-offset-0 cursor-pointer"
+                    />
+                  </th>
+                  <th className="px-3 py-3 text-[#888] font-medium text-xs w-[180px]">
+                    Ticket / Payment Ref
+                  </th>
+                  <th className="px-3 py-3 text-[#888] font-medium text-xs hidden md:table-cell">
+                    Customer
+                  </th>
+                  <th className="px-3 py-3 text-[#888] font-medium text-xs hidden sm:table-cell">
+                    Movie Details
+                  </th>
+                  <th className="px-3 py-3 text-[#888] font-medium text-xs hidden lg:table-cell">
+                    Details
+                  </th>
+                  <th className="px-3 py-3 text-[#888] font-medium text-xs hidden sm:table-cell">
+                    Amount
+                  </th>
+                  <th className="px-3 py-3 text-[#888] font-medium text-xs hidden md:table-cell">
+                    Payment
+                  </th>
+                  {/* <th className="px-3 py-3 text-[#888] font-medium text-xs hidden lg:table-cell">Flags</th> */}
+
+                  <th className="px-3 py-3 text-[#888] font-medium text-xs">
+                    Status
+                  </th>
+                  <th className="px-3 py-3 text-[#888] font-medium text-xs hidden lg:table-cell">
+                    Time Ago
+                  </th>
+                  <th className="px-3 py-3 text-[#888] font-medium text-xs">
+                    Email
+                  </th>
+                  <th className="px-3 py-3 text-[#888] font-medium text-xs text-right">
+                    Action
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#3a3a3a]">
+                {orders.length > 0 ? (
+                  orders.map((order) => (
+                    <tr key={order.id} className="hover:bg-[#333] transition">
+                      <td className="px-3 py-2">
+                        <input
+                          type="checkbox"
+                          checked={selectedOrders.includes(order.id)}
+                          onChange={() => handleSelectOrder(order.id)}
+                          className="w-4 h-4 rounded border-[#666] bg-[#333] text-[#FFCA20] focus:ring-[#FFCA20] focus:ring-offset-0 cursor-pointer"
+                        />
+                      </td>
+                      <td className="px-3 py-2">
+                        <div className="flex flex-col">
+                          <span className="font-mono text-[#FFCA20] font-bold text-xs">
+                            {order.referenceNo}
+                          </span>
+                          <span
+                            className="text-[10px] text-[#888] font-mono mt-0.5"
+                            title="Payment Order ID"
+                          >
+                            {order.orderId || "-"}
+                          </span>
+                          {order.transactionNo && (
+                            <span
+                              className="text-[10px] text-[#666] font-mono"
+                              title="Transaction ID"
+                            >
+                              Tx: {order.transactionNo}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-3 py-2 hidden md:table-cell">
+                        <div className="flex flex-col">
+                          <span className="text-white font-medium text-xs">
+                            {order.customerName || "Guest"}
+                          </span>
+                          <span className="text-[10px] text-[#888]">
+                            {order.customerEmail}
+                          </span>
+                          <span className="text-[10px] text-[#888]">
+                            {order.customerPhone}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-3 py-2 hidden sm:table-cell">
+                        <div className="flex flex-col">
+                          <span className="text-white flex items-center gap-1 text-xs">
+                            <Film className="w-3 h-3 text-[#FFCA20]" />
+                            {order.movieTitle}
+                          </span>
+                          <span className="text-[10px] text-[#888]">
+                            {order.cinemaName} - {order.hallName}
+                          </span>
+                          <span className="text-[10px] text-[#888] flex items-center gap-1 mt-0.5">
+                            <Clock className="w-3 h-3" />
+                            {formatMalaysiaShowDateTime(order.showTime)}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-3 py-2 hidden lg:table-cell">
+                        <div className="text-xs text-[#ccc]">
+                          <span className="block">
+                            Seats:{" "}
+                            <span className="text-white">
+                              {parseSeats(order.seats)}
+                            </span>
+                          </span>
+                          <span className="text-[10px] text-[#888]">
+                            {parseTicketType(order.ticketType)}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-3 py-2 hidden sm:table-cell">
+                        <span className="text-white font-bold text-xs">
+                          RM {parseFloat(order.totalAmount).toFixed(2)}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 hidden md:table-cell">
+                        <div className="flex flex-col">
+                          <span
+                            className={`text-[10px] font-medium flex items-center gap-1 ${getPaymentStatusColor(order.paymentStatus)}`}
+                          >
+                            {order.paymentStatus}
+                          </span>
+                          <span className="text-[#666] text-[10px] font-normal">
+                            {order.paymentMethod}
+                          </span>
+                        </div>
+                      </td>
+
+                      <td className="px-3 py-2">
+                        <span
+                          className={`px-1.5 py-0.5 rounded text-[10px] border ${getStatusColor(order.status)}`}
+                        >
+                          {order.status}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 hidden lg:table-cell">
+                        <span className="text-[10px] font-mono text-gray-400 bg-[#333] px-1.5 py-0.5 rounded whitespace-nowrap">
+                          {timeAgo(order.createdAt)}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2">
+                        <div className="flex items-center justify-between gap-2">
+                          {order.isSendMail ? (
+                            <div
+                              className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-green-500/10 text-green-500 shrink-0"
+                              title="Email Sent"
+                            >
+                              <CheckCircle className="w-3 h-3" />
+                            </div>
+                          ) : (
+                            <div
+                              className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-red-500/10 text-red-500 shrink-0"
+                              title="Not Sent"
+                            >
+                              <XCircle className="w-3 h-3" />
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-3 py-2 text-right">
+                        <div className="flex items-center justify-end gap-2 relative">
+                          {order.paymentStatus === "PAID" && (
+                            <button
+                              onClick={() => handleViewTicket(order)}
+                              className="px-3 py-1 bg-[#FFCA20] text-black text-xs font-bold rounded hover:bg-[#FFCA20]/90 transition inline-flex items-center gap-1 shadow-sm"
+                            >
+                              Ticket
+                            </button>
+                          )}
+
+                          <div className="relative">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setOpenActionMenuId(
+                                  openActionMenuId === order.id
+                                    ? null
+                                    : order.id,
+                                );
+                              }}
+                              disabled={processingId === order.id}
+                              className={`p-1.5 rounded transition ${openActionMenuId === order.id ? "bg-[#444] text-white" : "text-[#888] hover:text-white hover:bg-[#333]"} ${processingId === order.id ? "animate-pulse" : ""}`}
+                            >
+                              {processingId === order.id ? (
+                                <RefreshCw className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <MoreVertical className="w-4 h-4" />
+                              )}
+                            </button>
+
+                            {openActionMenuId === order.id && (
+                              <>
+                                <div
+                                  className="fixed inset-0 z-40 cursor-default"
+                                  onClick={() => setOpenActionMenuId(null)}
+                                ></div>
+                                <div className="absolute right-0 top-full mt-2 w-48 bg-[#1a1a1a] border border-[#444] rounded-lg shadow-xl z-50 flex flex-col py-1 overflow-hidden">
+                                  <button
+                                    onClick={() => {
+                                      handleOpenViewModal(order);
+                                      setOpenActionMenuId(null);
+                                    }}
+                                    className="text-left px-4 py-2.5 hover:bg-[#333] text-sm flex items-center gap-2 text-gray-300 hover:text-white transition"
+                                  >
+                                    <Eye className="w-4 h-4" /> View Details
+                                  </button>
+
+                                  <button
+                                    onClick={() => {
+                                      handleStatusUpdate(order);
+                                      setOpenActionMenuId(null);
+                                    }}
+                                    className="text-left px-4 py-2.5 hover:bg-[#333] text-sm flex items-center gap-2 text-blue-400 hover:text-blue-300 transition"
+                                  >
+                                    <Edit className="w-4 h-4" /> Edit Status
+                                  </button>
+
+                                  <button
+                                    onClick={() => {
+                                      handleResendEmail(order);
+                                      setOpenActionMenuId(null);
+                                    }}
+                                    // Enable only if PAID and NOT yet sent
+                                    disabled={
+                                      order.paymentStatus !== "PAID" ||
+                                      order.isSendMail
+                                    }
+                                    className={`text-left px-4 py-2.5 hover:bg-[#333] text-sm flex items-center gap-2 transition ${
+                                      order.paymentStatus === "PAID" &&
+                                      !order.isSendMail
+                                        ? "text-yellow-400 hover:text-yellow-300"
+                                        : "text-gray-600 cursor-not-allowed opacity-50"
+                                    }`}
+                                  >
+                                    <Mail className="w-4 h-4" /> Resend Email
+                                  </button>
+
+                                  {order.paymentStatus === "PAID" &&
+                                    !order.reserve_ticket && (
+                                      <button
+                                        onClick={() => {
+                                          handleReserve(order);
+                                          setOpenActionMenuId(null);
+                                        }}
+                                        className="text-left px-4 py-2.5 hover:bg-[#333] text-sm flex items-center gap-2 text-green-400 hover:text-green-300 transition"
+                                      >
+                                        <CheckCircle className="w-4 h-4" />{" "}
+                                        Reserve Ticket
+                                      </button>
+                                    )}
+
+                                  {order.paymentStatus === "PENDING" && (
+                                    <button
+                                      onClick={() => {
+                                        handleCheckStatus(order);
+                                        setOpenActionMenuId(null);
+                                      }}
+                                      className="text-left px-4 py-2.5 hover:bg-[#333] text-sm flex items-center gap-2 text-[#FFCA20] hover:text-[#FFCA20]/80 transition"
+                                    >
+                                      <RefreshCw className="w-4 h-4" /> Check
+                                      Fiuu Status
+                                    </button>
+                                  )}
+
+                                  {order.paymentStatus === "PAID" && (
+                                    <button
+                                      onClick={() => {
+                                        handleRefund(order);
+                                        setOpenActionMenuId(null);
+                                      }}
+                                      className="text-left px-4 py-2.5 hover:bg-red-500/10 text-sm flex items-center gap-2 text-red-500 hover:text-red-400 transition"
+                                    >
+                                      <Undo2 className="w-4 h-4" /> Refund
+                                      Customer
+                                    </button>
+                                  )}
+
+                                  <div className="border-t border-[#333] my-1"></div>
+
+                                  <button
+                                    onClick={() => {
+                                      handleDeleteSingle(order.id);
+                                      setOpenActionMenuId(null);
+                                    }}
+                                    className="text-left px-4 py-2.5 hover:bg-red-500/10 text-sm flex items-center gap-2 text-red-400 hover:text-red-300 transition"
+                                  >
+                                    <Trash2 className="w-4 h-4" /> Delete Order
+                                  </button>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan="10" className="p-8 text-center text-[#666]">
+                      {loading
+                        ? "Searching..."
+                        : "No orders found matching your criteria."}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Pagination Controls */}
+          <div className="p-4 border-t border-[#3a3a3a] flex items-center justify-between bg-[#222]">
+            <div className="text-xs text-[#888]">
+              Showing{" "}
+              <span className="text-white">{(page - 1) * limit + 1}</span> to{" "}
+              <span className="text-white">
+                {Math.min(page * limit, totalOrders)}
+              </span>{" "}
+              of <span className="text-white">{totalOrders}</span> orders
+            </div>
+            <div className="flex items-center gap-2">
+              {/* Rows per page selector */}
+              <div className="flex items-center gap-2 mr-4">
+                <span className="text-xs text-[#888]">Rows per page:</span>
+                <select
+                  value={limit}
+                  onChange={(e) => {
+                    setLimit(Number(e.target.value));
+                    setPage(1);
+                  }}
+                  className="bg-[#333] border border-[#444] text-white text-xs rounded px-2 py-1 focus:border-[#FFCA20] outline-none cursor-pointer"
+                >
+                  <option value={10}>10</option>
+                  <option value={20}>20</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
+              </div>
+
+              <button
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page === 1 || loading}
+                className="p-2 rounded bg-[#333] text-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#444] transition"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+
+              <div className="flex items-center gap-1">
+                {(() => {
+                  // Logic to show max 5 page numbers centered around current page
+                  let startPage = Math.max(1, page - 2);
+                  let endPage = Math.min(totalPages, startPage + 4);
+
+                  // Adjust start if close to end
+                  if (endPage - startPage < 4) {
+                    startPage = Math.max(1, endPage - 4);
+                  }
+
+                  const pages = [];
+                  for (let i = startPage; i <= endPage; i++) {
+                    pages.push(i);
+                  }
+                  return pages.map((p) => (
+                    <button
+                      key={p}
+                      onClick={() => setPage(p)}
+                      className={`w-8 h-8 rounded text-xs font-medium transition ${
+                        p === page
+                          ? "bg-[#FFCA20] text-black font-bold"
+                          : "bg-[#333] text-white hover:bg-[#444]"
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  ));
+                })()}
+              </div>
+
+              <button
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages || loading}
+                className="p-2 rounded bg-[#333] text-white disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#444] transition"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Replaced Custom Modal with TicketModal */}
+      <TicketModal
+        isOpen={showTicketModal}
+        onClose={() => setShowTicketModal(false)}
+        ticketData={ticketData}
+        bookingId={selectedOrder?.referenceNo}
+      />
+
+      <OrderDetailsModal
+        isOpen={showViewOrderModal}
+        onClose={() => setShowViewOrderModal(false)}
+        order={viewOrder}
+      />
+
+      {/* Status Update Modal */}
+      {showStatusModal && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+          <div className="bg-[#2a2a2a] border border-[#3a3a3a] rounded-lg p-6 w-full max-w-sm shadow-2xl transform transition-all scale-100">
+            <h3 className="text-xl font-bold text-white mb-4">
+              Update Payment Status
+            </h3>
+            <p className="text-sm text-gray-400 mb-6">
+              Changing status for Order{" "}
+              <span className="text-[#FFCA20] font-mono bg-black/30 px-1 rounded">
+                {statusOrder?.referenceNo}
+              </span>
+            </p>
+
+            <div className="space-y-4 mb-8">
+              <div>
+                <label className="block text-[10px] text-gray-500 uppercase tracking-widest mb-1.5 font-bold">
+                  Booking Status
+                </label>
+                <div className="relative">
+                  <select
+                    value={newBookingStatus}
+                    onChange={(e) => setNewBookingStatus(e.target.value)}
+                    className="w-full bg-[#1a1a1a] border border-[#3a3a3a] text-white rounded px-3 py-2 text-sm focus:border-[#FFCA20] outline-none appearance-none cursor-pointer"
+                  >
+                    <option value="CONFIRMED">CONFIRMED</option>
+                    <option value="PENDING">PENDING</option>
+                    <option value="CANCELLED">CANCELLED</option>
+                  </select>
+                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none" />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] text-gray-500 uppercase tracking-widest mb-1.5 font-bold">
+                  Payment Status
+                </label>
+                <div className="relative">
+                  <select
+                    value={newPaymentStatus}
+                    onChange={(e) => setNewPaymentStatus(e.target.value)}
+                    className="w-full bg-[#1a1a1a] border border-[#3a3a3a] text-white rounded px-3 py-2 text-sm focus:border-[#FFCA20] outline-none appearance-none cursor-pointer"
+                  >
+                    <option value="PAID">PAID</option>
+                    <option value="PENDING">PENDING</option>
+                    <option value="FAILED">FAILED</option>
+                    <option value="REFUNDED">REFUNDED</option>
+                    <option value="CANCELLED">CANCELLED</option>
+                  </select>
+                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 pointer-events-none" />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setShowStatusModal(false)}
+                className="px-4 py-2 rounded text-gray-400 hover:text-white hover:bg-[#333] transition font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmStatusUpdate}
+                className="px-4 py-2 rounded bg-[#FFCA20] text-black font-bold hover:bg-[#FFCA20]/90 transition shadow-lg shadow-[#FFCA20]/20"
+              >
+                Update Status
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Manual Reserve Confirmation Modal */}
+      {showReserveModal && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
+          <div className="bg-[#2a2a2a] border border-[#3a3a3a] rounded-lg p-6 w-full max-w-sm shadow-2xl transform transition-all scale-100">
+            <div className="flex items-center gap-3 mb-4 text-[#FFCA20]">
+              <CheckCircle className="w-8 h-8" />
+              <h3 className="text-xl font-bold text-white">
+                Confirm Reservation?
+              </h3>
+            </div>
+            <p className="text-sm text-gray-300 mb-4">
+              You are about to manually trigger the{" "}
+              <span className="font-bold text-white">ReserveBooking</span> API
+              for order{" "}
+              <span className="font-mono text-[#FFCA20]">
+                {reserveOrder?.referenceNo}
+              </span>
+              .
+            </p>
+            <p className="text-xs text-gray-500 mb-6 bg-black/20 p-3 rounded border border-[#333]">
+              This should only be done if the payment is successful but the
+              ticket reservation failed to sync. This will lock the seats in the
+              ticketing system.
+            </p>
+
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setShowReserveModal(false)}
+                className="px-4 py-2 rounded text-gray-400 hover:text-white hover:bg-[#333] transition font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmReserve}
+                disabled={processingReserve}
+                className="px-4 py-2 rounded bg-[#FFCA20] text-black font-bold hover:bg-[#FFCA20]/90 transition shadow-lg shadow-[#FFCA20]/20 disabled:opacity-50 flex items-center gap-2"
+              >
+                {processingReserve ? <>Processing...</> : <>Confirm Reserve</>}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Fiuu Status Response Modal */}
+      {showFiuuStatusModal && statusModalData && (
+        <div className="fixed inset-0 bg-black/85 flex items-center justify-center z-[100] p-4 backdrop-blur-md">
+          <div className="bg-[#1e1e1e] border border-[#333] rounded-xl w-full max-w-2xl shadow-2xl flex flex-col max-h-[90vh]">
+            {/* Modal Header */}
+            <div className="p-5 border-b border-[#333] flex justify-between items-center bg-[#252525] rounded-t-xl">
+              <div className="flex items-center gap-3">
+                <div
+                  className={`p-2 rounded-lg ${statusModalData.fiuuStatus.success ? "bg-green-500/10 text-green-500" : "bg-[#FFCA20]/10 text-[#FFCA20]"}`}
+                >
+                  <Activity className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-white">
+                    Fiuu Payment Status
+                  </h3>
+                  <p className="text-xs text-gray-500 font-mono">
+                    {statusModalData.fiuuStatus.orderID}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowFiuuStatusModal(false)}
+                className="p-2 hover:bg-[#333] rounded-full transition"
+              >
+                <Trash2 className="w-5 h-5 text-gray-400 rotate-45" />{" "}
+                {/* Using Trash2 as X close icon */}
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6 overflow-y-auto space-y-6">
+              {/* Sync Status Alert */}
+              {statusModalData.dbUpdated && (
+                <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4 flex items-center gap-3">
+                  <CheckCircle className="w-5 h-5 text-green-500" />
+                  <div>
+                    <p className="text-sm font-bold text-green-500">
+                      Database Synchronized!
+                    </p>
+                    <p className="text-xs text-green-500/80">
+                      Order payment status was updated to PAID based on Fiuu
+                      response.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Summary Grid */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-[#252525] p-4 rounded-lg border border-[#333]">
+                  <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">
+                    Status Name
+                  </p>
+                  <p
+                    className={`font-bold ${statusModalData.fiuuStatus.success ? "text-green-500" : "text-red-500"}`}
+                  >
+                    {statusModalData.fiuuStatus.statusName}
+                  </p>
+                </div>
+                <div className="bg-[#252525] p-4 rounded-lg border border-[#333]">
+                  <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">
+                    Tran ID
+                  </p>
+                  <p className="text-white font-mono font-bold">
+                    {statusModalData.fiuuStatus.tranID || "N/A"}
+                  </p>
+                </div>
+                <div className="bg-[#252525] p-4 rounded-lg border border-[#333]">
+                  <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">
+                    Amount
+                  </p>
+                  <p className="text-[#FFCA20] font-bold">
+                    RM {statusModalData.fiuuStatus.amount}
+                  </p>
+                </div>
+                <div className="bg-[#252525] p-4 rounded-lg border border-[#333]">
+                  <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">
+                    Payment Date
+                  </p>
+                  <p className="text-white text-sm">
+                    {statusModalData.fiuuStatus.raw.PayDate || "N/A"}
+                  </p>
+                </div>
+              </div>
+
+              {/* Raw Data Breakdown */}
+              <div>
+                <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                  <Code2 className="w-4 h-4" /> Full API Response
+                </h4>
+                <div className="bg-black/40 rounded-lg p-4 border border-[#333] font-mono text-[11px] leading-relaxed">
+                  <div className="grid grid-cols-2 gap-y-2">
+                    {Object.entries(statusModalData.fiuuStatus.raw).map(
+                      ([key, value]) => (
+                        <React.Fragment key={key}>
+                          <span className="text-blue-400">{key}:</span>
+                          <span className="text-gray-300 break-all">
+                            {String(value)}
+                          </span>
+                        </React.Fragment>
+                      ),
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Logic Flags */}
+              <div className="flex gap-4">
+                <div
+                  className={`flex-1 p-3 rounded-lg border ${statusModalData.isPaidButNotReserved ? "bg-orange-500/10 border-orange-500/30" : "bg-[#333] border-[#444]"}`}
+                >
+                  <p className="text-[10px] text-gray-500 uppercase mb-1">
+                    Potential Action Required
+                  </p>
+                  <p
+                    className={`text-xs font-bold ${statusModalData.isPaidButNotReserved ? "text-orange-500" : "text-gray-400"}`}
+                  >
+                    {statusModalData.isPaidButNotReserved
+                      ? "Paid but NOT Reserved"
+                      : "No Action Required"}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-5 border-t border-[#333] flex justify-end bg-[#252525] rounded-b-xl gap-3">
+              {statusModalData.isPaidButNotReserved && (
+                <button
+                  onClick={() => {
+                    setShowFiuuStatusModal(false);
+                    // Trigger reserve logic or redirect
+                    alert(
+                      "You can now use the 'Reserve Ticket' button in the action menu.",
+                    );
+                  }}
+                  className="px-4 py-2 rounded bg-green-600 text-white text-sm font-bold hover:bg-green-700 transition"
+                >
+                  Needs Manual Reservation
+                </button>
+              )}
+              <button
+                onClick={() => setShowFiuuStatusModal(false)}
+                className="px-6 py-2 rounded bg-[#FFCA20] text-black text-sm font-bold hover:bg-[#FFCA20]/90 transition"
+              >
+                Close Response
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }

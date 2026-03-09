@@ -4,28 +4,30 @@
  * Supports SMTP, Gmail, SendGrid, and other email services
  */
 
-import nodemailer from 'nodemailer';
+import nodemailer from "nodemailer";
 
 /**
  * Create email transporter based on environment configuration
  * Supports multiple email service providers
  */
 function createTransporter() {
-  const emailService = process.env.EMAIL_SERVICE || 'smtp';
+  const emailService = process.env.EMAIL_SERVICE || "smtp";
   const emailHost = process.env.EMAIL_HOST;
-  const emailPort = parseInt(process.env.EMAIL_PORT || '587');
-  const emailSecure = process.env.EMAIL_SECURE === 'true' || emailPort === 465;
+  const emailPort = parseInt(process.env.EMAIL_PORT || "587");
+  const emailSecure = process.env.EMAIL_SECURE === "true" || emailPort === 465;
   const emailUser = process.env.EMAIL_USER;
   const emailPassword = process.env.EMAIL_PASSWORD;
   const emailFrom = process.env.EMAIL_FROM || emailUser;
 
   // Gmail configuration
-  if (emailService.toLowerCase() === 'gmail') {
+  if (emailService.toLowerCase() === "gmail") {
     if (!emailUser || !emailPassword) {
-      throw new Error('EMAIL_USER and EMAIL_PASSWORD are required for Gmail configuration');
+      throw new Error(
+        "EMAIL_USER and EMAIL_PASSWORD are required for Gmail configuration",
+      );
     }
     return nodemailer.createTransport({
-      service: 'gmail',
+      service: "gmail",
       auth: {
         user: emailUser,
         pass: emailPassword,
@@ -34,17 +36,19 @@ function createTransporter() {
   }
 
   // SendGrid configuration
-  if (emailService.toLowerCase() === 'sendgrid') {
+  if (emailService.toLowerCase() === "sendgrid") {
     const sendgridApiKey = process.env.SENDGRID_API_KEY || emailPassword;
     if (!sendgridApiKey) {
-      throw new Error('SENDGRID_API_KEY or EMAIL_PASSWORD is required for SendGrid configuration');
+      throw new Error(
+        "SENDGRID_API_KEY or EMAIL_PASSWORD is required for SendGrid configuration",
+      );
     }
     return nodemailer.createTransport({
-      host: 'smtp.sendgrid.net',
+      host: "smtp.sendgrid.net",
       port: 587,
       secure: false,
       auth: {
-        user: 'apikey',
+        user: "apikey",
         pass: sendgridApiKey,
       },
     });
@@ -52,7 +56,7 @@ function createTransporter() {
 
   // Generic SMTP configuration
   if (!emailHost) {
-    throw new Error('EMAIL_HOST is required for SMTP configuration');
+    throw new Error("EMAIL_HOST is required for SMTP configuration");
   }
 
   return nodemailer.createTransport({
@@ -65,7 +69,7 @@ function createTransporter() {
     },
     // For development/testing with self-signed certificates
     tls: {
-      rejectUnauthorized: process.env.EMAIL_REJECT_UNAUTHORIZED !== 'false',
+      rejectUnauthorized: process.env.EMAIL_REJECT_UNAUTHORIZED !== "false",
     },
   });
 }
@@ -80,32 +84,43 @@ function createTransporter() {
  * @param {string} options.from - Sender email address (optional, uses EMAIL_FROM env var)
  * @returns {Promise<Object>} - Send result
  */
-export async function sendEmail({ to, subject, html, text, from, attachments }) {
+export async function sendEmail({
+  to,
+  subject,
+  html,
+  text,
+  from,
+  attachments,
+}) {
   try {
     // Validate required environment variables
     if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
-      console.error('Email Utils: Missing EMAIL_USER or EMAIL_PASSWORD');
-      console.log('Environment:', {
+      console.error("Email Utils: Missing EMAIL_USER or EMAIL_PASSWORD");
+      console.log("Environment:", {
         EMAIL_USER_SET: !!process.env.EMAIL_USER,
         EMAIL_PASSWORD_SET: !!process.env.EMAIL_PASSWORD,
         EMAIL_SERVICE: process.env.EMAIL_SERVICE,
         EMAIL_HOST: process.env.EMAIL_HOST,
         EMAIL_PORT: process.env.EMAIL_PORT,
       });
-      throw new Error('Email configuration is missing. Please set EMAIL_USER and EMAIL_PASSWORD environment variables.');
+      throw new Error(
+        "Email configuration is missing. Please set EMAIL_USER and EMAIL_PASSWORD environment variables.",
+      );
     }
 
     const transporter = createTransporter();
-    
+
     // Log transporter details (safe)
-    const emailService = process.env.EMAIL_SERVICE || 'smtp';
-    console.log(`Email Utils: specific transporter created for service: ${emailService}`);
+    const emailService = process.env.EMAIL_SERVICE || "smtp";
+    console.log(
+      `Email Utils: specific transporter created for service: ${emailService}`,
+    );
 
     let emailFrom = from || process.env.EMAIL_FROM || process.env.EMAIL_USER;
     const emailName = process.env.EMAIL_NAME;
 
     // If we have a name and the email string doesn't already have one (e.g. doesn't contain '<')
-    if (emailName && emailFrom && !emailFrom.includes('<')) {
+    if (emailName && emailFrom && !emailFrom.includes("<")) {
       emailFrom = `"${emailName}" <${emailFrom}>`;
     }
 
@@ -114,19 +129,19 @@ export async function sendEmail({ to, subject, html, text, from, attachments }) 
       to: to,
       subject: subject,
       html: html,
-      text: text || html.replace(/<[^>]*>/g, ''), // Strip HTML tags for plain text fallback
+      text: text || html.replace(/<[^>]*>/g, ""), // Strip HTML tags for plain text fallback
       attachments: attachments,
     };
 
-    console.log('Email Utils: Verifying transporter...');
+    console.log("Email Utils: Verifying transporter...");
     // Verify transporter configuration
     await transporter.verify();
-    console.log('Email Utils: Transporter verified. Sending email...');
+    console.log("Email Utils: Transporter verified. Sending email...");
 
     // Send email
     const info = await transporter.sendMail(mailOptions);
 
-    console.log('Email sent successfully:', {
+    console.log("Email sent successfully:", {
       messageId: info.messageId,
       to: to,
       subject: subject,
@@ -139,9 +154,9 @@ export async function sendEmail({ to, subject, html, text, from, attachments }) 
       response: info.response,
     };
   } catch (error) {
-    console.error('Email sending error:', error);
-    if (error.code) console.error('Error Code:', error.code);
-    if (error.command) console.error('Error Command:', error.command);
+    console.error("Email sending error:", error);
+    if (error.code) console.error("Error Code:", error.code);
+    if (error.command) console.error("Error Command:", error.command);
     throw new Error(`Failed to send email: ${error.message}`);
   }
 }
@@ -154,7 +169,7 @@ export async function sendEmail({ to, subject, html, text, from, attachments }) 
  * @returns {Promise<Object>} - Send result
  */
 export async function sendActivationEmail(to, name, activationUrl) {
-  const subject = 'Activate Your MS Cinema Account';
+  const subject = "Activate Your MS Cinema Account";
   const html = `
     <!DOCTYPE html>
     <html>
@@ -165,7 +180,7 @@ export async function sendActivationEmail(to, name, activationUrl) {
     </head>
     <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
       <div style="background-color: #1a1a1a; padding: 30px; border-radius: 10px;">
-        <h2 style="color: #FFCA20; margin-top: 0;">Welcome to MS Cinema, ${name || 'User'}!</h2>
+        <h2 style="color: #FFCA20; margin-top: 0;">Welcome to MS Cinema, ${name || "User"}!</h2>
         <p style="color: #FAFAFA;">Thank you for registering with MS Cinema. To complete your registration, please activate your account by clicking the button below:</p>
         <div style="text-align: center; margin: 30px 0;">
           <a href="${activationUrl}" style="background-color: #FFCA20; color: #000; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold; font-size: 16px;">Activate Account</a>
@@ -180,7 +195,7 @@ export async function sendActivationEmail(to, name, activationUrl) {
     </body>
     </html>
   `;
-  const text = `Welcome to MS Cinema, ${name || 'User'}! Please activate your account by visiting: ${activationUrl}`;
+  const text = `Welcome to MS Cinema, ${name || "User"}! Please activate your account by visiting: ${activationUrl}`;
 
   return await sendEmail({ to, subject, html, text });
 }
@@ -192,7 +207,7 @@ export async function sendActivationEmail(to, name, activationUrl) {
  * @returns {Promise<Object>} - Send result
  */
 export async function sendForgotPasswordEmail(to, resetUrl) {
-  const subject = 'Reset Your MS Cinema Password';
+  const subject = "Reset Your MS Cinema Password";
   const html = `
     <!DOCTYPE html>
     <html>
@@ -245,48 +260,52 @@ export async function sendForgotPasswordEmail(to, resetUrl) {
  * @returns {Promise<Object>} - Send result
  */
 // ... imports
-import QRCode from 'qrcode';
+import QRCode from "qrcode";
 
 // ... existing code ...
 
 /**
  * Send ticket confirmation email with ticket details and QR code
  */
-export const sendTicketEmail = async (to, ticketData, corporateInfoPassed = null) => {
+export const sendTicketEmail = async (
+  to,
+  ticketData,
+  corporateInfoPassed = null,
+) => {
   const {
-    customerName = 'Guest',
-    customerPhone = '',
-    customerEmail = '',
-    movieName = 'Unknown Movie',
-    movieImage = '/img/banner.jpg', // Ideally this should be a full URL
-    genre = 'N/A',
-    duration = 'N/A',
-    language = 'English',
-    experienceType = 'Standard',
-    hallName = 'N/A',
-    cinemaName = 'MS Cinemas',
-    showDate = '',
-    showTime = '',
+    customerName = "Guest",
+    customerPhone = "",
+    customerEmail = "",
+    movieName = "Unknown Movie",
+    movieImage = "/img/banner.jpg", // Ideally this should be a full URL
+    genre = "N/A",
+    duration = "N/A",
+    language = "English",
+    experienceType = "Standard",
+    hallName = "N/A",
+    cinemaName = "MS Cinemas",
+    showDate = "",
+    showTime = "",
     seatDisplay = [],
-    ticketDetails = [], 
+    ticketDetails = [],
     totalPersons = 0,
-    bookingId = 'N/A',
-    referenceNo = 'N/A',
-    trackingId = 'N/A',
+    bookingId = "N/A",
+    referenceNo = "N/A",
+    trackingId = "N/A",
     subCharge = 0,
     grandTotal = 0,
   } = ticketData;
 
   // Format date and time (Malaysian locale)
   const formatDate = (dateStr) => {
-    if (!dateStr) return '';
+    if (!dateStr) return "";
     try {
       const date = new Date(dateStr);
-      return date.toLocaleDateString('en-MY', { 
-        day: 'numeric', 
-        month: 'short', 
-        year: 'numeric',
-        timeZone: 'Asia/Kuala_Lumpur'
+      return date.toLocaleDateString("en-MY", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+        timeZone: "Asia/Kuala_Lumpur",
       });
     } catch {
       return dateStr;
@@ -294,22 +313,22 @@ export const sendTicketEmail = async (to, ticketData, corporateInfoPassed = null
   };
 
   const formatTime = (timeStr) => {
-    if (!timeStr) return '';
+    if (!timeStr) return "";
     try {
       // If timeStr is a full date-time string, extract time part
-      if (timeStr.includes('T') || timeStr.includes(' ')) {
+      if (timeStr.includes("T") || timeStr.includes(" ")) {
         const date = new Date(timeStr);
-        return date.toLocaleTimeString('en-MY', {
-          hour: '2-digit',
-          minute: '2-digit',
+        return date.toLocaleTimeString("en-MY", {
+          hour: "2-digit",
+          minute: "2-digit",
           hour12: true,
-          timeZone: 'Asia/Kuala_Lumpur'
+          timeZone: "Asia/Kuala_Lumpur",
         });
       }
       // If it's just time string (HH:MM or HH:MM:SS)
-      const [hours, minutes] = timeStr.split(':');
+      const [hours, minutes] = timeStr.split(":");
       const hour = parseInt(hours);
-      const ampm = hour >= 12 ? 'PM' : 'AM';
+      const ampm = hour >= 12 ? "PM" : "AM";
       const displayHour = hour % 12 || 12;
       return `${displayHour}:${minutes} ${ampm}`;
     } catch {
@@ -318,214 +337,137 @@ export const sendTicketEmail = async (to, ticketData, corporateInfoPassed = null
   };
 
   const getTimeonly = (timeStr) => {
-    if (!timeStr) return '';
+    if (!timeStr) return "";
     try {
       const date = new Date(timeStr);
-    // Format to 12-hour time
-    const time12h = date.toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true
-    });
+      // Format to 12-hour time
+      const time12h = date.toLocaleTimeString("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      });
       return time12h;
     } catch {
       return timeStr;
     }
-  }
-
-  // If no ticket details, try to get from booking data
-  // if (ticketDetails.length === 0 && bookingData) {
-  //   const seats = bookingData?.seats || [];
-  //   const selectedTickets = bookingData?.selectedTickets || [];
-  //   const seatGroups = {}; // Temporary object to build seatDisplay
-
-  //   seats.forEach((seat, index) => {
-  //     const ticket = selectedTickets[index];
-  //     const ticketType = ticket?.ticketTypeName || ticket?.TicketTypeName || ticket?.ticketType || ticket?.type || 'Adult';
-  //     const seatNo = ticket?.seatNo || seat?.seatNo || seat?.seat || '';
-  //     const price = ticket?.price || 0;
-  //     const surcharge = ticket?.surcharge || 0;
-
-  //     if (seatNo) {
-  //       if (!seatGroups[ticketType]) {
-  //         seatGroups[ticketType] = [];
-  //       }
-  //       seatGroups[ticketType].push(seatNo);
-
-  //       // Populate ticketDetails for the table
-  //       ticketDetails.push({
-  //           TicketType: ticketType,
-  //           SeatNo: seatNo,
-  //           Price: price,
-  //           Surcharge: surcharge
-  //       });
-  //     }
-  //   });
-
-  //   // Format seat display
-  //   const formatSeats = () => {
-  //     const parts = [];
-  //     Object.entries(seatGroups).forEach(([type, seatList]) => {
-  //       const seatNumbers = seatList.map(s => {
-  //         const seatStr = String(s);
-  //         const match = seatStr.match(/([A-Z])(\d+)/);
-  //         if (match) {
-  //           return match[1] + match[2];
-  //         }
-  //         return seatStr;
-  //       });
-  //       parts.push({ type, seats: seatNumbers });
-  //     });
-  //     return parts;
-  //   };
-
-  //   ticketData.seatDisplay = formatSeats();
-  //   ticketData.totalPersons = Object.values(seatGroups).reduce((sum, seats) => sum + seats.length, 0) || ticketDetails.length || 0;
-    
-  //   // Add ticket details with pricing for email template
-  //   ticketData.ticketDetails = ticketDetails.length > 0 ? ticketDetails : [];
-    
-  //   // Calculate totals correctly including taxes
-  //   let totalPrice = 0;
-  //   let totalSurcharge = 0;
-  //   let calculatedGrandTotal = 0;
-    
-  //   if (ticketDetails.length > 0) {
-  //     ticketDetails.forEach(t => {
-  //       // Price components extraction for verification/fallback
-  //       const price = parseFloat(t.Price || t.price || t.TicketPrice || t.ticketPrice || 0);
-  //       const eTax = parseFloat(t.entertainmentTax || t.EntertainmentTax || 0);
-  //       const gTax = parseFloat(t.govtTax || t.GovtTax || 0);
-  //       const onlineCharge = parseFloat(t.onlineCharge || t.OnlineCharge || 0);
-  //       const sur = parseFloat(t.Surcharge || t.surcharge || t.surCharge || 0);
-  //       const ticketTotal = parseFloat(t.totalTicketPrice || t.TotalTicketPrice || 0);
-
-  //       // Fallback row calculations
-  //       const displayPrice = price + eTax + gTax;
-  //       const displaySurcharge = sur;
-  //       const rowTotal = ticketTotal ? (ticketTotal - onlineCharge) : (displayPrice + displaySurcharge);
-        
-  //       // Use Ticket Total for Grand Total sum (Source of Truth)
-  //       calculatedGrandTotal += ticketTotal || (rowTotal + onlineCharge);
-        
-  //       // Sum Online Charges for Sub Charge display
-  //       totalSurcharge += onlineCharge; 
-  //     });
-      
-  //     // Update ticketData values
-  //     // subCharge field -> Total Online Charges
-  //     ticketData.subCharge = totalSurcharge;
-  //     ticketData.grandTotal = calculatedGrandTotal;
-  //   } else {
-  //       // Fallback or existing values
-  //      ticketData.subCharge = parseFloat(bookingData?.subCharge || ticketData?.subCharge || subCharge || 0);
-  //      ticketData.grandTotal = parseFloat(bookingData?.grandTotal || ticketData?.grandTotal || grandTotal || 0);
-  //   }
-  // }
-
+  };
 
   // Generate QR code as Buffer for attachment
-  const qrCodeData = referenceNo !== 'N/A' ? referenceNo : bookingId;
+  const qrCodeData = referenceNo !== "N/A" ? referenceNo : bookingId;
   let qrCodeBuffer;
   try {
     qrCodeBuffer = await QRCode.toBuffer(qrCodeData, {
       width: 300,
       margin: 1,
       color: {
-        dark: '#000000',
-        light: '#ffffff'
-      }
+        dark: "#000000",
+        light: "#ffffff",
+      },
     });
   } catch (err) {
-    console.error('Error generating QR code for email:', err);
+    console.error("Error generating QR code for email:", err);
     // Continue without QR buffer if fails (shouldn't happen)
   }
 
   // Fetch Corporate Info
   let corporateInfo = {
-    companyName: 'MS Cinemas Sdn. Bhd.',
-    displayName: 'MS Cinemas',
-    address: 'TK1 7-01, Terminal Kampar Putra, 31900 Kampar, Perak',
-    email: 'admin@mscinemas.my',
-    phone: '',
-    website: 'www.mscinemas.my',
-    logo: 'https://image.mscinemas.my/webimg/graphics_web/MSCinemas178_100.png'
+    companyName: "MS Cinemas Sdn. Bhd.",
+    displayName: "MS Cinemas",
+    address: "TK1 7-01, Terminal Kampar Putra, 31900 Kampar, Perak",
+    email: "admin@mscinemas.my",
+    phone: "",
+    website: "www.mscinemas.my",
+    logo: "https://image.mscinemas.my/webimg/graphics_web/MSCinemas178_100.png",
   };
 
   try {
-    const corpResponse = await fetch('http://cinemaapi5.ddns.net/api/CorporateDetails/GetCorporateInfo');
+    const corpResponse = await fetch(
+      "http://cinemaapi5.ddns.net/api/CorporateDetails/GetCorporateInfo",
+    );
     if (corpResponse.ok) {
       const corpData = await corpResponse.json();
       corporateInfo = {
         companyName: corpData.companyName || corporateInfo.companyName,
         displayName: corpData.displayName || corporateInfo.displayName,
         address: corpData.address || corporateInfo.address,
-        city: corpData.city || '',
-        state: corpData.state || '',
-        zip: corpData.zip || '',
-        country: corpData.country || '',
+        city: corpData.city || "",
+        state: corpData.state || "",
+        zip: corpData.zip || "",
+        country: corpData.country || "",
         email: corpData.email || corporateInfo.email,
         phone: corpData.phone || corporateInfo.phone,
         website: corpData.webUrl || corporateInfo.website,
-        logo: corpData.logo || corporateInfo.logo
+        logo: corpData.logo || corporateInfo.logo,
       };
     }
   } catch (error) {
-    console.warn('Failed to fetch corporate info for email:', error);
+    console.warn("Failed to fetch corporate info for email:", error);
   }
 
   // Format full address
   const formatAddressHtml = (info) => {
-    let addr = info.address || '';
+    let addr = info.address || "";
     // Replace \r<br> or \n with <br>
-    addr = addr.replace(/\\r<br>/g, '<br>').replace(/\r\n/g, '<br>').replace(/\n/g, '<br>');
-    
-    const cityStateZip = [info.zip, info.city, info.state].filter(Boolean).join(' ');
-    const country = info.country || '';
-    
+    addr = addr
+      .replace(/\\r<br>/g, "<br>")
+      .replace(/\r\n/g, "<br>")
+      .replace(/\n/g, "<br>");
+
+    const cityStateZip = [info.zip, info.city, info.state]
+      .filter(Boolean)
+      .join(" ");
+    const country = info.country || "";
+
     return `${addr}<br>${cityStateZip}<br>${country}`;
   };
 
   const formatAddressText = (info) => {
-    let addr = info.address || '';
+    let addr = info.address || "";
     // Replace \r<br> or <br> with \n
-    addr = addr.replace(/\\r<br>/g, '\n').replace(/<br>/g, '\n').replace(/\r\n/g, '\n');
-    
-    const cityStateZip = [info.zip, info.city, info.state].filter(Boolean).join(' ');
-    const country = info.country || '';
-    
+    addr = addr
+      .replace(/\\r<br>/g, "\n")
+      .replace(/<br>/g, "\n")
+      .replace(/\r\n/g, "\n");
+
+    const cityStateZip = [info.zip, info.city, info.state]
+      .filter(Boolean)
+      .join(" ");
+    const country = info.country || "";
+
     return `${addr}\n${cityStateZip}\n${country}`;
   };
 
   const fullAddressHtml = formatAddressHtml(corporateInfo);
   const fullAddressText = formatAddressText(corporateInfo);
 
-  const printedDate = new Date().toLocaleString('en-MY', { 
-    day: '2-digit', 
-    month: 'short', 
-    year: 'numeric', 
-    hour: '2-digit', 
-    minute: '2-digit',
-    timeZone: 'Asia/Kuala_Lumpur'
+  const printedDate = new Date().toLocaleString("en-MY", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Asia/Kuala_Lumpur",
   });
 
   // Seats string
-  const seatsString = seatDisplay.map(g => `${g.type}: ${g.seats.join(', ')}`).join(' | ');
+  const seatsString = seatDisplay
+    .map((g) => `${g.type}: ${g.seats.join(", ")}`)
+    .join(" | ");
 
   /* CSS Styles for Dark Theme */
   const colors = {
-    gold: '#FFCA20',
-    dark: '#1a1a1a',
-    darker: '#111111',
-    light: '#ffffff',
-    gray: '#888888',
-    border: '#333333',
-    tableHeader: '#000000',
-    tableRow: '#222222'
+    gold: "#FFCA20",
+    dark: "#1a1a1a",
+    darker: "#111111",
+    light: "#ffffff",
+    gray: "#888888",
+    border: "#333333",
+    tableHeader: "#000000",
+    tableRow: "#222222",
   };
 
   const subject = `Your Ticket: ${movieName} - ${corporateInfo.displayName}`;
-  
+
   const html = `
     <!DOCTYPE html>
     <html>
@@ -544,7 +486,7 @@ export const sendTicketEmail = async (to, ticketData, corporateInfoPassed = null
               
               <!-- Header -->
               <div style="background-color: #000000; padding: 30px 20px; text-align: center; border-bottom: 3px solid ${colors.gold};">
-                <img src="${corporateInfo.logo || 'https://image.mscinemas.my/webimg/graphics_web/MSCinemas178_100.png'}" alt="${corporateInfo.displayName}" style="max-height: 80px; width: auto; display: block; margin: 0 auto 15px auto;" />
+                <img src="${corporateInfo.logo || "https://image.mscinemas.my/webimg/graphics_web/MSCinemas178_100.png"}" alt="${corporateInfo.displayName}" style="max-height: 80px; width: auto; display: block; margin: 0 auto 15px auto;" />
                 <div style="color: ${colors.gray}; font-size: 11px; line-height: 1.4;">
                   <strong style="color: ${colors.light}; font-size: 14px;">MS CINEMAS SDN BHD</strong><br>
 
@@ -616,7 +558,7 @@ Malaysia
                   <tbody>
                     <tr style="background-color: ${colors.tableRow};">
                       <td style="border-bottom: 1px solid ${colors.border}; color: ${colors.light}; font-weight: bold;">${showDate}</td>
-                      <td style="border-bottom: 1px solid ${colors.border}; color: ${colors.light}; font-weight: bold;">${getTimeonly(showTime)}</td>
+                      <td style="border-bottom: 1px solid ${colors.border}; color: ${colors.light}; font-weight: bold;">${showTime}</td>
                       <td style="border-bottom: 1px solid ${colors.border}; color: ${colors.gold}; font-weight: bold;">${movieName.toUpperCase()}</td>
                     </tr>
                   </tbody>
@@ -636,58 +578,86 @@ Malaysia
                   </thead>
                   <tbody>
                     ${(() => {
-                        let calcSubCharge = 0;
-                        let calcGrandTotal = 0;
-                        
-                        // Render Rows
-                        const rows = ticketDetails.map((t, index) => {
-                           // 1. Price Components
-                           const price = parseFloat(t.Price || t.price || t.TicketPrice || t.ticketPrice || 0);
-                           const eTax = parseFloat(t.entertainmentTax || t.EntertainmentTax || 0);
-                           const gTax = parseFloat(t.govtTax || t.GovtTax || 0);
-                           
-                           // 2. Charge Components
-                           const onlineCharge = parseFloat(t.onlineCharge || t.OnlineCharge || 0);
-                           const sur = parseFloat(t.Surcharge || t.surcharge || t.surCharge || 0);
-                           const ticketTotal = parseFloat(t.totalTicketPrice || t.TotalTicketPrice || 0);
-                           
-                           // 3. Display Logic
-                           // Price = Base + Entertainment Tax + Govt Tax
-                           const displayPrice = price + eTax + gTax;
-                           
-                           // Surcharge = Surcharge ONLY (exclude Online Charge)
-                           const displaySurcharge = sur;
-                           
-                           // Row Total = Total Ticket Price - Online Charge
-                           // If totalTicketPrice is missing of 0, fallback to (Price + Tax + Surcharge)
-                           // NOTE: User said totalTicketPrice is always correct.
-                           const rowTotal = ticketTotal ? (ticketTotal - onlineCharge) : (displayPrice + displaySurcharge);
-                           
-                           // Accumulate totals
-                           calcSubCharge += onlineCharge; 
-                           // Grand Total = Sum of all Ticket Total Prices
-                           calcGrandTotal += ticketTotal || (rowTotal + onlineCharge);
+                      let calcSubCharge = 0;
+                      let calcGrandTotal = 0;
 
-                           const rowColor = index % 2 === 0 ? colors.tableRow : '#2a2a2a';
-                           
-                           // Fix Ticket Type Mapping (Added ticketTypeName support)
-                           const type = t.ticketTypeName || t.TicketTypeName || t.TicketType || t.ticketType || t.Type || t.type || 'Adult';
-                           const seat = t.SeatNo || t.seatNo || t.Seat || t.seat || '';
-                           
-                           return `
+                      // Render Rows
+                      const rows = ticketDetails
+                        .map((t, index) => {
+                          // 1. Price Components
+                          const price = parseFloat(
+                            t.Price ||
+                              t.price ||
+                              t.TicketPrice ||
+                              t.ticketPrice ||
+                              0,
+                          );
+                          const eTax = parseFloat(
+                            t.entertainmentTax || t.EntertainmentTax || 0,
+                          );
+                          const gTax = parseFloat(t.govtTax || t.GovtTax || 0);
+
+                          // 2. Charge Components
+                          const onlineCharge = parseFloat(
+                            t.onlineCharge || t.OnlineCharge || 0,
+                          );
+                          const sur = parseFloat(
+                            t.Surcharge || t.surcharge || t.surCharge || 0,
+                          );
+                          const ticketTotal = parseFloat(
+                            t.totalTicketPrice || t.TotalTicketPrice || 0,
+                          );
+
+                          // 3. Display Logic
+                          // Price = Base + Entertainment Tax + Govt Tax
+                          const displayPrice = price + eTax + gTax;
+
+                          // Surcharge = Surcharge ONLY (exclude Online Charge)
+                          const displaySurcharge = sur;
+
+                          // Row Total = Total Ticket Price - Online Charge
+                          // If totalTicketPrice is missing of 0, fallback to (Price + Tax + Surcharge)
+                          // NOTE: User said totalTicketPrice is always correct.
+                          const rowTotal = ticketTotal
+                            ? ticketTotal - onlineCharge
+                            : displayPrice + displaySurcharge;
+
+                          // Accumulate totals
+                          calcSubCharge += onlineCharge;
+                          // Grand Total = Sum of all Ticket Total Prices
+                          calcGrandTotal +=
+                            ticketTotal || rowTotal + onlineCharge;
+
+                          const rowColor =
+                            index % 2 === 0 ? colors.tableRow : "#2a2a2a";
+
+                          // Fix Ticket Type Mapping (Added ticketTypeName support)
+                          const type =
+                            t.ticketTypeName ||
+                            t.TicketTypeName ||
+                            t.TicketType ||
+                            t.ticketType ||
+                            t.Type ||
+                            t.type ||
+                            "Adult";
+                          const seat =
+                            t.SeatNo || t.seatNo || t.Seat || t.seat || "";
+
+                          return `
                            <tr style="background-color: ${rowColor};">
                              <td style="border-bottom: 1px solid ${colors.border}; color: ${colors.light};">${hallName}</td>
-                             <td style="border-bottom: 1px solid ${colors.border}; color: ${colors.gold}; font-weight: bold;">${seat.replace(/[A-Za-z]+/, '').padStart(2, '0') ? seat : seat}</td>
+                             <td style="border-bottom: 1px solid ${colors.border}; color: ${colors.gold}; font-weight: bold;">${seat.replace(/[A-Za-z]+/, "").padStart(2, "0") ? seat : seat}</td>
                              <td style="border-bottom: 1px solid ${colors.border}; color: ${colors.light}; font-size: 12px;">${type}</td>
                              <td align="right" style="border-bottom: 1px solid ${colors.border}; color: ${colors.light};">RM${displayPrice.toFixed(2)}</td>
                              <td align="right" style="border-bottom: 1px solid ${colors.border}; color: ${colors.light};">RM${displaySurcharge.toFixed(2)}</td>
                              <td align="right" style="border-bottom: 1px solid ${colors.border}; color: ${colors.light}; font-weight: bold;">RM${rowTotal.toFixed(2)}</td>
                            </tr>
                            `;
-                        }).join('');
+                        })
+                        .join("");
 
-                        // Output with calculated totals
-                        return `
+                      // Output with calculated totals
+                      return `
                           ${rows}
                           <!-- Totals -->
                           <tr style="background-color: #000000;">
@@ -758,39 +728,38 @@ Malaysia
   const attachments = [];
   if (qrCodeBuffer) {
     attachments.push({
-      filename: 'qrcode.png',
+      filename: "qrcode.png",
       content: qrCodeBuffer,
-      cid: 'qrcode' // Matches src="cid:qrcode"
+      cid: "qrcode", // Matches src="cid:qrcode"
     });
   }
 
-  // Pass attachments to sendEmail 
+  // Pass attachments to sendEmail
   // IMPORTANT: We need to modify sendEmail to support attachments or assume it passes ...options through
-  
+
   // Checking sendEmail implementation:
   // It constructs mailOptions manually. We need to make sure it handles 'attachments'.
   // We'll update calls below.
-  
+
   const emailFrom = process.env.EMAIL_FROM || process.env.EMAIL_USER;
-  
+
   // Since sendEmail wrapper might not support attachments directly in its arguments deconstruction,
-  // we might need to bypass it or update it. 
+  // we might need to bypass it or update it.
   // Let's check sendEmail again. It takes { to, subject, html, text, from }.
   // We need to update sendEmail to accept 'attachments'.
-  
+
   // For now, let's assume we update sendEmail to accept 'attachments' (I will do this in the same file step).
   // Send email with attachments (QR code)
-  return await sendEmail({ 
-    to, 
-    subject, 
-    html, 
-    text, 
-    attachments 
+  return await sendEmail({
+    to,
+    subject,
+    html,
+    text,
+    attachments,
   });
-}
+};
 
 // ... sendEmail implementation needs small update to accept attachments
-
 
 export const resendTicketEmail = async (to, ticketData) => {
   console.log(`[Email Service] Resending ticket to ${to}`);
@@ -802,5 +771,5 @@ export default {
   sendActivationEmail,
   sendForgotPasswordEmail,
   sendTicketEmail,
-  resendTicketEmail
+  resendTicketEmail,
 };

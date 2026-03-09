@@ -452,17 +452,17 @@ export default function MovieBooking() {
               }
               
               // Check if the date is valid
-              if (!isNaN(showDateTime.getTime())) {
-                const now = new Date();
-                const timeDifference = showDateTime.getTime() - now.getTime();
-                const hoursDifference = timeDifference / (1000 * 60 * 60); // Convert to hours
+              // if (!isNaN(showDateTime.getTime())) {
+              //   const now = new Date();
+              //   const timeDifference = showDateTime.getTime() - now.getTime();
+              //   const hoursDifference = timeDifference / (1000 * 60 * 60); // Convert to hours
                 
-                // If less than 1 hour, show restriction modal
-                if (hoursDifference < 1) {
-                  setShowTimeRestrictionModal(true);
-                  return;
-                }
-              }
+              //   // If less than 1 hour, show restriction modal
+              //   if (hoursDifference < 1) {
+              //     setShowTimeRestrictionModal(true);
+              //     return;
+              //   }
+              // }
             }
           } catch (error) {
             console.error('Error parsing show date/time:', error);
