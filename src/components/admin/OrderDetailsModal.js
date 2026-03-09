@@ -24,6 +24,20 @@ export default function OrderDetailsModal({ isOpen, onClose, order }) {
     }
 };
 
+const formatMalaysiaDate = (dateString) => {
+    if (!dateString) return '-';
+
+    try {
+        return new Date(dateString).toLocaleString('en-US', {
+            timeZone: 'Asia/Kuala_Lumpur',
+            dateStyle: 'medium',
+            timeStyle: 'short'
+        });
+    } catch (e) {
+        return dateString;
+    }
+};
+
     const getStatusColor = (status) => {
         switch (status?.toUpperCase()) {
             case 'CONFIRMED': return 'text-green-500 bg-green-500/10 border-green-500/20';
@@ -215,11 +229,11 @@ export default function OrderDetailsModal({ isOpen, onClose, order }) {
                             </div>
                             <div>
                                 <p className="text-xs text-[#888]">Created At</p>
-                                <p className="text-white text-sm">{formatDate(order.createdAt)}</p>
+                                <p className="text-white text-sm">{formatMalaysiaDate(order.createdAt)}</p>
                             </div>
                             <div>
                                 <p className="text-xs text-[#888]">Updated At</p>
-                                <p className="text-white text-sm">{formatDate(order.updatedAt)}</p>
+                                <p className="text-white text-sm">{formatMalaysiaDate(order.updatedAt)}</p>
                             </div>
                         </div>
                     </div>
