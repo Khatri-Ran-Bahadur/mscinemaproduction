@@ -26,14 +26,15 @@ export async function POST(request) {
     }
 
     console.log(`[Mobile Send Email API] Triggering email for Order: ${orderId}`);
-    
+
     // Use the optimized mobile order-email utility (gets data from Order table)
     const result = await sendMobileTicketEmailForOrder(orderId, transactionId || '');
 
     if (result.success) {
       return NextResponse.json({
         status: true,
-        message: 'Ticket email sent successfully'
+        message: 'Ticket email sent successfully',
+        data: result.data
       });
     } else {
       return NextResponse.json({

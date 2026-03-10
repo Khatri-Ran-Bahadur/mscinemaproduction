@@ -370,6 +370,21 @@ export default function PaymentPage() {
       formDataToSend.append('token', tokenString);
       setToken(tokenString);
     }
+    
+    // Add userId from localStorage user data if available
+    if (typeof window !== 'undefined') {
+      try {
+        const userData = localStorage.getItem('ms_cinema_user_data');
+        if (userData) {
+          const parsedUser = JSON.parse(userData);
+          if (parsedUser.userID) {
+            formDataToSend.append('userId', parsedUser.userID.toString());
+          }
+        }
+      } catch (err) {
+        console.warn('Could not parse user data for userId:', err);
+      }
+    }
 
     // Don't set isProcessing to true here - allow multiple clicks
     setError('');

@@ -15,24 +15,24 @@ import Footer from '@/components/footer';
 
 // Movie Icon Component
 const MovieIcon = ({ className = '' }) => (
-  <svg 
-    width="19" 
-    height="19" 
-    viewBox="0 0 19 19" 
-    fill="none" 
+  <svg
+    width="19"
+    height="19"
+    viewBox="0 0 19 19"
+    fill="none"
     xmlns="http://www.w3.org/2000/svg"
     className={className}
   >
-    <path 
-      fillRule="evenodd" 
-      clipRule="evenodd" 
-      d="M17.4992 11.875V16.875C17.4992 17.0408 17.4333 17.1997 17.3161 17.3169C17.1989 17.4342 17.04 17.5 16.8742 17.5H2.49919C2.33343 17.5 2.17446 17.4342 2.05725 17.3169C1.94004 17.1997 1.87419 17.04 1.87419 16.875V11.875H17.4992Z" 
+    <path
+      fillRule="evenodd"
+      clipRule="evenodd"
+      d="M17.4992 11.875V16.875C17.4992 17.0408 17.4333 17.1997 17.3161 17.3169C17.1989 17.4342 17.04 17.5 16.8742 17.5H2.49919C2.33343 17.5 2.17446 17.4342 2.05725 17.3169C1.94004 17.1997 1.87419 17.04 1.87419 16.875V11.875H17.4992Z"
       fill="#D3D3D3"
     />
-    <path 
-      fillRule="evenodd" 
-      clipRule="evenodd" 
-      d="M0.624192 8.21748V16.875C0.624192 17.3723 0.821736 17.8492 1.17337 18.2008C1.525 18.5524 2.00191 18.75 2.49919 18.75H16.8742C17.3715 18.75 17.8484 18.5524 18.2 18.2008C18.5516 17.8492 18.7492 17.3723 18.7492 16.875V8.13373C18.7492 7.96797 18.6833 7.809 18.5661 7.69179C18.4489 7.57458 18.29 7.50873 18.1242 7.50873H5.62044L10.2448 6.16873C10.2892 6.16113 10.3326 6.14855 10.3742 6.13123L17.2148 4.14873C17.2941 4.12557 17.368 4.08697 17.4323 4.03513C17.4966 3.9833 17.55 3.91926 17.5894 3.84671C17.6289 3.77416 17.6536 3.69452 17.6621 3.61238C17.6707 3.53024 17.6629 3.44722 17.6392 3.3681L17.0117 1.28935C16.8739 0.8322 16.5612 0.447894 16.1417 0.219927C15.7222 -0.00803951 15.2296 -0.061251 14.7711 0.0718533L1.44294 3.93435C1.18895 4.00782 0.952062 4.13096 0.74601 4.29665C0.539959 4.46234 0.36884 4.66727 0.242572 4.89958C0.116303 5.13189 0.0373964 5.38694 0.010424 5.64997C-0.0165484 5.91299 0.00895009 6.17875 0.0854417 6.43185L0.624192 8.21748ZM15.3523 8.75873L14.2298 10.625H17.4992V8.75873H15.3523ZM5.47982 10.625H8.39607L9.51857 8.75873H6.60232L5.47982 10.625ZM1.87419 10.625H4.02107L5.14357 8.75873H1.87419V10.625ZM9.85482 10.625H12.7711L13.8936 8.75873H10.9773L9.85482 10.625ZM3.28732 4.70185L5.06044 6.36998L1.66919 7.35248L1.28232 6.07123C1.25377 5.97635 1.24431 5.87677 1.25447 5.77821C1.26463 5.67966 1.29422 5.5841 1.34152 5.49705C1.38882 5.41 1.45291 5.33318 1.53007 5.27103C1.60723 5.20889 1.69593 5.16265 1.79107 5.13498L3.28732 4.70185ZM4.68169 4.29748L6.45482 5.9656L8.90669 5.25498L7.13357 3.58685L4.68169 4.29748ZM8.52794 3.18248L10.3011 4.85123L13.0742 4.04748L11.3011 2.37873L8.52794 3.18248ZM14.4686 3.6431L12.6954 1.97498L15.1192 1.27248C15.2617 1.23108 15.4147 1.24758 15.5451 1.31838C15.6754 1.38918 15.7726 1.50857 15.8154 1.6506L16.2598 3.12435L14.4686 3.6431Z" 
+    <path
+      fillRule="evenodd"
+      clipRule="evenodd"
+      d="M0.624192 8.21748V16.875C0.624192 17.3723 0.821736 17.8492 1.17337 18.2008C1.525 18.5524 2.00191 18.75 2.49919 18.75H16.8742C17.3715 18.75 17.8484 18.5524 18.2 18.2008C18.5516 17.8492 18.7492 17.3723 18.7492 16.875V8.13373C18.7492 7.96797 18.6833 7.809 18.5661 7.69179C18.4489 7.57458 18.29 7.50873 18.1242 7.50873H5.62044L10.2448 6.16873C10.2892 6.16113 10.3326 6.14855 10.3742 6.13123L17.2148 4.14873C17.2941 4.12557 17.368 4.08697 17.4323 4.03513C17.4966 3.9833 17.55 3.91926 17.5894 3.84671C17.6289 3.77416 17.6536 3.69452 17.6621 3.61238C17.6707 3.53024 17.6629 3.44722 17.6392 3.3681L17.0117 1.28935C16.8739 0.8322 16.5612 0.447894 16.1417 0.219927C15.7222 -0.00803951 15.2296 -0.061251 14.7711 0.0718533L1.44294 3.93435C1.18895 4.00782 0.952062 4.13096 0.74601 4.29665C0.539959 4.46234 0.36884 4.66727 0.242572 4.89958C0.116303 5.13189 0.0373964 5.38694 0.010424 5.64997C-0.0165484 5.91299 0.00895009 6.17875 0.0854417 6.43185L0.624192 8.21748ZM15.3523 8.75873L14.2298 10.625H17.4992V8.75873H15.3523ZM5.47982 10.625H8.39607L9.51857 8.75873H6.60232L5.47982 10.625ZM1.87419 10.625H4.02107L5.14357 8.75873H1.87419V10.625ZM9.85482 10.625H12.7711L13.8936 8.75873H10.9773L9.85482 10.625ZM3.28732 4.70185L5.06044 6.36998L1.66919 7.35248L1.28232 6.07123C1.25377 5.97635 1.24431 5.87677 1.25447 5.77821C1.26463 5.67966 1.29422 5.5841 1.34152 5.49705C1.38882 5.41 1.45291 5.33318 1.53007 5.27103C1.60723 5.20889 1.69593 5.16265 1.79107 5.13498L3.28732 4.70185ZM4.68169 4.29748L6.45482 5.9656L8.90669 5.25498L7.13357 3.58685L4.68169 4.29748ZM8.52794 3.18248L10.3011 4.85123L13.0742 4.04748L11.3011 2.37873L8.52794 3.18248ZM14.4686 3.6431L12.6954 1.97498L15.1192 1.27248C15.2617 1.23108 15.4147 1.24758 15.5451 1.31838C15.6754 1.38918 15.7726 1.50857 15.8154 1.6506L16.2598 3.12435L14.4686 3.6431Z"
       fill="#D3D3D3"
     />
   </svg>
@@ -44,14 +44,14 @@ export default function MovieBooking() {
   const movieId = encryptedMovieId ? decryptId(encryptedMovieId) : null;
   // Always use this cinema ID since there's only one cinema
   const cinemaId = '7001';
-  
+
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedDateObj, setSelectedDateObj] = useState(null);
   const [selectedExperience, setSelectedExperience] = useState(null);
   const [selectedTime, setSelectedTime] = useState(null);
   const [movieDetails, setMovieDetails] = useState(null);
   const [cinemasList, setCinemasList] = useState([]);
-  const [allShowTimes, setAllShowTimes] = useState([]); 
+  const [allShowTimes, setAllShowTimes] = useState([]);
   const [filteredShowTimes, setFilteredShowTimes] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
@@ -63,7 +63,7 @@ export default function MovieBooking() {
   const [showTimeRestrictionModal, setShowTimeRestrictionModal] = useState(false);
   const [isShowTimesLoading, setIsShowTimesLoading] = useState(false);
   const [isAgeConfirmed, setIsAgeConfirmed] = useState(false);
-  
+
   // Refs to prevent duplicate API calls
   const hasLoadedMovies = useRef(false);
   const hasLoadedMovieDetails = useRef(false);
@@ -71,68 +71,68 @@ export default function MovieBooking() {
   const hasLoadedShowTimes = useRef(false);
   const hasLoadedShowDates = useRef(false);
   const lastMovieId = useRef(null);
-    const isLoadingData = useRef(false);
+  const isLoadingData = useRef(false);
 
-    useEffect(() => {
-        if (!movieId || !cinemaId) return;
+  useEffect(() => {
+    if (!movieId || !cinemaId) return;
 
-        // Reset refs when movieId actually changes
-        if (lastMovieId.current !== movieId) {
-            hasLoadedMovieDetails.current = false;
-            hasLoadedCinemas.current = false;
-            hasLoadedShowTimes.current = false;
-            hasLoadedShowDates.current = false;
-            lastMovieId.current = movieId;
+    // Reset refs when movieId actually changes
+    if (lastMovieId.current !== movieId) {
+      hasLoadedMovieDetails.current = false;
+      hasLoadedCinemas.current = false;
+      hasLoadedShowTimes.current = false;
+      hasLoadedShowDates.current = false;
+      lastMovieId.current = movieId;
+    }
+
+    const loadData = async () => {
+      if (isLoadingData.current) return;
+      isLoadingData.current = true;
+
+      console.log('[MovieDetail] Starting data load for movie:', movieId);
+
+      try {
+        // Step 1: Load movies list (highly cached in service)
+        const allMoviesData = await loadMoviesList();
+
+        // Step 2: Set movie details from the list
+        if (!hasLoadedMovieDetails.current) {
+          await loadMovieDetails(allMoviesData);
+          hasLoadedMovieDetails.current = true;
         }
 
-        const loadData = async () => {
-            if (isLoadingData.current) return;
-            isLoadingData.current = true;
-            
-            console.log('[MovieDetail] Starting data load for movie:', movieId);
-            
-            try {
-                // Step 1: Load movies list (highly cached in service)
-                const allMoviesData = await loadMoviesList();
-                
-                // Step 2: Set movie details from the list
-                if (!hasLoadedMovieDetails.current) {
-                    await loadMovieDetails(allMoviesData);
-                    hasLoadedMovieDetails.current = true;
-                }
-                
-                // Once movie info is ready, hide the main full-screen loader immediately
-                // This lets the user see the movie title, image, etc.
-                setIsLoading(false);
-                
-                // Step 3: Load cinemas and show times in the background
-                if (!hasLoadedCinemas.current || !hasLoadedShowTimes.current) {
-                    setIsShowTimesLoading(true);
-                    const result = await loadCinemasAndShowTimes();
-                    hasLoadedCinemas.current = true;
-                    hasLoadedShowTimes.current = true;
-                    hasLoadedShowDates.current = true; // Mark as loaded since we derive them
-                    
-                    // After loading showtimes and dates, we need to ensure the first date is filtered
-                    if (result && result.firstDateObj && result.allShowTimes) {
-                      const hasLastSelectedShowTime = localStorage.getItem('lastSelectedShowTime');
-                      filterShowTimesByDateAndMovie(result.firstDateObj, !!hasLastSelectedShowTime, result.allShowTimes);
-                    }
-                }
-                
-                console.log('[MovieDetail] All data loaded successfully');
-            } catch (err) {
-                console.error('[MovieDetail] Error in loadData:', err);
-                setError(err.message || 'Failed to load movie data');
-                setIsLoading(false); // Hide full page loader on error
-            } finally {
-                setIsShowTimesLoading(false);
-                isLoadingData.current = false;
-            }
-        };
-        
-        loadData();
-    }, [movieId, cinemaId]);
+        // Once movie info is ready, hide the main full-screen loader immediately
+        // This lets the user see the movie title, image, etc.
+        setIsLoading(false);
+
+        // Step 3: Load cinemas and show times in the background
+        if (!hasLoadedCinemas.current || !hasLoadedShowTimes.current) {
+          setIsShowTimesLoading(true);
+          const result = await loadCinemasAndShowTimes();
+          hasLoadedCinemas.current = true;
+          hasLoadedShowTimes.current = true;
+          hasLoadedShowDates.current = true; // Mark as loaded since we derive them
+
+          // After loading showtimes and dates, we need to ensure the first date is filtered
+          if (result && result.firstDateObj && result.allShowTimes) {
+            const hasLastSelectedShowTime = localStorage.getItem('lastSelectedShowTime');
+            filterShowTimesByDateAndMovie(result.firstDateObj, !!hasLastSelectedShowTime, result.allShowTimes);
+          }
+        }
+
+        console.log('[MovieDetail] All data loaded successfully');
+      } catch (err) {
+        console.error('[MovieDetail] Error in loadData:', err);
+        setError(err.message || 'Failed to load movie data');
+        setIsLoading(false); // Hide full page loader on error
+      } finally {
+        setIsShowTimesLoading(false);
+        isLoadingData.current = false;
+      }
+    };
+
+    loadData();
+  }, [movieId, cinemaId]);
 
   // Auto-select experience when movie details are loaded
   useEffect(() => {
@@ -191,7 +191,7 @@ export default function MovieBooking() {
       const showMovieID = show.movieID || show.movieId;
       const movieIdNum = parseInt(movieId);
       const showMovieIdNum = parseInt(showMovieID);
-      
+
       if (showMovieIdNum !== movieIdNum && String(showMovieID) !== String(movieId)) {
         return false;
       }
@@ -231,7 +231,7 @@ export default function MovieBooking() {
     });
 
     setFilteredShowTimes(filtered);
-    
+
     // Restore show time selection if coming back from ticket-type page
     if (restoreShowTime) {
       const lastSelectedShowTime = localStorage.getItem('lastSelectedShowTime');
@@ -239,13 +239,13 @@ export default function MovieBooking() {
         try {
           const showTimeData = JSON.parse(lastSelectedShowTime);
           localStorage.removeItem('lastSelectedShowTime');
-          
+
           // Find the matching show time index in filtered array
           const matchingShowIndex = filtered.findIndex(show => {
             const showId = show.showID || show.id;
             return showId == showTimeData.showId;
           });
-          
+
           if (matchingShowIndex !== -1) {
             // Restore the selected time
             setTimeout(() => {
@@ -261,34 +261,34 @@ export default function MovieBooking() {
 
   const loadMovieDetails = async (allMoviesData) => {
     if (!movieId) return;
-    
+
     setError(''); // Clear previous errors
-    
+
     try {
       // Use provided movies data (from loadMoviesList - no additional API call)
       let allMovies = allMoviesData;
-      
+
       // Ensure allMovies is an array
       if (!Array.isArray(allMovies)) {
         allMovies = [];
       }
-      
+
       // If empty, something went wrong - but don't fetch again
       if (allMovies.length === 0) {
         throw new Error('Movies list is empty. Please refresh the page.');
       }
-      
+
       // Find the movie by ID (handle different ID formats)
       const movieIdNum = parseInt(movieId);
       const movie = allMovies.find(m => {
         const mId = m.movieID || m.movieId || m.id;
         // Try multiple comparison methods
-        return mId === movieIdNum || 
-               mId === movieId || 
-               String(mId) === String(movieId) ||
-               parseInt(mId) === movieIdNum;
+        return mId === movieIdNum ||
+          mId === movieId ||
+          String(mId) === String(movieId) ||
+          parseInt(mId) === movieIdNum;
       });
-      
+
       if (movie) {
         setMovieDetails(movie);
         setError(''); // Clear any previous errors
@@ -315,39 +315,39 @@ export default function MovieBooking() {
       // Load show times for selected cinema
       if (cinemaId) {
         const showTimesData = await shows.getShowTimes(cinemaId);
-        
+
         // Transform API response to match our format
-        const transformedShowTimes = Array.isArray(showTimesData) 
+        const transformedShowTimes = Array.isArray(showTimesData)
           ? showTimesData.map((show) => ({
-              id: show.showID || show.showId || show.id,
-              showID: show.showID || show.showId || show.id,
-              movieID: show.movieID || show.movieId,
-              showDate: show.showDate, // Format: YYYY-MM-DD
-              showTime: show.showTime, // Format: YYYY-MM-DD HH:mm:ss
-              hallName: formatHallName(show.hallName || 'HALL - 1'),
-              sellingStatus: show.sellingStatus !== undefined ? show.sellingStatus : 0,
-              allowOnlineSales: show.allowOnlineSales !== undefined ? show.allowOnlineSales : true,
-              // Format time for display (extract time from datetime)
-              time: show.showTime 
-                ? new Date(show.showTime).toLocaleTimeString('en-US', { 
-                    hour: 'numeric', 
-                    minute: '2-digit',
-                    hour12: true 
-                  })
-                : '10:00 AM',
-              // Determine availability based on sellingStatus and allowOnlineSales
-              // Available if: sellingStatus = 0 (Available) OR sellingStatus = 1 (Selling Fast)
-              available: (show.sellingStatus === 0 || show.sellingStatus === 1) && show.allowOnlineSales === true,
-              sellingFast: show.sellingStatus === 1,
-              // Sold out if: sellingStatus = 2 OR allowOnlineSales = false
-              soldOut: show.sellingStatus === 2 || show.allowOnlineSales === false,
-            }))
+            id: show.showID || show.showId || show.id,
+            showID: show.showID || show.showId || show.id,
+            movieID: show.movieID || show.movieId,
+            showDate: show.showDate, // Format: YYYY-MM-DD
+            showTime: show.showTime, // Format: YYYY-MM-DD HH:mm:ss
+            hallName: formatHallName(show.hallName || 'HALL - 1'),
+            sellingStatus: show.sellingStatus !== undefined ? show.sellingStatus : 0,
+            allowOnlineSales: show.allowOnlineSales !== undefined ? show.allowOnlineSales : true,
+            // Format time for display (extract time from datetime)
+            time: show.showTime
+              ? new Date(show.showTime).toLocaleTimeString('en-US', {
+                hour: 'numeric',
+                minute: '2-digit',
+                hour12: true
+              })
+              : '10:00 AM',
+            // Determine availability based on sellingStatus and allowOnlineSales
+            // Available if: sellingStatus = 0 (Available) OR sellingStatus = 1 (Selling Fast)
+            available: (show.sellingStatus === 0 || show.sellingStatus === 1) && show.allowOnlineSales === true,
+            sellingFast: show.sellingStatus === 1,
+            // Sold out if: sellingStatus = 2 OR allowOnlineSales = false
+            soldOut: show.sellingStatus === 2 || show.allowOnlineSales === false,
+          }))
           : [];
-        
+
         console.log('Loaded show times:', transformedShowTimes.length, 'for cinema:', cinemaId);
-        
+
         setAllShowTimes(transformedShowTimes);
-        
+
         // Derive available dates for this specific movie at this cinema
         const movieIdNum = parseInt(movieId);
         const movieShowTimes = transformedShowTimes.filter(s => {
@@ -362,19 +362,19 @@ export default function MovieBooking() {
         movieShowTimes.forEach(item => {
           const showDateStr = item.showDate;
           if (!showDateStr) return;
-          
+
           // showDate format is usually YYYY-MM-DD from the transformation above
           const dateParts = showDateStr.split('T')[0].split(' ')[0].split('-');
           if (dateParts.length === 3) {
             const year = parseInt(dateParts[0], 10);
             const month = parseInt(dateParts[1], 10) - 1;
             const day = parseInt(dateParts[2], 10);
-            
+
             const dateObj = new Date(year, month, day);
             dateObj.setHours(0, 0, 0, 0);
-            
+
             const fullDate = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-            
+
             if (!uniqueDatesMap.has(fullDate)) {
               uniqueDatesMap.set(fullDate, {
                 day: day.toString(),
@@ -390,7 +390,7 @@ export default function MovieBooking() {
 
         const dates = Array.from(uniqueDatesMap.values()).sort((a, b) => a.dateObj - b.dateObj);
         setAvailableDates(dates);
-        
+
         let firstDateObj = null;
         // Auto-select first available date if no date is selected
         if (!selectedDate && dates.length > 0) {
@@ -398,9 +398,9 @@ export default function MovieBooking() {
           setSelectedDateObj(dates[0].dateObj);
           firstDateObj = dates[0].dateObj;
         }
-        
+
         hasLoadedShowDates.current = true;
-        
+
         return {
           allShowTimes: transformedShowTimes,
           dates,
@@ -415,7 +415,7 @@ export default function MovieBooking() {
       throw err;
     }
   };
-  
+
   // Note: This function is kept for backward compatibility but show dates 
   // are now loaded from API via loadShowDatesForMovie()
   // Show dates are determined by API response, not by show times
@@ -423,22 +423,22 @@ export default function MovieBooking() {
   // Extract YouTube video ID from URL
   const proceedToTicketType = (indexOverride) => {
     const targetIndex = (indexOverride !== undefined && indexOverride !== null) ? indexOverride : selectedTime;
-    
+
     if (targetIndex !== null) {
       const show = filteredShowTimes[targetIndex];
       // Available if: (sellingStatus = 0 OR sellingStatus = 1) AND allowOnlineSales = true
       const isAvailable = show && (show.sellingStatus === 0 || show.sellingStatus === 1) && show.allowOnlineSales === true;
-      
+
       if (isAvailable) {
         // Check if show time is less than 1 hour from now
         if (show.showDate) {
           try {
             // Parse show date - format: "YYYY-MM-DD"
             const showDateStr = show.showDate.split('T')[0].split(' ')[0]; // Get YYYY-MM-DD
-            
+
             // Get show time - could be in show.time (formatted) or show.showTime (raw)
             const showTimeStr = show.time || show.showTime || ''; // Format: "HH:mm" or "HH:mm AM/PM"
-            
+
             if (showTimeStr) {
               // Combine date and time
               // Handle different time formats
@@ -450,26 +450,26 @@ export default function MovieBooking() {
                 // 24-hour format (HH:mm)
                 showDateTime = new Date(`${showDateStr}T${showTimeStr}:00`);
               }
-              
+
               // Check if the date is valid
-              // if (!isNaN(showDateTime.getTime())) {
-              //   const now = new Date();
-              //   const timeDifference = showDateTime.getTime() - now.getTime();
-              //   const hoursDifference = timeDifference / (1000 * 60 * 60); // Convert to hours
-                
-              //   // If less than 1 hour, show restriction modal
-              //   if (hoursDifference < 1) {
-              //     setShowTimeRestrictionModal(true);
-              //     return;
-              //   }
-              // }
+              if (!isNaN(showDateTime.getTime())) {
+                const now = new Date();
+                const timeDifference = showDateTime.getTime() - now.getTime();
+                const hoursDifference = timeDifference / (1000 * 60 * 60); // Convert to hours
+
+                // If less than 1 hour, show restriction modal
+                if (hoursDifference < 1) {
+                  setShowTimeRestrictionModal(true);
+                  return;
+                }
+              }
             }
           } catch (error) {
             console.error('Error parsing show date/time:', error);
             // Continue with booking if date parsing fails
           }
         }
-        
+
         // Use showID from the show time (this is the actual show ID from API)
         const showId = show.showID || show.showId || show.id;
         // Pass show time and date for display on ticket-type page
@@ -496,10 +496,10 @@ export default function MovieBooking() {
     const show = filteredShowTimes[idx];
     // Available if: (sellingStatus = 0 OR sellingStatus = 1) AND allowOnlineSales = true
     const isAvailable = show && (show.sellingStatus === 0 || show.sellingStatus === 1) && show.allowOnlineSales === true;
-    
+
     if (isAvailable) {
       setSelectedTime(idx);
-      
+
       const restrictedRatings = ['16', '18'];
       const isRestricted = movieRating && restrictedRatings.some(r => movieRating.toString().includes(r));
 
@@ -529,7 +529,7 @@ export default function MovieBooking() {
 
   // Get movie type as the primary experience (auto-selected)
   const movieType = movieDetails?.type || '2D';
-  
+
   // Only show the movie's type as available (others are disabled)
   const availableExperiences = [movieType];
 
@@ -584,11 +584,11 @@ export default function MovieBooking() {
       </div>
     );
   }
-  
+
   // Time Restriction Modal
   const TimeRestrictionModal = () => {
     if (!showTimeRestrictionModal) return null;
-    
+
     return (
       <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
         <div className="bg-[#1c1c1c] rounded-lg max-w-md w-full p-6 border border-[#2a2a2a]">
@@ -601,10 +601,10 @@ export default function MovieBooking() {
               <X size={24} />
             </button>
           </div>
-          
+
           <div className="mb-6">
             <p className="text-white/80 text-sm leading-relaxed">
-              Currently online booking for this show is closed now. 
+              Currently online booking for this show is closed now.
             </p>
             <p className="text-white/80 text-sm leading-relaxed mt-2">
               Please book a ticket at box office.
@@ -613,7 +613,7 @@ export default function MovieBooking() {
               Thank you
             </p>
           </div>
-          
+
           <div className="flex gap-3">
             <button
               onClick={() => setShowTimeRestrictionModal(false)}
@@ -626,409 +626,405 @@ export default function MovieBooking() {
       </div>
     );
   };
-  
+
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-[#D3D3D3]">
       <Header />
       <div className="pt-20">
-      {/* Header */}
-      <div className="relative">
-        <div className="absolute top-4 left-6 z-10">
-          {/* <button className="flex items-center gap-1 text-[#D3D3D3] hover:text-[#FAFAFA] text-sm" onClick={handleGoBack}>
+        {/* Header */}
+        <div className="relative">
+          <div className="absolute top-4 left-6 z-10">
+            {/* <button className="flex items-center gap-1 text-[#D3D3D3] hover:text-[#FAFAFA] text-sm" onClick={handleGoBack}>
             <ChevronLeft className="w-4 h-4" />
             <span>Back</span>
           </button> */}
-        </div>
-
-        {/* Breadcrumb - Hidden on mobile, visible on md+ */}
-        <div className="absolute top-4 right-6 z-10 hidden md:block">
-          <div className="flex items-center gap-2 text-xs text-[#D3D3D3]">
-            <span className="hover:text-[#FAFAFA] text-white cursor-pointer">Select Cinema</span>
-            <span>›</span>
-            <span className="hover:text-[#FAFAFA] cursor-pointer">Select type</span>
-            <span>›</span>
-            <span className="hover:text-[#FAFAFA] cursor-pointer">Select Seat</span>
-            <span>›</span>
-            <span className="text-[#FAFAFA]">Payment</span>
           </div>
-        </div>
 
-        {/* Hero Image */}
-        <div className="relative h-72 overflow-hidden">
-          {movieDetails ? (
-            <>
-              <img 
-                src={movieImage} 
-                alt={movieTitle}
-                className="absolute inset-0 w-full h-full object-cover"
-                onError={(e) => {
-                  e.target.src = 'img/banner.jpg';
-                }}
-              />
-              <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-[#0a0a0a]/60 to-[#0a0a0a]" />
-              <div className="absolute inset-0 bg-gradient-to-r from-black/50 to-transparent" />
-              
-              {/* Movie Info */}
-              <div className="absolute bottom-4 left-4 md:bottom-8 md:left-8 w-[calc(100%-2rem)] md:w-auto">
-                <h1 className="text-2xl md:text-5xl font-bold mb-2 text-[#FAFAFA] line-clamp-1 md:line-clamp-none">{movieTitle}</h1>
-                <div className="flex flex-wrap items-center gap-2 md:gap-3 text-xs md:text-sm text-[#D3D3D3] mb-4">
-                  <RatingIcon rating={movieRating} className="w-5 h-5 md:w-6 md:h-6" />
-                  <span>{movieGenre}</span>
-                  {movieDuration && <span className="hidden md:inline">|</span>}
-                  <span>{movieDuration}</span>
-                  {movieLanguage && <span className="hidden md:inline">|</span>}
-                  <span>{movieLanguage}</span>
-                </div>
-                <div className="flex gap-3">
-                  <button 
-                    onClick={() => setShowTrailerModal(true)}
-                    disabled={!trailerVideoId}
-                    className={`px-4 md:px-6 py-1.5 md:py-2 bg-transparent border border-[#D3D3D3]/40 text-[#FAFAFA] text-xs md:text-sm rounded hover:bg-white/10 transition whitespace-nowrap ${
-                      !trailerVideoId ? 'opacity-50 cursor-not-allowed' : ''
-                    }`}
-                  >
-                    Watch Trailer
-                  </button>
-                  <button 
-                    onClick={() => setShowMovieInfoModal(true)}
-                    className="px-4 md:px-6 py-1.5 md:py-2 bg-[#FFCA20] text-black font-semibold text-xs md:text-sm rounded hover:bg-[#FFCA20]/90 transition whitespace-nowrap"
-                  >
-                    Movie Info
-                  </button>
-                </div>
-              </div>
-            </>
-          ) : null}
-        </div>
-      </div>
+          {/* Breadcrumb - Hidden on mobile, visible on md+ */}
+          <div className="absolute top-4 right-6 z-10 hidden md:block">
+            <div className="flex items-center gap-2 text-xs text-[#D3D3D3]">
+              <span className="hover:text-[#FAFAFA] text-white cursor-pointer">Select Cinema</span>
+              <span>›</span>
+              <span className="hover:text-[#FAFAFA] cursor-pointer">Select type</span>
+              <span>›</span>
+              <span className="hover:text-[#FAFAFA] cursor-pointer">Select Seat</span>
+              <span>›</span>
+              <span className="text-[#FAFAFA]">Payment</span>
+            </div>
+          </div>
 
-      {movieDetails ? (
-        <div className="mt-8">
-        {/* Select Date */}
-        <div className="mb-8 px-6 md:px-8">
-          <h2 className="text-sm font-semibold mb-4 text-[#FAFAFA]">Select Date</h2>
-          <div className="flex gap-3 overflow-x-auto pb-2">
-            {availableDates.length > 0 ? (
-              availableDates.map((date, index) => {
-                // Format date object for display
-                const dateObj = date.dateObj || new Date();
-                const dayOfWeek = dateObj.toLocaleDateString('en-US', { weekday: 'short' });
-                const dayNumber = dateObj.getDate();
-                const month = dateObj.toLocaleDateString('en-US', { month: 'short' });
-                const isSelected = selectedDate === date.day;
-                
-                return (
-                  <button
-                    key={date.showDate || `${date.day}-${index}`}
-                    onClick={() => handleDateSelect(date)}
-                    className={`min-w-[70px] h-[90px] rounded-lg flex flex-col items-center justify-center transition shrink-0 ${
-                      isSelected
-                        ? 'bg-[#FFCA20] text-black'
-                        : 'bg-[#1a1a1a] text-[#FAFAFA] hover:bg-[#252525] border border-[#2a2a2a]'
-                    }`}
-                  >
-                    {/* Day of Week */}
-                    <span className={`text-xs font-medium mb-1 ${isSelected ? 'text-black' : 'text-[#FAFAFA]'}`}>
-                      {dayOfWeek}
-                    </span>
-                    {/* Day Number - Larger and Bolder */}
-                    <span className={`text-2xl md:text-3xl font-bold ${isSelected ? 'text-black' : 'text-[#FAFAFA]'}`}>
-                      {dayNumber}
-                    </span>
-                    {/* Month */}
-                    <span className={`text-xs font-medium mt-1 ${isSelected ? 'text-black' : 'text-[#FAFAFA]'}`}>
-                      {month}
-                    </span>
-                  </button>
-                );
-              })
-            ) : isShowTimesLoading ? (
-              <div className="flex gap-3">
-                {[1, 2, 3].map((i) => (
-                  <div key={i} className="min-w-[70px] h-[90px] rounded-lg bg-[#1a1a1a] border border-[#2a2a2a] animate-pulse flex flex-col items-center justify-center">
-                    <div className="w-8 h-2 bg-[#2a2a2a] mb-2 rounded"></div>
-                    <div className="w-10 h-6 bg-[#2a2a2a] mb-2 rounded"></div>
-                    <div className="w-8 h-2 bg-[#2a2a2a] rounded"></div>
+          {/* Hero Image */}
+          <div className="relative h-72 overflow-hidden">
+            {movieDetails ? (
+              <>
+                <img
+                  src={movieImage}
+                  alt={movieTitle}
+                  className="absolute inset-0 w-full h-full object-cover"
+                  onError={(e) => {
+                    e.target.src = 'img/banner.jpg';
+                  }}
+                />
+                <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-[#0a0a0a]/60 to-[#0a0a0a]" />
+                <div className="absolute inset-0 bg-gradient-to-r from-black/50 to-transparent" />
+
+                {/* Movie Info */}
+                <div className="absolute bottom-4 left-4 md:bottom-8 md:left-8 w-[calc(100%-2rem)] md:w-auto">
+                  <h1 className="text-2xl md:text-5xl font-bold mb-2 text-[#FAFAFA] line-clamp-1 md:line-clamp-none">{movieTitle}</h1>
+                  <div className="flex flex-wrap items-center gap-2 md:gap-3 text-xs md:text-sm text-[#D3D3D3] mb-4">
+                    <RatingIcon rating={movieRating} className="w-5 h-5 md:w-6 md:h-6" />
+                    <span>{movieGenre}</span>
+                    {movieDuration && <span className="hidden md:inline">|</span>}
+                    <span>{movieDuration}</span>
+                    {movieLanguage && <span className="hidden md:inline">|</span>}
+                    <span>{movieLanguage}</span>
                   </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-sm text-gray-400 py-4">
-                No show dates available for this movie
-              </div>
-            )}
-          </div>
-          {/* Separator Line */}
-          <div className="border-b border-[#2a2a2a] mt-4"></div>
-        </div>
-
-        {/* Select Experience */}
-        <div className="mb-8 px-6 md:px-8">
-          <h2 className="text-sm font-semibold mb-4 text-[#FAFAFA]">Select Experience</h2>
-          <div className="flex gap-3 overflow-x-auto pb-2">
-            {isShowTimesLoading && !selectedExperience ? (
-              <div className="flex gap-3">
-                {[1, 2].map((i) => (
-                  <div key={i} className="px-8 py-5 rounded-lg bg-[#1a1a1a] border border-[#2a2a2a] animate-pulse w-24"></div>
-                ))}
-              </div>
-            ) : (
-              experiences.map((exp) => {
-                const isMovieType = exp === movieType;
-                const isSelected = selectedExperience === exp;
-                const isDisabled = !isMovieType;
-                
-                return (
-                  <button
-                    key={exp}
-                    onClick={() => {
-                      if (!isDisabled) {
-                        setSelectedExperience(exp);
-                      }
-                    }}
-                    disabled={isDisabled}
-                    className={`px-6 md:px-8 py-2.5 rounded-lg text-sm font-medium transition shrink-0 whitespace-nowrap ${
-                      isSelected
-                        ? 'bg-[#FFCA20] text-black'
-                        : isDisabled
-                        ? 'bg-[#1a1a1a] text-[#666] border border-[#2a2a2a] cursor-not-allowed opacity-50'
-                        : 'bg-[#1a1a1a] text-[#FAFAFA] hover:bg-[#252525] border border-[#2a2a2a]'
-                    }`}
-                  >
-                    {exp}
-                  </button>
-                );
-              })
-            )}
-          </div>
-          {/* Separator Line */}
-          <div className="border-b border-[#2a2a2a] mt-4"></div>
-        </div>
-
-        {/* Select Cinema & Time */}
-        <div className="mb-8 px-6 md:px-8">
-          <h2 className="text-sm font-semibold mb-4 text-[#FAFAFA]">Select Time</h2>
-          
-          {/* Seat Availability Legend */}
-          <div className="flex items-center gap-4 md:gap-6 mb-4 flex-wrap text-xs">
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded bg-[#FFCA20]"></div>
-              <span className="text-[#FFCA20]">Available</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded bg-gray-500"></div>
-              <span className="text-gray-500">Sold out</span>
-            </div>
-          </div>
-
-          {/* Error Message */}
-          {error && (
-            <div className="mb-4 p-4 bg-red-500/10 border border-red-500/50 rounded text-sm text-red-400">
-              {error}
-              <button 
-                onClick={loadCinemasAndShowTimes}
-                className="ml-4 text-yellow-500 hover:text-yellow-400 underline"
-              >
-                Retry
-              </button>
-            </div>
-          )}
-
-          {/* Cinema Location Card */}
-          {
-          <div className="bg-[#1a1a1a] rounded-lg p-6 border border-[#2a2a2a] relative min-h-[150px]">
-            {/* Showtimes Grid */}
-              {isShowTimesLoading ? (
-                <div className="absolute inset-0 flex items-center justify-center bg-[#1a1a1a]/80 z-10 rounded-lg">
-                  <Loader size="medium" />
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => setShowTrailerModal(true)}
+                      disabled={!trailerVideoId}
+                      className={`px-4 md:px-6 py-1.5 md:py-2 bg-transparent border border-[#D3D3D3]/40 text-[#FAFAFA] text-xs md:text-sm rounded hover:bg-white/10 transition whitespace-nowrap ${!trailerVideoId ? 'opacity-50 cursor-not-allowed' : ''
+                        }`}
+                    >
+                      Watch Trailer
+                    </button>
+                    <button
+                      onClick={() => setShowMovieInfoModal(true)}
+                      className="px-4 md:px-6 py-1.5 md:py-2 bg-[#FFCA20] text-black font-semibold text-xs md:text-sm rounded hover:bg-[#FFCA20]/90 transition whitespace-nowrap"
+                    >
+                      Movie Info
+                    </button>
+                  </div>
                 </div>
-              ) : null}
-              
-              {filteredShowTimes.length > 0 ? (
-                <div className={`grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3 mb-6 transition-opacity ${isShowTimesLoading ? 'opacity-30' : 'opacity-100'}`}>
-                  {filteredShowTimes.map((show, idx) => {
-                    // Determine if show is available for selection
-                    // Available if: (sellingStatus = 0 OR sellingStatus = 1) AND allowOnlineSales = true
-                    const isAvailable = (show.sellingStatus === 0 || show.sellingStatus === 1) && show.allowOnlineSales === true;
-                    const isSoldOut = show.sellingStatus === 2 || show.allowOnlineSales === false;
-                    
-                      return (
-                        <button
-                          key={show.showID || show.id || idx}
-                          onClick={() => {
-                            if (isAvailable) {
-                              handleClick(idx);
-                            } else {
-                              setShowTimeRestrictionModal(true);
-                            }
-                          }}
-                          className={`p-3 rounded-lg border transition ${
-                            isSoldOut
-                              ? 'bg-gray-800 border-gray-700 text-gray-500 cursor-not-allowed opacity-60'
-                              : 'bg-[#FFCA20] border-[#FFCA20] text-black'
+              </>
+            ) : null}
+          </div>
+        </div>
+
+        {movieDetails ? (
+          <div className="mt-8">
+            {/* Select Date */}
+            <div className="mb-8 px-6 md:px-8">
+              <h2 className="text-sm font-semibold mb-4 text-[#FAFAFA]">Select Date</h2>
+              <div className="flex gap-3 overflow-x-auto pb-2">
+                {availableDates.length > 0 ? (
+                  availableDates.map((date, index) => {
+                    // Format date object for display
+                    const dateObj = date.dateObj || new Date();
+                    const dayOfWeek = dateObj.toLocaleDateString('en-US', { weekday: 'short' });
+                    const dayNumber = dateObj.getDate();
+                    const month = dateObj.toLocaleDateString('en-US', { month: 'short' });
+                    const isSelected = selectedDate === date.day;
+
+                    return (
+                      <button
+                        key={date.showDate || `${date.day}-${index}`}
+                        onClick={() => handleDateSelect(date)}
+                        className={`min-w-[70px] h-[90px] rounded-lg flex flex-col items-center justify-center transition shrink-0 ${isSelected
+                            ? 'bg-[#FFCA20] text-black'
+                            : 'bg-[#1a1a1a] text-[#FAFAFA] hover:bg-[#252525] border border-[#2a2a2a]'
                           }`}
-                          title={isSoldOut 
-                            ? (show.allowOnlineSales === false 
-                                ? 'Not available for online sales' 
-                                : show.sellingStatus === 1 
-                                ? 'Selling fast / Limited availability' 
-                                : 'Sold out')
-                            : 'Available'}
-                        >
-                          <div className="text-md font-semibold">{show.time}</div>  
-                          <div className="text-sm mt-1 opacity-70">{show.hallName}</div>
-                        </button>
-                      );
-                  })}
+                      >
+                        {/* Day of Week */}
+                        <span className={`text-xs font-medium mb-1 ${isSelected ? 'text-black' : 'text-[#FAFAFA]'}`}>
+                          {dayOfWeek}
+                        </span>
+                        {/* Day Number - Larger and Bolder */}
+                        <span className={`text-2xl md:text-3xl font-bold ${isSelected ? 'text-black' : 'text-[#FAFAFA]'}`}>
+                          {dayNumber}
+                        </span>
+                        {/* Month */}
+                        <span className={`text-xs font-medium mt-1 ${isSelected ? 'text-black' : 'text-[#FAFAFA]'}`}>
+                          {month}
+                        </span>
+                      </button>
+                    );
+                  })
+                ) : isShowTimesLoading ? (
+                  <div className="flex gap-3">
+                    {[1, 2, 3].map((i) => (
+                      <div key={i} className="min-w-[70px] h-[90px] rounded-lg bg-[#1a1a1a] border border-[#2a2a2a] animate-pulse flex flex-col items-center justify-center">
+                        <div className="w-8 h-2 bg-[#2a2a2a] mb-2 rounded"></div>
+                        <div className="w-10 h-6 bg-[#2a2a2a] mb-2 rounded"></div>
+                        <div className="w-8 h-2 bg-[#2a2a2a] rounded"></div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-sm text-gray-400 py-4">
+                    No show dates available for this movie
+                  </div>
+                )}
+              </div>
+              {/* Separator Line */}
+              <div className="border-b border-[#2a2a2a] mt-4"></div>
+            </div>
+
+            {/* Select Experience */}
+            <div className="mb-8 px-6 md:px-8">
+              <h2 className="text-sm font-semibold mb-4 text-[#FAFAFA]">Select Experience</h2>
+              <div className="flex gap-3 overflow-x-auto pb-2">
+                {isShowTimesLoading && !selectedExperience ? (
+                  <div className="flex gap-3">
+                    {[1, 2].map((i) => (
+                      <div key={i} className="px-8 py-5 rounded-lg bg-[#1a1a1a] border border-[#2a2a2a] animate-pulse w-24"></div>
+                    ))}
+                  </div>
+                ) : (
+                  experiences.map((exp) => {
+                    const isMovieType = exp === movieType;
+                    const isSelected = selectedExperience === exp;
+                    const isDisabled = !isMovieType;
+
+                    return (
+                      <button
+                        key={exp}
+                        onClick={() => {
+                          if (!isDisabled) {
+                            setSelectedExperience(exp);
+                          }
+                        }}
+                        disabled={isDisabled}
+                        className={`px-6 md:px-8 py-2.5 rounded-lg text-sm font-medium transition shrink-0 whitespace-nowrap ${isSelected
+                            ? 'bg-[#FFCA20] text-black'
+                            : isDisabled
+                              ? 'bg-[#1a1a1a] text-[#666] border border-[#2a2a2a] cursor-not-allowed opacity-50'
+                              : 'bg-[#1a1a1a] text-[#FAFAFA] hover:bg-[#252525] border border-[#2a2a2a]'
+                          }`}
+                      >
+                        {exp}
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+              {/* Separator Line */}
+              <div className="border-b border-[#2a2a2a] mt-4"></div>
+            </div>
+
+            {/* Select Cinema & Time */}
+            <div className="mb-8 px-6 md:px-8">
+              <h2 className="text-sm font-semibold mb-4 text-[#FAFAFA]">Select Time</h2>
+
+              {/* Seat Availability Legend */}
+              <div className="flex items-center gap-4 md:gap-6 mb-4 flex-wrap text-xs">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded bg-[#FFCA20]"></div>
+                  <span className="text-[#FFCA20]">Available</span>
                 </div>
-              ) : (
-                <div className="text-center text-gray-400 py-8 mb-6">
-                  {selectedDateObj 
-                    ? `No show times available for ${selectedDateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
-                    : 'No show times available for this cinema.'
-                  }
-                  
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded bg-gray-500"></div>
+                  <span className="text-gray-500">Sold out</span>
+                </div>
+              </div>
+
+              {/* Error Message */}
+              {error && (
+                <div className="mb-4 p-4 bg-red-500/10 border border-red-500/50 rounded text-sm text-red-400">
+                  {error}
+                  <button
+                    onClick={loadCinemasAndShowTimes}
+                    className="ml-4 text-yellow-500 hover:text-yellow-400 underline"
+                  >
+                    Retry
+                  </button>
                 </div>
               )}
 
-              {/* Cinema Location Details */}
-              <div className="border-t border-[#2a2a2a] pt-4">
-                {cinemasList.length > 0 ? (
-                  cinemasList.map((cinema, index) => (
-                    <div key={cinema.id || cinema.cinemaId || `cinema-${index}`}>
+              {/* Cinema Location Card */}
+              {
+                <div className="bg-[#1a1a1a] rounded-lg p-6 border border-[#2a2a2a] relative min-h-[150px]">
+                  {/* Showtimes Grid */}
+                  {isShowTimesLoading ? (
+                    <div className="absolute inset-0 flex items-center justify-center bg-[#1a1a1a]/80 z-10 rounded-lg">
+                      <Loader size="medium" />
+                    </div>
+                  ) : null}
+
+                  {filteredShowTimes.length > 0 ? (
+                    <div className={`grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3 mb-6 transition-opacity ${isShowTimesLoading ? 'opacity-30' : 'opacity-100'}`}>
+                      {filteredShowTimes.map((show, idx) => {
+                        // Determine if show is available for selection
+                        // Available if: (sellingStatus = 0 OR sellingStatus = 1) AND allowOnlineSales = true
+                        const isAvailable = (show.sellingStatus === 0 || show.sellingStatus === 1) && show.allowOnlineSales === true;
+                        const isSoldOut = show.sellingStatus === 2 || show.allowOnlineSales === false;
+
+                        return (
+                          <button
+                            key={show.showID || show.id || idx}
+                            onClick={() => {
+                              if (isAvailable) {
+                                handleClick(idx);
+                              } else {
+                                setShowTimeRestrictionModal(true);
+                              }
+                            }}
+                            className={`p-3 rounded-lg border transition ${isSoldOut
+                                ? 'bg-gray-800 border-gray-700 text-gray-500 cursor-not-allowed opacity-60'
+                                : 'bg-[#FFCA20] border-[#FFCA20] text-black'
+                              }`}
+                            title={isSoldOut
+                              ? (show.allowOnlineSales === false
+                                ? 'Not available for online sales'
+                                : show.sellingStatus === 1
+                                  ? 'Selling fast / Limited availability'
+                                  : 'Sold out')
+                              : 'Available'}
+                          >
+                            <div className="text-md font-semibold">{show.time}</div>
+                            <div className="text-sm mt-1 opacity-70">{show.hallName}</div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="text-center text-gray-400 py-8 mb-6">
+                      {selectedDateObj
+                        ? `No show times available for ${selectedDateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+                        : 'No show times available for this cinema.'
+                      }
+
+                    </div>
+                  )}
+
+                  {/* Cinema Location Details */}
+                  <div className="border-t border-[#2a2a2a] pt-4">
+                    {cinemasList.length > 0 ? (
+                      cinemasList.map((cinema, index) => (
+                        <div key={cinema.id || cinema.cinemaId || `cinema-${index}`}>
+                          <div className="flex items-center gap-2">
+                            <div className="flex-shrink-0">
+                              <MovieIcon />
+                            </div>
+                            <span className="text-sm text-[#FAFAFA]">
+                              {cinema.displayName} - <span dangerouslySetInnerHTML={{ __html: cinema.address }} />
+                            </span>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
                       <div className="flex items-center gap-2">
                         <div className="flex-shrink-0">
                           <MovieIcon />
                         </div>
                         <span className="text-sm text-[#FAFAFA]">
-                          {cinema.displayName} - <span dangerouslySetInnerHTML={{ __html: cinema.address }} />
+                          No cinemas available
                         </span>
                       </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="flex items-center gap-2">
-                    <div className="flex-shrink-0">
-                      <MovieIcon />
-                    </div>
-                    <span className="text-sm text-[#FAFAFA]">
-                      No cinemas available
-                    </span>
+                    )}
                   </div>
-                )}
-              </div>
+                </div>
+              }
             </div>
-          }
-        </div>
 
 
 
-        </div>
-      ) : null}
-
-      {/* Trailer Modal */}
-      {showTrailerModal && (
-        <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-2 md:p-4" onClick={() => setShowTrailerModal(false)}>
-          <div className="relative w-full max-w-4xl bg-black rounded-lg overflow-hidden" onClick={(e) => e.stopPropagation()}>
-            {/* Close button with high z-index and proper positioning */}
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowTrailerModal(false);
-              }}
-              className="absolute top-2 right-2 md:top-4 md:right-4 z-[100] bg-black/90 hover:bg-black text-[#FAFAFA] p-2 md:p-2.5 rounded-full transition-all shadow-lg border border-white/20 pointer-events-auto"
-              style={{ zIndex: 100 }}
-            >
-              <X className="w-5 h-5 md:w-6 md:h-6" />
-            </button>
-            {trailerVideoId ? (
-              <div className="relative w-full" style={{ paddingBottom: '56.25%', zIndex: 1 }}>
-                <iframe
-                  className="absolute top-0 left-0 w-full h-full"
-                  src={`https://www.youtube.com/embed/${trailerVideoId}?autoplay=1`}
-                  title="Movie Trailer"
-                  frameBorder="0"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                  style={{ pointerEvents: 'auto' }}
-                />
-              </div>
-            ) : (
-              <div className="p-12 text-center text-[#FAFAFA]">
-                <p className="text-lg mb-4">Trailer not available</p>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setShowTrailerModal(false);
-                  }}
-                  className="px-6 py-2 bg-[#FFCA20] text-black rounded hover:bg-[#FFCA20]/90 transition"
-                >
-                  Close
-                </button>
-              </div>
-            )}
           </div>
-        </div>
-      )}
+        ) : null}
 
-      {/* Movie Info Modal */}
-      {showMovieInfoModal && movieDetails && (
-        <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4 overflow-y-auto" onClick={() => setShowMovieInfoModal(false)}>
-          <div className="relative w-full max-w-2xl bg-[#1a1a1a] rounded-lg p-6 my-8" onClick={(e) => e.stopPropagation()}>
-            <button
-              onClick={() => setShowMovieInfoModal(false)}
-              className="absolute top-4 right-4 text-[#D3D3D3] hover:text-[#FAFAFA] transition"
-            >
-              <X className="w-6 h-6" />
-            </button>
-            
-            <div className="flex gap-6 mb-6">
-              <img 
-                src={movieImage} 
-                alt={movieTitle}
-                className="w-32 h-48 object-cover rounded"
-                onError={(e) => {
-                  e.target.src = 'placeholder.png';
+        {/* Trailer Modal */}
+        {showTrailerModal && (
+          <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-2 md:p-4" onClick={() => setShowTrailerModal(false)}>
+            <div className="relative w-full max-w-4xl bg-black rounded-lg overflow-hidden" onClick={(e) => e.stopPropagation()}>
+              {/* Close button with high z-index and proper positioning */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowTrailerModal(false);
                 }}
-              />
-              <div className="flex-1">
-                <h2 className="text-2xl font-bold mb-2 text-[#FAFAFA]">{movieTitle}</h2>
-                <div className="space-y-2 text-sm text-[#D3D3D3]">
-                  <div><span className="font-semibold text-[#FAFAFA]">Genre:</span> {movieGenre}</div>
-                  <div><span className="font-semibold text-[#FAFAFA]">Duration:</span> {movieDuration}</div>
-                  <div><span className="font-semibold text-[#FAFAFA]">Language:</span> {movieLanguage}</div>
-                  <div><span className="font-semibold text-[#FAFAFA]">Rating:</span> {movieRating}</div>
-                  <div><span className="font-semibold text-[#FAFAFA]">Type:</span> {movieType}</div>
-                  {movieReleaseDate && (
-                    <div><span className="font-semibold text-[#FAFAFA]">Release Date:</span> {movieReleaseDate}</div>
-                  )}
+                className="absolute top-2 right-2 md:top-4 md:right-4 z-[100] bg-black/90 hover:bg-black text-[#FAFAFA] p-2 md:p-2.5 rounded-full transition-all shadow-lg border border-white/20 pointer-events-auto"
+                style={{ zIndex: 100 }}
+              >
+                <X className="w-5 h-5 md:w-6 md:h-6" />
+              </button>
+              {trailerVideoId ? (
+                <div className="relative w-full" style={{ paddingBottom: '56.25%', zIndex: 1 }}>
+                  <iframe
+                    className="absolute top-0 left-0 w-full h-full"
+                    src={`https://www.youtube.com/embed/${trailerVideoId}?autoplay=1`}
+                    title="Movie Trailer"
+                    frameBorder="0"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                    style={{ pointerEvents: 'auto' }}
+                  />
+                </div>
+              ) : (
+                <div className="p-12 text-center text-[#FAFAFA]">
+                  <p className="text-lg mb-4">Trailer not available</p>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowTrailerModal(false);
+                    }}
+                    className="px-6 py-2 bg-[#FFCA20] text-black rounded hover:bg-[#FFCA20]/90 transition"
+                  >
+                    Close
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Movie Info Modal */}
+        {showMovieInfoModal && movieDetails && (
+          <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4 overflow-y-auto" onClick={() => setShowMovieInfoModal(false)}>
+            <div className="relative w-full max-w-2xl bg-[#1a1a1a] rounded-lg p-6 my-8" onClick={(e) => e.stopPropagation()}>
+              <button
+                onClick={() => setShowMovieInfoModal(false)}
+                className="absolute top-4 right-4 text-[#D3D3D3] hover:text-[#FAFAFA] transition"
+              >
+                <X className="w-6 h-6" />
+              </button>
+
+              <div className="flex gap-6 mb-6">
+                <img
+                  src={movieImage}
+                  alt={movieTitle}
+                  className="w-32 h-48 object-cover rounded"
+                  onError={(e) => {
+                    e.target.src = 'placeholder.png';
+                  }}
+                />
+                <div className="flex-1">
+                  <h2 className="text-2xl font-bold mb-2 text-[#FAFAFA]">{movieTitle}</h2>
+                  <div className="space-y-2 text-sm text-[#D3D3D3]">
+                    <div><span className="font-semibold text-[#FAFAFA]">Genre:</span> {movieGenre}</div>
+                    <div><span className="font-semibold text-[#FAFAFA]">Duration:</span> {movieDuration}</div>
+                    <div><span className="font-semibold text-[#FAFAFA]">Language:</span> {movieLanguage}</div>
+                    <div><span className="font-semibold text-[#FAFAFA]">Rating:</span> {movieRating}</div>
+                    <div><span className="font-semibold text-[#FAFAFA]">Type:</span> {movieType}</div>
+                    {movieReleaseDate && (
+                      <div><span className="font-semibold text-[#FAFAFA]">Release Date:</span> {movieReleaseDate}</div>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {movieSynopsis && (
-              <div className="mb-6">
-                <h3 className="text-lg font-semibold mb-2 text-[#FAFAFA]">Synopsis</h3>
-                <p className="text-[#D3D3D3] text-sm leading-relaxed">{movieSynopsis}</p>
-              </div>
-            )}
+              {movieSynopsis && (
+                <div className="mb-6">
+                  <h3 className="text-lg font-semibold mb-2 text-[#FAFAFA]">Synopsis</h3>
+                  <p className="text-[#D3D3D3] text-sm leading-relaxed">{movieSynopsis}</p>
+                </div>
+              )}
 
-            {movieCast && (
-              <div className="mb-6">
-                <h3 className="text-lg font-semibold mb-2 text-[#FAFAFA]">Cast</h3>
-                <p className="text-[#D3D3D3] text-sm">{movieCast}</p>
-              </div>
-            )}
+              {movieCast && (
+                <div className="mb-6">
+                  <h3 className="text-lg font-semibold mb-2 text-[#FAFAFA]">Cast</h3>
+                  <p className="text-[#D3D3D3] text-sm">{movieCast}</p>
+                </div>
+              )}
 
-            {movieDirector && (
-              <div className="mb-6">
-                <h3 className="text-lg font-semibold mb-2 text-[#FAFAFA]">Director</h3>
-                <p className="text-[#D3D3D3] text-sm">{movieDirector}</p>
-              </div>
-            )}
+              {movieDirector && (
+                <div className="mb-6">
+                  <h3 className="text-lg font-semibold mb-2 text-[#FAFAFA]">Director</h3>
+                  <p className="text-[#D3D3D3] text-sm">{movieDirector}</p>
+                </div>
+              )}
 
-            <div className="flex gap-3">
-              {trailerVideoId && (
+              <div className="flex gap-3">
+                {trailerVideoId && (
                   <button
                     onClick={() => {
                       setShowMovieInfoModal(false);
@@ -1038,35 +1034,35 @@ export default function MovieBooking() {
                   >
                     Watch Trailer
                   </button>
-              )}
-              <button
-                onClick={() => setShowMovieInfoModal(false)}
-                className="px-6 py-2 bg-transparent border border-[#D3D3D3]/40 text-[#FAFAFA] rounded hover:bg-white/10 transition"
-              >
-                Close
-              </button>
+                )}
+                <button
+                  onClick={() => setShowMovieInfoModal(false)}
+                  className="px-6 py-2 bg-transparent border border-[#D3D3D3]/40 text-[#FAFAFA] rounded hover:bg-white/10 transition"
+                >
+                  Close
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Age Confirmation Modal */}
-      {showAgeConfirmationModal && (
-        <AgeConfirmationModal
-          rating={movieRating}
-          onConfirm={() => {
-            setIsAgeConfirmed(true);
-            setShowAgeConfirmationModal(false);
-            proceedToTicketType();
-          }}
-          onClose={() => setShowAgeConfirmationModal(false)}
-        />
-      )}
+        {/* Age Confirmation Modal */}
+        {showAgeConfirmationModal && (
+          <AgeConfirmationModal
+            rating={movieRating}
+            onConfirm={() => {
+              setIsAgeConfirmed(true);
+              setShowAgeConfirmationModal(false);
+              proceedToTicketType();
+            }}
+            onClose={() => setShowAgeConfirmationModal(false)}
+          />
+        )}
 
-      {/* Time Restriction Modal */}
-      {showTimeRestrictionModal && (
-        <TimeRestrictionModal />
-      )}
+        {/* Time Restriction Modal */}
+        {showTimeRestrictionModal && (
+          <TimeRestrictionModal />
+        )}
       </div>
       <Footer />
     </div>
@@ -1081,7 +1077,7 @@ function AgeConfirmationModal({ rating, onConfirm, onClose }) {
 
   return (
     <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div 
+      <div
         className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg w-full max-w-md relative"
         onClick={(e) => e.stopPropagation()}
       >

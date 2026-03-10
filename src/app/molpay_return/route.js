@@ -3,8 +3,8 @@ import { NextResponse } from 'next/server';
 import { writeMolpayLog, savePaymentLogDB, verifyReturnSignature, callReserveBooking, callCancelBooking, createRedirectResponse } from '@/utils/molpay';
 import prisma from '@/lib/prisma';
 
-export async function GET(request){ return handleReturn(request); }
-export async function POST(request){ return handleReturn(request); }
+export async function GET(request) { return handleReturn(request); }
+export async function POST(request) { return handleReturn(request); }
 
 async function handleReturn(request) {
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL;
@@ -12,10 +12,10 @@ async function handleReturn(request) {
   try {
     const url = new URL(request.url);
     const returnData = {};
-    url.searchParams.forEach((v,k)=> returnData[k] = v);
-    if(request.method==='POST'){
-      const formData = await request.formData().catch(()=>null);
-      if(formData) for(const [k,v] of formData.entries()) returnData[k] = v;
+    url.searchParams.forEach((v, k) => returnData[k] = v);
+    if (request.method === 'POST') {
+      const formData = await request.formData().catch(() => null);
+      if (formData) for (const [k, v] of formData.entries()) returnData[k] = v;
     }
 
     orderid = returnData.orderid || `unknown_${Date.now()}`;
@@ -26,7 +26,7 @@ async function handleReturn(request) {
     let finalStatus = SUCCESS_STATUSES.includes(returnData.status) && isValidSignature ? 'PAID' : returnData.status;
 
     // Save payment log
-    let isSuccess=false;
+    let isSuccess = false;
     if (finalStatus === 'PAID' || SUCCESS_STATUSES.includes(returnData.status)) {
       isSuccess = true;
     }
@@ -67,7 +67,7 @@ async function handleReturn(request) {
         }
       }
     }
-    if(!order) return createRedirectResponse(`${baseUrl}payment/failed?orderid=${encodeURIComponent(orderid)}&error=order_not_found`);
+    if (!order) return createRedirectResponse(`${baseUrl}payment/failed?orderid=${encodeURIComponent(orderid)}&error=order_not_found`);
 
     // Inject order details for API calls
     returnData.storedDetails = {
@@ -78,70 +78,74 @@ async function handleReturn(request) {
     };
 
     // ReserveBooking or CancelBooking
-    if(finalStatus==='00' || finalStatus==='PAID'){
-      let updateData = { paymentStatus:'PAID', status:'CONFIRMED', transactionNo:returnData.tranID };
+    if (finalStatus === '00' || finalStatus === 'PAID') {
+      let updateData = { paymentStatus: 'PAID', status: 'CONFIRMED', transactionNo: returnData.tranID };
       let updated = false;
 
-      // 1. Reserve Booking
-        const reserveResult = await callReserveBooking(orderid, returnData.tranID, returnData.channel, returnData.appcode, returnData);
-        if(reserveResult.success){
-          updateData.reserve_ticket = true;
-          updateData.cancel_ticket = false;
-          updated = true;
-        } 
-
-      
-      // Commit updates if any flags changed or if we need to confirm payment status
-      if(updated || order.paymentStatus !== 'PAID'){
-          await prisma.order.update({
-            where:{ orderId: orderid },
-            data: updateData
-          });
+      if (order.membershipId) {
+        returnData.membershipId = order.membershipId;
       }
 
-    } else if(finalStatus==='22'){
+      // 1. Reserve Booking
+      const reserveResult = await callReserveBooking(orderid, returnData.tranID, returnData.channel, returnData.appcode, returnData);
+      if (reserveResult.success) {
+        updateData.reserve_ticket = true;
+        updateData.cancel_ticket = false;
+        updated = true;
+      }
+
+
+      // Commit updates if any flags changed or if we need to confirm payment status
+      if (updated || order.paymentStatus !== 'PAID') {
+        await prisma.order.update({
+          where: { orderId: orderid },
+          data: updateData
+        });
+      }
+
+    } else if (finalStatus === '22') {
       await prisma.order.update({
         where: { orderId: orderid },
         data: { paymentStatus: 'PENDING', status: 'PENDING', transactionNo: returnData.tranID }
       });
     } else {
-        // Payment Failed Case
-        if(!order.cancel_ticket && order.paymentStatus!=='PAID'){
-          let cancelData = await callCancelBooking(orderid, returnData.tranID, returnData.channel, returnData.error_desc || 'Payment failed', returnData);
-          let iscancel = false;
-          if (cancelData.success) {
-            iscancel = true;
-          }
-          
-            await prisma.order.update({
-                where:{ orderId: orderid },
-                data:{ 
-                paymentStatus:'FAILED', 
-                status:'CANCELLED', 
-                transactionNo:returnData.tranID,
-                cancel_ticket: iscancel
-                }
-            });
-        } else if(order.paymentStatus !== 'FAILED') {
-             // Just ensure status is updated even if cancel was done by callback
-             await prisma.order.update({
-                where:{ orderId: orderid },
-                data:{ paymentStatus:'FAILED', status:'CANCELLED' }
-            });
+      // Payment Failed Case
+      if (!order.cancel_ticket && order.paymentStatus !== 'PAID') {
+        let cancelData = await callCancelBooking(orderid, returnData.tranID, returnData.channel, returnData.error_desc || 'Payment failed', returnData);
+        let iscancel = false;
+        if (cancelData.success) {
+          iscancel = true;
         }
+
+        await prisma.order.update({
+          where: { orderId: orderid },
+          data: {
+            paymentStatus: 'FAILED',
+            status: 'CANCELLED',
+            transactionNo: returnData.tranID,
+            cancel_ticket: iscancel
+          }
+        });
+      } else if (order.paymentStatus !== 'FAILED') {
+        // Just ensure status is updated even if cancel was done by callback
+        await prisma.order.update({
+          where: { orderId: orderid },
+          data: { paymentStatus: 'FAILED', status: 'CANCELLED' }
+        });
+      }
     }
 
-    if(returnData.status==='00') {
+    if (returnData.status === '00') {
       return createRedirectResponse(`${baseUrl}payment/success?orderid=${encodeURIComponent(orderid)}`);
-    } else if(returnData.status==='22') {
+    } else if (returnData.status === '22') {
       return createRedirectResponse(`${baseUrl}payment/pending?orderid=${encodeURIComponent(orderid)}`);
     } else {
       return createRedirectResponse(`${baseUrl}payment/failed?orderid=${encodeURIComponent(orderid)}&error=payment_failed`);
     }
-    
+
   }
-  catch(e){
+  catch (e) {
     console.error('[MOLPay Return] Error', e);
-      return createRedirectResponse(`${baseUrl}payment/failed?orderid=${encodeURIComponent(orderid)}&error=processing_error`);
+    return createRedirectResponse(`${baseUrl}payment/failed?orderid=${encodeURIComponent(orderid)}&error=processing_error`);
   }
 }

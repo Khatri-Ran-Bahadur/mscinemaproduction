@@ -34,7 +34,7 @@ export async function sendMobileTicketEmailForOrder(orderId, tranID = '') {
     }
 
     const t = apiTicketData || {};
-    
+
     // 2. Resolve Ticket Details & Seat Mapping (API DATA REQUIRED)
     const ticketDetails = t.TicketDetails || t.ticketDetails || [];
     const seatGroups = {};
@@ -55,9 +55,9 @@ export async function sendMobileTicketEmailForOrder(orderId, tranID = '') {
     // The user wants "proper" information from the API. Fallback results in poor quality.
     if (finalTicketDetails.length === 0) {
       console.error(`[Mobile Email Service] Proper ticket details not found in API for order: ${orderId}`);
-      return { 
-        success: false, 
-        error: 'Ticket details not available in cinema system. Please verify the booking status.' 
+      return {
+        success: false,
+        error: 'Ticket details not available in cinema system. Please verify the booking status.'
       };
     }
 
@@ -86,11 +86,11 @@ export async function sendMobileTicketEmailForOrder(orderId, tranID = '') {
       experienceType: t.ExperienceType || t.experienceType || order.ticketType || 'Standard',
       hallName: formatHallName(t.HallName || t.hallName || order.hallName || 'Hall'),
       cinemaName: t.CinemaName || t.cinemaName || order.cinemaName || 'Cinema',
-      
+
       // Use API formatted values directly, or parse API date format (YYYY-MM-DD to "D Mon YYYY")
-      showDate: (t.ShowDate ? parseApiDate(t.ShowDate) : '') || (t.showDate ? parseApiDate(t.showDate) : '') || '',
-      showTime: t.ShowTime || t.showTime || '',
-      
+      showDate: t.bookingDetails.showDate || '',
+      showTime: t.bookingDetails.showTime || '',
+
       bookingId: order.referenceNo,
       referenceNo: t.ReferenceNo || t.referenceNo || order.referenceNo,
       trackingId: tranID || order.transactionNo || 'N/A',
@@ -104,15 +104,14 @@ export async function sendMobileTicketEmailForOrder(orderId, tranID = '') {
     // 6. Send Email
     if (ticketInfoData.customerEmail && ticketInfoData.customerEmail !== 'N/A') {
       await sendTicketEmail(ticketInfoData.customerEmail, ticketInfoData);
-      
+
       await prisma.order.update({
         where: { id: order.id },
         data: {
-          emailInfo: ticketInfoData,
           isSendMail: true
         }
       });
-      
+
       return { success: true };
     }
 

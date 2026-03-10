@@ -124,6 +124,9 @@ model Order {
   customerName  String?
   customerEmail String?
   customerPhone String?
+  membershipId  String? 
+  userId        String?
+  buy_from      String @default("web")
   
   // Movie Details
   movieId       Int?     // Optional link if we track movies locally later
