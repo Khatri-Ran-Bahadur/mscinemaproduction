@@ -80,6 +80,20 @@ export async function POST(request) {
       where: { referenceNo: referenceNo }
     });
 
+    const malaysiaLocalToUTCDate = (dateTimeStr) => {
+      if (!dateTimeStr) return null;
+
+      const [datePart, timePart] = dateTimeStr.trim().split(" ");
+      if (!datePart || !timePart) return null;
+
+      const [year, month, day] = datePart.split("-").map(Number);
+      const [hour, minute, second = 0] = timePart.split(":").map(Number);
+
+      // Malaysia = UTC+8
+      // Store as UTC by subtracting 8 hours
+      return new Date(Date.UTC(year, month - 1, day, hour - 8, minute, second));
+    };
+
     const order = await prisma.order.upsert({
       where: { referenceNo: referenceNo },
       update: {
@@ -116,7 +130,7 @@ export async function POST(request) {
         cinemaId: cinemaId ? String(cinemaId) : null,
         hallName: hallName || '',
         showId: showId ? String(showId) : null,
-        showTime: showTime ? new Date(showTime) : null,
+        showTime: showTime ? malaysiaLocalToUTCDate(showTime) : null,
         seats: typeof seats === 'object' ? JSON.stringify(seats) : (seats || ''),
         ticketType: typeof ticketType === 'object' ? JSON.stringify(ticketType) : (ticketType || 'Standard'),
         totalAmount: parseFloat(amount),
@@ -205,7 +219,7 @@ export async function POST(request) {
       mp_express_mode: body.mp_express_mode !== undefined ? body.mp_express_mode : false,
 
       // Optional, cash channel wait time
-      mp_cash_waittime: body.mp_cash_waittime || 48,
+      mp_cash_waittime: body.mp_cash_waittime || 120,
 
       // Optional, non-3DS bypass
       mp_non_3DS: false,
