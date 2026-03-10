@@ -37,7 +37,7 @@ export async function POST(request) {
     }
 
     const body = await request.json();
-    
+
     // Extract payment and booking fields
     const {
       amount,
@@ -58,7 +58,9 @@ export async function POST(request) {
       country = 'MY',
       sandboxMode = false,
       devMode = false,
-      token = '' // Auth token from client
+      token = '',
+      membershipId = '', // Auth token from client
+      userId = ''
     } = body;
 
     // 1. Basic Validation
@@ -71,7 +73,7 @@ export async function POST(request) {
 
     // 2. Create or Update Order in Database (Upsert logic matching website)
     const internalOrderId = generateInternalOrderId(referenceNo);
-    
+
     console.log(`[Mobile Request] Syncing order for reference: ${referenceNo}, New Order ID: ${internalOrderId}`);
 
     const existingOrder = await prisma.order.findUnique({
@@ -99,6 +101,8 @@ export async function POST(request) {
         status: existingOrder?.status === 'CANCELLED' ? 'PENDING' : (existingOrder?.status || 'PENDING'),
         token: token || existingOrder?.token,
         updatedAt: new Date(),
+        membershipId: membershipId || null,
+        userId: userId || null,
       },
       create: {
         orderId: internalOrderId,
@@ -119,7 +123,10 @@ export async function POST(request) {
         paymentStatus: 'PENDING',
         status: 'PENDING',
         paymentMethod: 'Mobile App',
-        token: token
+        token: token,
+        membershipId: membershipId || null,
+        userId: userId || null,
+        buy_from: 'mobile',
       }
     });
 
@@ -129,7 +136,7 @@ export async function POST(request) {
 
     const mobilePayload = {
       // Mandatory String. Values obtained from Fiuu.
-      mp_dev_mode:  false,
+      mp_dev_mode: false,
       mp_username: RMS_CONFIG.username,
       mp_password: RMS_CONFIG.password,
       mp_merchant_ID: RMS_CONFIG.merchantId,
@@ -150,17 +157,17 @@ export async function POST(request) {
       mp_bill_mobile: customerPhone || '',
       mp_channel_editing: false,
       mp_editing_enabled: false,
-      
+
       // Sandbox mode
       mp_sandbox_mode: false,
-      
+
       // UI Customization and language
       mp_language: 'EN',
-      
+
       // Advanced validations
       mp_advanced_email_validation_enabled: true,
       mp_advanced_phone_validation_enabled: true,
-      
+
       // Control editing (explicitly force disable user input as per your request snippet)
       mp_bill_name_edit_disabled: true,
       mp_bill_email_edit_disabled: true,
@@ -213,8 +220,8 @@ export async function POST(request) {
       orderId: finalOrderId,
       payload: mobilePayload,
       order: {
-          id: order.id,
-          referenceNo: order.referenceNo
+        id: order.id,
+        referenceNo: order.referenceNo
       }
     });
 

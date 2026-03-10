@@ -209,6 +209,11 @@ async function handleCallback(request) {
         updateData.paymentStatus = "PAID";
         updateData.status = "CONFIRMED";
 
+        if (order.membershipId) {
+          returnData.membershipId = order.membershipId;
+        }
+
+
         const reserveResult = await callReserveBooking(
           orderid,
           returnData.tranID,

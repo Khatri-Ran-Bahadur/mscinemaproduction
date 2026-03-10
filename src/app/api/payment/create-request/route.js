@@ -97,6 +97,7 @@ export async function POST(request) {
       showTime = "",
       seats = "",
       ticketType = "",
+      userId = "",
     } = paymentData;
 
     if (!referenceNo) {
@@ -235,6 +236,8 @@ export async function POST(request) {
         customerPhone: billingMobile,
         token: token || existingOrder?.token,
         updatedAt: new Date(),
+        membershipId: membershipId || null,
+        userId: userId || null,
       },
       create: {
         orderId: orderId,
@@ -256,6 +259,8 @@ export async function POST(request) {
         paymentMethod: paymentMethodName,
         status: "PENDING",
         token: token,
+        membershipId: membershipId || null,
+        userId: userId || null,
       },
     });
 
