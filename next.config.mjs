@@ -28,6 +28,11 @@ const nextConfig = {
       }
     ],
   },
+  experimental: {
+    serverActions: {
+      bodySizeLimit: '50mb', // Increase max upload size
+    },
+  },
 };
 
 export default nextConfig;
