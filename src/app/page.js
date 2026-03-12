@@ -182,6 +182,7 @@ export default function MovieStreamingSite() {
                         image: getValidImageUrl(banner.image) || movie.image, // Prefer banner image
                         type: movie.type,
                         trailerUrl: movie.trailerUrl,
+                        showType: movie.showType,
                         isMovie: true
                     };
                 }
@@ -210,6 +211,7 @@ export default function MovieStreamingSite() {
           image: movie.image || "img/banner1.jpg",
           type: movie.type || "2D",
           trailerUrl: movie.trailerUrl || "",
+          showType: movie.showType,
           isMovie: true
         }));
         console.log('Homepage: Using fallback hero movies, count:', heroMoviesList.length);
@@ -363,7 +365,7 @@ export default function MovieStreamingSite() {
                           href={movie.id ? `/movie-detail?movieId=${encryptId(movie.id)}` : '/movie-detail'}
                           className="bg-[#FFCA20] text-black px-3 md:px-6 lg:px-8 py-2 md:py-2.5 lg:py-3 rounded font-semibold hover:bg-[#FFCA20]/90 transition text-xs md:text-sm uppercase tracking-wide inline-block text-center whitespace-nowrap shadow-lg flex-1 md:flex-initial"
                         >
-                          Book now
+                          {movie.showType === '0' ? 'More info' : 'Book now'}
                         </Link>
                       </>
                     ) : (

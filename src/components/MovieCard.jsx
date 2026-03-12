@@ -104,7 +104,7 @@ export default function MovieCard({ movie, onBookNow, onWatchTrailer, className 
                                     }}
                                     className="bg-[#FFCA20] text-black px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg font-bold text-[10px] sm:text-xs hover:bg-[#FFCA20]/90 transition-all shadow-md active:scale-95 whitespace-nowrap"
                                 >
-                                    Book now
+                                    {movie?.showType === '0' ? 'More info' : 'Book now'}
                                 </button>
                             </div>
                         )}
