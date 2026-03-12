@@ -7,6 +7,7 @@
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { revalidateTag } from 'next/cache';
 
 // Get single banner
 export async function GET(request, { params }) {
@@ -86,6 +87,9 @@ export async function PUT(request, { params }) {
       data: updateData
     });
 
+    // Revalidate banners cache
+    revalidateTag('banners');
+
     return NextResponse.json({
       success: true,
       banner
@@ -121,6 +125,9 @@ export async function DELETE(request, { params }) {
     await prisma.banner.delete({
       where: { id }
     });
+
+    // Revalidate banners cache
+    revalidateTag('banners');
 
     return NextResponse.json({
       success: true,

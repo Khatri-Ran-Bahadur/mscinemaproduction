@@ -6,6 +6,7 @@
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { revalidateTag } from 'next/cache';
 
 // Get all banners
 export async function GET(request) {
@@ -64,6 +65,9 @@ export async function POST(request) {
         endDate: endDate ? new Date(endDate) : null,
       }
     });
+
+    // Revalidate banners cache
+    revalidateTag('banners');
 
     return NextResponse.json({
       success: true,
