@@ -12,6 +12,7 @@ export async function GET(request) {
     const paymentStatus = searchParams.get('paymentStatus') || 'All';
     const startDate = searchParams.get('startDate') || '';
     const endDate = searchParams.get('endDate') || '';
+    const buyFrom = searchParams.get('buyFrom') || 'All';
     const skip = (page - 1) * limit;
 
     const where = {};
@@ -22,6 +23,10 @@ export async function GET(request) {
 
     if (paymentStatus !== 'All') {
         where.paymentStatus = paymentStatus;
+    }
+
+    if (buyFrom !== 'All') {
+        where.buy_from = buyFrom;
     }
 
     // Date Filtering Logic

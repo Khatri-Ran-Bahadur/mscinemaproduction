@@ -34,7 +34,7 @@ export async function POST(request) {
       return NextResponse.json({
         status: true,
         message: 'Ticket email sent successfully',
-        data: result.data
+        // data: result.data
       });
     } else {
       return NextResponse.json({
