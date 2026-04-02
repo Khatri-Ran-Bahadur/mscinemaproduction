@@ -334,8 +334,6 @@ export default function MovieStreamingSite() {
                     <span>
                       {movie.type || "2D"}
                     </span>
-                    <span className="text-[#FAFAFA]/50">|</span>
-                    <span>ATMOS</span>
                   </div>
 
                   <div className="flex flex-row space-x-2 md:space-x-3 lg:space-x-4 mb-4 md:mb-6">

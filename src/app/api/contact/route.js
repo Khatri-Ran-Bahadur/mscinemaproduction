@@ -38,7 +38,7 @@ function isValidEmail(email) {
 export async function POST(request) {
   try {
     const body = await request.json();
-    let { name, email, phone, subject, message, recaptchaToken } = body;
+    let { name, email, phone, subject, message, recaptchaToken='',type='' } = body;
 
     // Sanitize all inputs to prevent XSS
     name = sanitizeInput(name);
@@ -48,10 +48,13 @@ export async function POST(request) {
     message = sanitizeInput(message);
 
     // Verify Recaptcha
-    const isCaptchaValid = await verifyRecaptcha(recaptchaToken);
-    if (!isCaptchaValid) {
-      return NextResponse.json({ error: 'Recaptcha verification failed' }, { status: 400 });
+    if(type!=='app'){
+      const isCaptchaValid = await verifyRecaptcha(recaptchaToken);
+      if (!isCaptchaValid) {
+        return NextResponse.json({ error: 'Recaptcha verification failed' }, { status: 400 });
+      }
     }
+    
 
     // Validate required fields
     if (!name || !email || !subject || !message) {
