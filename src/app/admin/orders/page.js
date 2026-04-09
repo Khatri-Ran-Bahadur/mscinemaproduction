@@ -24,6 +24,7 @@ import {
   Undo2,
   Activity,
   Code2,
+  Smartphone,
 } from "lucide-react";
 import TicketModal from "@/components/TicketModal";
 import OrderDetailsModal from "@/components/admin/OrderDetailsModal";
@@ -38,6 +39,7 @@ export default function AdminOrdersPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState("All");
   const [filterPaymentStatus, setFilterPaymentStatus] = useState("All");
+  const [filterBuyFrom, setFilterBuyFrom] = useState("All");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [selectedOrder, setSelectedOrder] = useState(null);
@@ -90,6 +92,7 @@ export default function AdminOrdersPage() {
     searchQuery,
     filterStatus,
     filterPaymentStatus,
+    filterBuyFrom,
     startDate,
     endDate,
   ]);
@@ -103,6 +106,7 @@ export default function AdminOrdersPage() {
         search: searchQuery,
         status: filterStatus,
         paymentStatus: filterPaymentStatus,
+        buyFrom: filterBuyFrom,
         startDate: startDate,
         endDate: endDate,
       });
@@ -147,6 +151,11 @@ export default function AdminOrdersPage() {
     setPage(1);
   };
 
+  const handleBuyFromChange = (e) => {
+    setFilterBuyFrom(e.target.value);
+    setPage(1);
+  };
+
   const handleStartDateChange = (e) => {
     setStartDate(e.target.value);
     setPage(1);
@@ -161,6 +170,7 @@ export default function AdminOrdersPage() {
     setSearchQuery("");
     setFilterStatus("All");
     setFilterPaymentStatus("All");
+    setFilterBuyFrom("All");
     setStartDate("");
     setEndDate("");
     setPage(1);
@@ -658,6 +668,18 @@ export default function AdminOrdersPage() {
               <option value="REFUNDED">Refunded</option>
             </select>
             <CreditCard className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[#666] pointer-events-none" />
+          </div>
+          <div className="relative">
+            <select
+              value={filterBuyFrom}
+              onChange={handleBuyFromChange}
+              className="bg-[#2a2a2a] border border-[#3a3a3a] text-white pl-4 pr-10 py-2 rounded-lg focus:border-[#FFCA20] outline-none appearance-none cursor-pointer"
+            >
+              <option value="All">All Platforms</option>
+              <option value="web">Web</option>
+              <option value="mobile">Mobile</option>
+            </select>
+            <Smartphone className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[#666] pointer-events-none" />
           </div>
 
           <button
