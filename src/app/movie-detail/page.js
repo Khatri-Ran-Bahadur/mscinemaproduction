@@ -1,7 +1,7 @@
 "use client"
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ChevronLeft, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { movies, cinemas, shows } from '@/services/api';
 import { APIError } from '@/services/api';
 import Loader from '@/components/Loader';
@@ -41,7 +41,9 @@ export default function MovieBooking() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const encryptedMovieId = searchParams?.get('movieId');
-  const movieId = encryptedMovieId ? decryptId(encryptedMovieId) : null;
+  const initialMovieId = encryptedMovieId ? decryptId(encryptedMovieId) : null;
+  const [movieId, setMovieId] = useState(initialMovieId);
+  const [currentIndex, setCurrentIndex] = useState(0);
   // Always use this cinema ID since there's only one cinema
   const cinemaId = '7001';
 
@@ -73,11 +75,92 @@ export default function MovieBooking() {
   const lastMovieId = useRef(null);
   const isLoadingData = useRef(false);
 
+  // Refactored date derivation to be reusable for carousel switching
+  const deriveAvailableDates = (currentMovieId, showTimesData) => {
+    const movieIdNum = parseInt(currentMovieId);
+    const movieShowTimes = showTimesData.filter(s => parseInt(s.movieID || s.movieId || 0) === movieIdNum);
+
+    const uniqueDatesMap = new Map();
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+
+    movieShowTimes.forEach(item => {
+      const showDateStr = item.showDate;
+      if (!showDateStr) return;
+
+      const dateParts = showDateStr.split('T')[0].split(' ')[0].split('-');
+      if (dateParts.length === 3) {
+        const year = parseInt(dateParts[0], 10);
+        const month = parseInt(dateParts[1], 10) - 1;
+        const day = parseInt(dateParts[2], 10);
+
+        const dateObj = new Date(year, month, day);
+        dateObj.setHours(0, 0, 0, 0);
+
+        const fullDate = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+
+        if (!uniqueDatesMap.has(fullDate)) {
+          uniqueDatesMap.set(fullDate, {
+            day: day.toString(),
+            date: days[dateObj.getDay()],
+            month: months[dateObj.getMonth()],
+            fullDate: fullDate,
+            dateObj: dateObj,
+            showDate: fullDate
+          });
+        }
+      }
+    });
+
+    const dates = Array.from(uniqueDatesMap.values()).sort((a, b) => a.dateObj - b.dateObj);
+    setAvailableDates(dates);
+
+    if (dates.length > 0) {
+      setSelectedDate(dates[0].day);
+      setSelectedDateObj(dates[0].dateObj);
+      return { firstDateObj: dates[0].dateObj, dates };
+    } else {
+      setSelectedDate(null);
+      setSelectedDateObj(null);
+      return { firstDateObj: null, dates: [] };
+    }
+  };
+
+  const handleMovieChange = (newIndex) => {
+    if (moviesList.length === 0) return;
+    const boundedIndex = (newIndex + moviesList.length) % moviesList.length;
+    setCurrentIndex(boundedIndex);
+    
+    const newMovie = moviesList[boundedIndex];
+    if (!newMovie) return;
+    
+    const newId = newMovie.movieID || newMovie.movieId || newMovie.id;
+    
+    setMovieId(newId);
+    setMovieDetails(newMovie);
+    
+    setSelectedDate(null);
+    setSelectedDateObj(null);
+    setSelectedTime(null);
+    setFilteredShowTimes([]);
+
+    if (allShowTimes.length > 0) {
+      const { firstDateObj } = deriveAvailableDates(newId, allShowTimes);
+      if (firstDateObj) {
+         filterShowTimesByDateAndMovie(firstDateObj, false, allShowTimes, newId);
+      }
+    }
+
+    // Sync URL with the new movie ID
+    if (newId) {
+      router.replace(`/movie-detail?movieId=${encryptId(newId)}`, { scroll: false });
+    }
+  };
+
   useEffect(() => {
     if (!movieId || !cinemaId) return;
 
-    // Reset refs when movieId actually changes
-    if (lastMovieId.current !== movieId) {
+    if (lastMovieId.current !== movieId && !hasLoadedMovies.current) {
       hasLoadedMovieDetails.current = false;
       hasLoadedCinemas.current = false;
       hasLoadedShowTimes.current = false;
@@ -92,31 +175,40 @@ export default function MovieBooking() {
       console.log('[MovieDetail] Starting data load for movie:', movieId);
 
       try {
-        // Step 1: Load movies list (highly cached in service)
-        const allMoviesData = await loadMoviesList();
+        let allMoviesData = moviesList;
+        if (!hasLoadedMovies.current || allMoviesData.length === 0) {
+          allMoviesData = await loadMoviesList();
+          hasLoadedMovies.current = true;
+          
+          if (movieId) {
+             const mIdNum = parseInt(movieId);
+             const matchingIdx = allMoviesData.findIndex(m => {
+               const id = m.movieID || m.movieId || m.id;
+               return String(id) === String(movieId) || parseInt(id) === mIdNum;
+             });
+             if (matchingIdx !== -1) {
+                setCurrentIndex(matchingIdx);
+             }
+          }
+        }
 
-        // Step 2: Set movie details from the list
         if (!hasLoadedMovieDetails.current) {
           await loadMovieDetails(allMoviesData);
           hasLoadedMovieDetails.current = true;
         }
 
-        // Once movie info is ready, hide the main full-screen loader immediately
-        // This lets the user see the movie title, image, etc.
         setIsLoading(false);
 
-        // Step 3: Load cinemas and show times in the background
         if (!hasLoadedCinemas.current || !hasLoadedShowTimes.current) {
           setIsShowTimesLoading(true);
           const result = await loadCinemasAndShowTimes();
           hasLoadedCinemas.current = true;
           hasLoadedShowTimes.current = true;
-          hasLoadedShowDates.current = true; // Mark as loaded since we derive them
+          hasLoadedShowDates.current = true;
 
-          // After loading showtimes and dates, we need to ensure the first date is filtered
           if (result && result.firstDateObj && result.allShowTimes) {
             const hasLastSelectedShowTime = localStorage.getItem('lastSelectedShowTime');
-            filterShowTimesByDateAndMovie(result.firstDateObj, !!hasLastSelectedShowTime, result.allShowTimes);
+            filterShowTimesByDateAndMovie(result.firstDateObj, !!hasLastSelectedShowTime, result.allShowTimes, movieId);
           }
         }
 
@@ -124,7 +216,7 @@ export default function MovieBooking() {
       } catch (err) {
         console.error('[MovieDetail] Error in loadData:', err);
         setError(err.message || 'Failed to load movie data');
-        setIsLoading(false); // Hide full page loader on error
+        setIsLoading(false);
       } finally {
         setIsShowTimesLoading(false);
         isLoadingData.current = false;
@@ -132,7 +224,8 @@ export default function MovieBooking() {
     };
 
     loadData();
-  }, [movieId, cinemaId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cinemaId]);
 
   // Auto-select experience when movie details are loaded
   useEffect(() => {
@@ -168,10 +261,11 @@ export default function MovieBooking() {
 
 
 
-  // Filter show times by selected date, movieID, and experience type
-  const filterShowTimesByDateAndMovie = (dateObj, restoreShowTime = false, showTimesOverride = null) => {
+  // Filter show times by selected date, targetMovieId, and experience type
+  const filterShowTimesByDateAndMovie = (dateObj, restoreShowTime = false, showTimesOverride = null, overrideMovieId = null) => {
+    const targetMovieId = overrideMovieId || movieId;
     const sourceShowTimes = showTimesOverride || allShowTimes;
-    if (!dateObj || sourceShowTimes.length === 0 || !movieId) {
+    if (!dateObj || sourceShowTimes.length === 0 || !targetMovieId) {
       setFilteredShowTimes([]);
       return;
     }
@@ -186,13 +280,13 @@ export default function MovieBooking() {
     // 1. Selected date (showDate format: YYYY-MM-DD)
     // 2. Movie ID
     // 3. Experience type (if selected)
-    const filtered = allShowTimes.filter((show) => {
+    const filtered = sourceShowTimes.filter((show) => {
       // Match movieID - handle both string and number comparison
       const showMovieID = show.movieID || show.movieId;
-      const movieIdNum = parseInt(movieId);
+      const movieIdNum = parseInt(targetMovieId);
       const showMovieIdNum = parseInt(showMovieID);
 
-      if (showMovieIdNum !== movieIdNum && String(showMovieID) !== String(movieId)) {
+      if (showMovieIdNum !== movieIdNum && String(showMovieID) !== String(targetMovieId)) {
         return false;
       }
 
@@ -349,61 +443,13 @@ export default function MovieBooking() {
         setAllShowTimes(transformedShowTimes);
 
         // Derive available dates for this specific movie at this cinema
-        const movieIdNum = parseInt(movieId);
-        const movieShowTimes = transformedShowTimes.filter(s => {
-          const sMovieId = parseInt(s.movieID || s.movieId || 0);
-          return sMovieId === movieIdNum;
-        });
-
-        const uniqueDatesMap = new Map();
-        const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-        const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
-
-        movieShowTimes.forEach(item => {
-          const showDateStr = item.showDate;
-          if (!showDateStr) return;
-
-          // showDate format is usually YYYY-MM-DD from the transformation above
-          const dateParts = showDateStr.split('T')[0].split(' ')[0].split('-');
-          if (dateParts.length === 3) {
-            const year = parseInt(dateParts[0], 10);
-            const month = parseInt(dateParts[1], 10) - 1;
-            const day = parseInt(dateParts[2], 10);
-
-            const dateObj = new Date(year, month, day);
-            dateObj.setHours(0, 0, 0, 0);
-
-            const fullDate = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-
-            if (!uniqueDatesMap.has(fullDate)) {
-              uniqueDatesMap.set(fullDate, {
-                day: day.toString(),
-                date: days[dateObj.getDay()],
-                month: months[dateObj.getMonth()],
-                fullDate: fullDate,
-                dateObj: dateObj,
-                showDate: fullDate
-              });
-            }
-          }
-        });
-
-        const dates = Array.from(uniqueDatesMap.values()).sort((a, b) => a.dateObj - b.dateObj);
-        setAvailableDates(dates);
-
-        let firstDateObj = null;
-        // Auto-select first available date if no date is selected
-        if (!selectedDate && dates.length > 0) {
-          setSelectedDate(dates[0].day);
-          setSelectedDateObj(dates[0].dateObj);
-          firstDateObj = dates[0].dateObj;
-        }
+        const { firstDateObj, dates: movieDates } = deriveAvailableDates(movieId, transformedShowTimes);
 
         hasLoadedShowDates.current = true;
 
         return {
           allShowTimes: transformedShowTimes,
-          dates,
+          dates: movieDates,
           firstDateObj
         };
       }
@@ -640,64 +686,108 @@ export default function MovieBooking() {
           </button> */}
           </div>
 
-          {/* Breadcrumb - Hidden on mobile, visible on md+ */}
-          <div className="absolute top-4 right-6 z-10 hidden md:block">
-            <div className="flex items-center gap-2 text-xs text-[#D3D3D3]">
-              <span className="hover:text-[#FAFAFA] text-white cursor-pointer">Select Cinema</span>
-              <span>›</span>
-              <span className="hover:text-[#FAFAFA] cursor-pointer">Select type</span>
-              <span>›</span>
-              <span className="hover:text-[#FAFAFA] cursor-pointer">Select Seat</span>
-              <span>›</span>
-              <span className="text-[#FAFAFA]">Payment</span>
-            </div>
-          </div>
 
-          {/* Hero Image */}
-          <div className="relative h-72 overflow-hidden">
-            {movieDetails ? (
-              <>
-                <img
-                  src={movieImage}
-                  alt={movieTitle}
-                  className="absolute inset-0 w-full h-full object-cover"
-                  onError={(e) => {
-                    e.target.src = 'img/banner.jpg';
-                  }}
-                />
-                <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-[#0a0a0a]/60 to-[#0a0a0a]" />
-                <div className="absolute inset-0 bg-gradient-to-r from-black/50 to-transparent" />
 
-                {/* Movie Info */}
-                <div className="absolute bottom-4 left-4 md:bottom-8 md:left-8 w-[calc(100%-2rem)] md:w-auto">
-                  <h1 className="text-2xl md:text-5xl font-bold mb-2 text-[#FAFAFA] line-clamp-1 md:line-clamp-none">{movieTitle}</h1>
-                  <div className="flex flex-wrap items-center gap-2 md:gap-3 text-xs md:text-sm text-[#D3D3D3] mb-4">
-                    <RatingIcon rating={movieRating} className="w-5 h-5 md:w-6 md:h-6" />
-                    <span>{movieGenre}</span>
-                    {movieDuration && <span className="hidden md:inline">|</span>}
-                    <span>{movieDuration}</span>
-                    {movieLanguage && <span className="hidden md:inline">|</span>}
-                    <span>{movieLanguage}</span>
+          {/* Hero Carousel Section */}
+          <div className="w-full bg-[#050505] pt-12 pb-8 flex flex-col items-center justify-center overflow-hidden">
+            {moviesList.length > 0 && movieDetails ? (() => {
+              const getImgUrl = (m) => m?.imageURL || 'img/banner.jpg';
+              
+              const prevIdx = (currentIndex - 1 + moviesList.length) % moviesList.length;
+              const nextIdx = (currentIndex + 1) % moviesList.length;
+
+              return (
+                <div className="flex flex-col items-center w-full max-w-[1400px] mx-auto px-2 relative">
+                  
+                  {/* Navigation Arrows */}
+                  <button onClick={() => handleMovieChange(prevIdx)} className="absolute left-2 md:left-4 top-[160px] md:top-[260px] -translate-y-1/2 z-50 w-10 h-10 md:w-16 md:h-16 border border-white/30 rounded-full flex items-center justify-center bg-black/60 hover:bg-black transition text-white hover:scale-110 active:scale-95 shadow-xl">
+                    <ChevronLeft className="w-6 h-6 md:w-10 md:h-10 ml-[-2px]" />
+                  </button>
+                  
+                  <button onClick={() => handleMovieChange(nextIdx)} className="absolute right-2 md:right-4 top-[160px] md:top-[260px] -translate-y-1/2 z-50 w-10 h-10 md:w-16 md:h-16 border border-white/30 rounded-full flex items-center justify-center bg-black/60 hover:bg-black transition text-white hover:scale-110 active:scale-95 shadow-xl">
+                    <ChevronRight className="w-6 h-6 md:w-10 md:h-10 mr-[-2px]" />
+                  </button>
+                  
+                  {/* Coverflow Carousel */}
+                  <div className="relative flex justify-center items-center w-full h-[320px] md:h-[500px] mb-8 overflow-visible pointer-events-none mt-2">
+                    {/* Render up to 7 items: from -3 to 3 offset */}
+                    {[-3, -2, -1, 0, 1, 2, 3].map((offset) => {
+                      const realIndex = (currentIndex + offset + moviesList.length * 10) % moviesList.length;
+                      const m = moviesList[realIndex];
+                      if (!m) return null;
+                      
+                      const isCenter = offset === 0;
+                      const absOffset = Math.abs(offset);
+                      
+                      // Match exactly coverflow styling
+                      const scale = isCenter ? 1 : Math.max(0.75, 1 - (absOffset * 0.12));
+                      const zIdx = 30 - absOffset;
+                      const direction = offset < 0 ? -1 : 1;
+                      
+                      // Base translation distances carefully spaced
+                      // The more items, the smaller the gap visually
+                      let translateX = 0;
+                      if (absOffset === 1) translateX = 210 * direction;
+                      if (absOffset === 2) translateX = 360 * direction;
+                      if (absOffset === 3) translateX = 480 * direction;
+                      
+                      const styles = {
+                        transform: `translateX(calc(${translateX}px * var(--scale-factor, 1))) scale(${scale})`,
+                        zIndex: zIdx,
+                        transition: 'all 0.5s cubic-bezier(0.25, 0.8, 0.25, 1)',
+                        // Make non-center items brighter
+                        filter: isCenter ? 'brightness(1) drop-shadow(0px 10px 20px rgba(0,0,0,0.8))' : `brightness(${Math.max(0.35, 0.9 - absOffset * 0.15)})`,
+                      };
+
+                      return (
+                        <div 
+                          key={`${realIndex}-${offset}`}
+                          onClick={() => { if (!isCenter) handleMovieChange(realIndex); }}
+                          className={`absolute flex-shrink-0 transition-all ease-out flex items-center justify-center
+                                      w-[180px] h-[270px] md:w-[300px] md:h-[450px] rounded-lg 
+                                      ${isCenter ? 'border-[3px] border-[#FFCA20] pointer-events-auto' : 'cursor-pointer pointer-events-auto hover:brightness-[1.2]'} 
+                                      [--scale-factor:0.5] md:[--scale-factor:1]`}
+                          style={styles}
+                        >
+                          <img src={getImgUrl(m)} className={`w-full h-full object-cover rounded shadow-2xl`} alt={m.title || 'Movie cover'} />
+                          {isCenter && (
+                            <div className="absolute -bottom-[16px] md:-bottom-[18px] left-1/2 -translate-x-1/2 w-0 h-0 border-l-[8px] border-r-[8px] md:border-l-[12px] md:border-r-[12px] border-t-[10px] md:border-t-[14px] border-transparent border-t-[#FFCA20]"></div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
-                  <div className="flex gap-3">
-                    <button
-                      onClick={() => setShowTrailerModal(true)}
-                      disabled={!trailerVideoId}
-                      className={`px-4 md:px-6 py-1.5 md:py-2 bg-transparent border border-[#D3D3D3]/40 text-[#FAFAFA] text-xs md:text-sm rounded hover:bg-white/10 transition whitespace-nowrap ${!trailerVideoId ? 'opacity-50 cursor-not-allowed' : ''
-                        }`}
-                    >
-                      Watch Trailer
-                    </button>
-                    <button
-                      onClick={() => setShowMovieInfoModal(true)}
-                      className="px-4 md:px-6 py-1.5 md:py-2 bg-[#FFCA20] text-black font-semibold text-xs md:text-sm rounded hover:bg-[#FFCA20]/90 transition whitespace-nowrap"
-                    >
-                      Movie Info
-                    </button>
+
+                  {/* Centered details indicator block */}
+                  <div className="flex flex-col items-center text-center relative w-full px-4 mb-4 mt-6">
+                    <h1 className="text-2xl md:text-[34px] font-bold text-[#FAFAFA] mb-2 uppercase tracking-widest">
+                      {movieTitle}
+                    </h1>
+                    
+                    <div className="flex items-center justify-center relative w-full max-w-[800px] h-[40px] mb-4">
+                      <div className="flex items-center gap-3 text-sm md:text-[16px] text-[#D3D3D3]">
+                        {movieDuration && <span>{movieDuration}</span>}
+                        {movieDuration && movieLanguage && <span className="opacity-50 text-[18px]">•</span>}
+                        {movieLanguage && <span className="uppercase">{movieLanguage}</span>}
+                      </div>
+                    </div>
                   </div>
+
+                  {/* Rating icon placed absolutely far right, aligning vertically with the title text block roughly */}
+                  {movieRating && (
+                    <div className="absolute right-2 md:right-4 bottom-8 hidden md:block">
+                      <RatingIcon rating={movieRating} className="w-10 h-10 md:w-14 md:h-14" />
+                    </div>
+                  )}
+                  {movieRating && (
+                    <div className="md:hidden mt-[-10px] mb-4">
+                       <RatingIcon rating={movieRating} className="w-8 h-8" />
+                    </div>
+                  )}
+
                 </div>
-              </>
-            ) : null}
+              );
+            })() : null}
           </div>
         </div>
 
