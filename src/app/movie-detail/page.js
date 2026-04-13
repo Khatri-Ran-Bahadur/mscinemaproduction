@@ -764,26 +764,23 @@ export default function MovieBooking() {
                       {movieTitle}
                     </h1>
                     
-                    <div className="flex items-center justify-center relative w-full max-w-[800px] h-[40px] mb-4">
+                    <div className="flex items-center justify-center relative w-full max-w-[800px] h-10 mb-2">
                       <div className="flex items-center gap-3 text-sm md:text-[16px] text-[#D3D3D3]">
                         {movieDuration && <span>{movieDuration}</span>}
                         {movieDuration && movieLanguage && <span className="opacity-50 text-[18px]">•</span>}
                         {movieLanguage && <span className="uppercase">{movieLanguage}</span>}
                       </div>
+                      
+                      {/* Rating icon placed right of the info text */}
+                      {movieRating && (
+                        <div className="absolute right-0 sm:right-[-40px] md:right-[-60px] top-1/2 -translate-y-1/2">
+                          <RatingIcon rating={movieRating} className="w-10 h-10 md:w-14 md:h-14" />
+                        </div>
+                      )}
                     </div>
                   </div>
 
-                  {/* Rating icon placed absolutely far right, aligning vertically with the title text block roughly */}
-                  {movieRating && (
-                    <div className="absolute right-2 md:right-4 bottom-8 hidden md:block">
-                      <RatingIcon rating={movieRating} className="w-10 h-10 md:w-14 md:h-14" />
-                    </div>
-                  )}
-                  {movieRating && (
-                    <div className="md:hidden mt-[-10px] mb-4">
-                       <RatingIcon rating={movieRating} className="w-8 h-8" />
-                    </div>
-                  )}
+
 
                 </div>
               );
