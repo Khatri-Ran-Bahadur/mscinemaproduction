@@ -247,7 +247,9 @@ export default function MovieBooking() {
     try {
       const data = await movies.getMovies();
       const moviesArray = Array.isArray(data) ? data : [];
-      setMoviesList(moviesArray.slice(0, 10)); // For display purposes
+      // Filter out upcoming movies (showType '0') from the detail page carousel
+      const showingMovies = moviesArray.filter(m => m.showType !== '0');
+      setMoviesList(showingMovies);
       return moviesArray; // Return full array for movie details lookup
     } catch (err) {
       console.error('Error loading movies list:', err);
@@ -788,7 +790,7 @@ export default function MovieBooking() {
           </div>
         </div>
 
-        {movieDetails ? (
+        {movieDetails && (availableDates.length > 0 || isShowTimesLoading) ? (
           <div className="mt-2">
             {/* Select Date */}
             <div className="mb-8 px-6 md:px-8">
@@ -837,14 +839,10 @@ export default function MovieBooking() {
                       </div>
                     ))}
                   </div>
-                ) : (
-                  <div className="text-sm text-gray-400 py-4">
-                    No show dates available for this movie
-                  </div>
-                )}
+                ) : null}
               </div>
               {/* Separator Line */}
-              <div className="border-b border-[#2a2a2a] mt-4"></div>
+              {availableDates.length > 0 && <div className="border-b border-[#2a2a2a] mt-4"></div>}
             </div>
 
             {/* Select Experience */}
@@ -964,15 +962,7 @@ export default function MovieBooking() {
                         );
                       })}
                     </div>
-                  ) : (
-                    <div className="text-center text-gray-400 py-8 mb-6">
-                      {selectedDateObj
-                        ? `No show times available for ${selectedDateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
-                        : 'No show times available for this cinema.'
-                      }
-
-                    </div>
-                  )}
+                  ) : null}
 
                   {/* Cinema Location Details */}
                   <div className="border-t border-[#2a2a2a] pt-4">

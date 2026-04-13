@@ -84,7 +84,8 @@ export default function MoviesPage() {
 
     const handleBookNow = (movie) => {
         const movieId = movie.id || movie;
-        router.push(`/movie-detail?movieId=${encryptId(movieId)}`);
+        const targetPath = movie.showType === '0' ? '/movie-upcoming' : '/movie-detail';
+        router.push(`${targetPath}?movieId=${encryptId(movieId)}`);
     };
 
     const filteredMovies = () => {
@@ -93,9 +94,6 @@ export default function MoviesPage() {
                 return movies.filter(m => m.showType === "1");
             case 'advance-booking':
                 // Show all showType 0 movies for Advance Booking
-                return movies.filter(m => m.showType === "0");
-            case 'coming-soon':
-                // Show all showType 0 movies for Coming Soon
                 return movies.filter(m => m.showType === "0");
             case 'top-rated':
                 return movies; 
@@ -201,19 +199,6 @@ export default function MoviesPage() {
                             >
                                 Advance booking
                                 {activeTab === 'advance-booking' && (
-                                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#FFCA20]"></div>
-                                )}
-                            </button>
-                            <button
-                                onClick={() => setActiveTab('coming-soon')}
-                                className={`pb-4 px-2 text-sm font-medium transition relative whitespace-nowrap ${
-                                    activeTab === 'coming-soon' 
-                                        ? 'text-[#FFCA20]' 
-                                        : 'text-[#D3D3D3] hover:text-[#FAFAFA]'
-                                }`}
-                            >
-                                Coming soon
-                                {activeTab === 'coming-soon' && (
                                     <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#FFCA20]"></div>
                                 )}
                             </button>

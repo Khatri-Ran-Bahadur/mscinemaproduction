@@ -21,7 +21,6 @@ export default function MovieStreamingSite() {
   const [featuredMovies, setFeaturedMovies] = useState([]);
   const [nowShowingMovies, setNowShowingMovies] = useState([]);
   const [advanceBookingMovies, setAdvanceBookingMovies] = useState([]);
-  const [comingSoonMovies, setComingSoonMovies] = useState([]);
   const [topRatedMovies, setTopRatedMovies] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
@@ -98,7 +97,18 @@ export default function MovieStreamingSite() {
   // Handle book now button click
   const handleBookNow = (movie) => {
     const movieId = movie.id || movie;
-    router.push(`/movie-detail?movieId=${encryptId(movieId)}`);
+    // Try to get showType from the movie object first
+    let showType = movie.showType;
+    
+    // If not present (e.g. only ID was passed), look in state lists
+    if (showType === undefined) {
+      const allMovies = [...nowShowingMovies, ...advanceBookingMovies, ...topRatedMovies];
+      const movieData = allMovies.find(m => m.id === movieId);
+      showType = movieData?.showType;
+    }
+    
+    const targetPath = showType === '0' ? '/movie-upcoming' : '/movie-detail';
+    router.push(`${targetPath}?movieId=${encryptId(movieId)}`);
   };
 
   const loadMovies = async () => {
@@ -151,9 +161,6 @@ export default function MovieStreamingSite() {
       // Advance Booking: showType == '0'
       const advanceBooking = transformedMovies.filter(movie => movie.showType === '0');
 
-      // Coming Soon: showType == '0'
-      const comingSoon = transformedMovies.filter(movie => movie.showType === '0');
-
       // Top Rated
       const topRated = [...transformedMovies].sort((a, b) => {
         const ratingA = parseFloat(a.rating) || 0;
@@ -165,7 +172,6 @@ export default function MovieStreamingSite() {
       setNowShowingMovies(nowShowing);
       setFeaturedMovies(nowShowing.slice(0, 10)); // Simplified mapping, just use transformed objects
       setAdvanceBookingMovies(advanceBooking);
-      setComingSoonMovies(comingSoon);
       setTopRatedMovies(topRated);
 
       // Process Hero Movies (Banners or Fallback)
@@ -232,7 +238,6 @@ export default function MovieStreamingSite() {
       setNowShowingMovies([]);
       setFeaturedMovies([]);
       setAdvanceBookingMovies([]);
-      setComingSoonMovies([]);
       setTopRatedMovies([]);
     } finally {
       setIsLoading(false);
@@ -445,19 +450,6 @@ export default function MovieStreamingSite() {
               <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#FFCA20]"></div>
             )}
           </button>
-          <button
-            onClick={() => setActiveMovieTab('coming-soon')}
-            className={`pb-3 px-2 text-sm font-medium transition relative whitespace-nowrap ${
-              activeMovieTab === 'coming-soon' 
-                ? 'text-[#FAFAFA]' 
-                : 'text-[#D3D3D3] hover:text-[#FAFAFA]'
-            }`}
-          >
-            Coming soon
-            {activeMovieTab === 'coming-soon' && (
-              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#FFCA20]"></div>
-            )}
-          </button>
         </div>
 
         {isLoading && (
@@ -487,9 +479,6 @@ export default function MovieStreamingSite() {
                     break;
                   case 'advance-booking':
                     moviesToShow = advanceBookingMovies;
-                    break;
-                  case 'coming-soon':
-                    moviesToShow = comingSoonMovies;
                     break;
                   default:
                     moviesToShow = nowShowingMovies;
@@ -542,9 +531,6 @@ export default function MovieStreamingSite() {
                     case 'advance-booking':
                       moviesToShow = advanceBookingMovies;
                       break;
-                    case 'coming-soon':
-                      moviesToShow = comingSoonMovies;
-                      break;
                     default:
                       moviesToShow = nowShowingMovies;
                   }
@@ -586,7 +572,6 @@ export default function MovieStreamingSite() {
                 switch(activeMovieTab) {
                     case 'now-showing': moviesToShow = nowShowingMovies; break;
                     case 'advance-booking': moviesToShow = advanceBookingMovies; break;
-                    case 'coming-soon': moviesToShow = comingSoonMovies; break;
                     default: moviesToShow = nowShowingMovies;
                 }
                 return moviesToShow.length > 4 ? (
