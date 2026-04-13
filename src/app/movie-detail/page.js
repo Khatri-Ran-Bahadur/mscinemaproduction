@@ -676,7 +676,7 @@ export default function MovieBooking() {
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-[#D3D3D3]">
       <Header />
-      <div className="pt-20">
+      <div className="pt-14">
         {/* Header */}
         <div className="relative">
           <div className="absolute top-4 left-6 z-10">
@@ -689,7 +689,7 @@ export default function MovieBooking() {
 
 
           {/* Hero Carousel Section */}
-          <div className="w-full bg-[#050505] pt-12 pb-8 flex flex-col items-center justify-center overflow-hidden">
+          <div className="w-full bg-[#050505] pt-4 pb-4 flex flex-col items-center justify-center overflow-hidden">
             {moviesList.length > 0 && movieDetails ? (() => {
               const getImgUrl = (m) => m?.imageURL || 'img/banner.jpg';
               
@@ -700,16 +700,16 @@ export default function MovieBooking() {
                 <div className="flex flex-col items-center w-full max-w-[1400px] mx-auto px-2 relative">
                   
                   {/* Navigation Arrows */}
-                  <button onClick={() => handleMovieChange(prevIdx)} className="absolute left-2 md:left-4 top-[160px] md:top-[260px] -translate-y-1/2 z-50 w-10 h-10 md:w-16 md:h-16 border border-white/30 rounded-full flex items-center justify-center bg-black/60 hover:bg-black transition text-white hover:scale-110 active:scale-95 shadow-xl">
+                  <button onClick={() => handleMovieChange(prevIdx)} className="absolute left-2 md:left-4 top-[160px] md:top-[260px] -translate-y-1/2 z-30 w-10 h-10 md:w-16 md:h-16 border border-white/30 rounded-full flex items-center justify-center bg-black/60 hover:bg-black transition text-white hover:scale-110 active:scale-95 shadow-xl">
                     <ChevronLeft className="w-6 h-6 md:w-10 md:h-10 ml-[-2px]" />
                   </button>
                   
-                  <button onClick={() => handleMovieChange(nextIdx)} className="absolute right-2 md:right-4 top-[160px] md:top-[260px] -translate-y-1/2 z-50 w-10 h-10 md:w-16 md:h-16 border border-white/30 rounded-full flex items-center justify-center bg-black/60 hover:bg-black transition text-white hover:scale-110 active:scale-95 shadow-xl">
+                  <button onClick={() => handleMovieChange(nextIdx)} className="absolute right-2 md:right-4 top-[160px] md:top-[260px] -translate-y-1/2 z-30 w-10 h-10 md:w-16 md:h-16 border border-white/30 rounded-full flex items-center justify-center bg-black/60 hover:bg-black transition text-white hover:scale-110 active:scale-95 shadow-xl">
                     <ChevronRight className="w-6 h-6 md:w-10 md:h-10 mr-[-2px]" />
                   </button>
                   
                   {/* Coverflow Carousel */}
-                  <div className="relative flex justify-center items-center w-full h-[320px] md:h-[500px] mb-8 overflow-visible pointer-events-none mt-2">
+                  <div className="relative flex justify-center items-center w-full h-[320px] md:h-[500px] mb-2 overflow-visible pointer-events-none mt-2">
                     {/* Render up to 7 items: from -3 to 3 offset */}
                     {[-3, -2, -1, 0, 1, 2, 3].map((offset) => {
                       const realIndex = (currentIndex + offset + moviesList.length * 10) % moviesList.length;
@@ -759,7 +759,7 @@ export default function MovieBooking() {
                   </div>
 
                   {/* Centered details indicator block */}
-                  <div className="flex flex-col items-center text-center relative w-full px-4 mb-4 mt-6">
+                  <div className="flex flex-col items-center text-center relative w-full px-4 mb-2 mt-2">
                     <h1 className="text-2xl md:text-[34px] font-bold text-[#FAFAFA] mb-2 uppercase tracking-widest">
                       {movieTitle}
                     </h1>
@@ -792,7 +792,7 @@ export default function MovieBooking() {
         </div>
 
         {movieDetails ? (
-          <div className="mt-8">
+          <div className="mt-2">
             {/* Select Date */}
             <div className="mb-8 px-6 md:px-8">
               <h2 className="text-sm font-semibold mb-4 text-[#FAFAFA]">Select Date</h2>
