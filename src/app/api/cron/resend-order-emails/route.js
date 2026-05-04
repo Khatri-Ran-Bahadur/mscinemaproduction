@@ -81,19 +81,21 @@ export async function GET(request) {
         }
 
         // 2. Fetch orders that are PAID but email not sent
+        // Reduced to 5 orders to prevent 504 Gateway Timeout
         const orders = await prisma.order.findMany({
             where: {
                 paymentStatus: 'PAID',
                 isSendMail: false
             },
-            take: 20
+            take: 5 
         });
 
         if (orders.length === 0) {
             return NextResponse.json({ success: true, message: 'No orders pending email resend.' });
         }
 
-        console.log(`[Cron Resend] Found ${orders.length} orders to process.`);
+        console.log(`[Cron Resend] Start processing ${orders.length} orders...`);
+        const startTime = Date.now();
 
         // 3. Get API Token (using current environment config)
         let token = null;
@@ -234,9 +236,13 @@ export async function GET(request) {
             }
         }
 
+        const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+        console.log(`[Cron Resend] Completed ${orders.length} orders in ${duration}s`);
+
         return NextResponse.json({
             success: true,
             processed: orders.length,
+            duration: `${duration}s`,
             results: results
         });
 

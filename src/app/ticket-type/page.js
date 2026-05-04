@@ -44,12 +44,13 @@ export default function TicketSelection() {
   const [cinemaDetails, setCinemaDetails] = useState(null);
   const [showTimeDetails, setShowTimeDetails] = useState(null);
   const [tickets, setTickets] = useState({});
+  const [availableSeats, setAvailableSeats] = useState({}); // New: Store available seat counts by type
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
   const [confirmationCategory, setConfirmationCategory] = useState(null);
   const [confirmationDescription, setConfirmationDescription] = useState(null);
-  const [pendingIncrement, setPendingIncrement] = useState(null); // Store ticketTypeID that needs confirmation before incrementing
+  const [pendingIncrement, setPendingIncrement] = useState(null);
 
   const hasLoadedData = useRef(false);
 
@@ -94,8 +95,8 @@ export default function TicketSelection() {
           const cinemasList = await cinemas.getCinemas();
           const cinema = Array.isArray(cinemasList)
             ? cinemasList.find(
-                (c) => (c.cinemaID || c.cinemaId || c.id) == cinemaId,
-              )
+              (c) => (c.cinemaID || c.cinemaId || c.id) == cinemaId,
+            )
             : null;
           if (cinema) {
             setCinemaDetails(cinema);
@@ -109,8 +110,8 @@ export default function TicketSelection() {
           const showTimesList = await shows.getShowTimes(cinemaId);
           const showTime = Array.isArray(showTimesList)
             ? showTimesList.find(
-                (s) => (s.showID || s.showId || s.id) == showId,
-              )
+              (s) => (s.showID || s.showId || s.id) == showId,
+            )
             : null;
           if (showTime) {
             setShowTimeDetails(showTime);
@@ -119,14 +120,42 @@ export default function TicketSelection() {
           console.error("Error loading show time details:", showTimeErr);
         }
 
+        // Load seat layout to check availability
+        try {
+          const seatData = await shows.getSeatLayoutAndProperties(cinemaId, showId);
+          if (seatData && seatData.seatList) {
+            const counts = {
+              0: 0, // Normal
+              1: 0, // VIP
+              2: 0, // Twin
+              3: 0, // Kids
+              4: 0  // Sofa
+            };
+
+            seatData.seatList.forEach(seat => {
+              // seatStatus 0 = Vacant
+              if (seat.seatStatus === 0 || seat.SeatStatus === 0) {
+                const type = seat.seatType !== undefined ? seat.seatType : seat.SeatType;
+                if (counts[type] !== undefined) {
+                  counts[type]++;
+                }
+              }
+            });
+            setAvailableSeats(counts);
+          }
+        } catch (seatErr) {
+          console.error("Error loading seat availability:", seatErr);
+          // Non-critical: allow proceeding but with warning
+        }
+
         // Load movie details if movieId is provided
         if (movieId) {
           try {
             const moviesList = await movies.getMovies();
             const movie = Array.isArray(moviesList)
               ? moviesList.find(
-                  (m) => (m.movieID || m.movieId || m.id) == movieId,
-                )
+                (m) => (m.movieID || m.movieId || m.id) == movieId,
+              )
               : null;
             if (movie) {
               setMovieDetails(movie);
@@ -250,16 +279,37 @@ export default function TicketSelection() {
       0,
     );
 
-    // Check if this is twin-seats (counts as 2 tickets)
-    const isTwinSeats =
-      ticketData?.generalInfo?.ticketTypeIDForTwinSeatsAndVIPSeats ===
-      ticketTypeID;
-    // Also check if name contains TWIN which usually implies 2 seats
-    const price = ticketData?.priceDetails?.find(
-      (p) => p.ticketTypeID === ticketTypeID,
-    );
-    const isNameTwin = price?.ticketTypeName?.toUpperCase()?.includes("TWIN");
+    // Identify Seat Type for this Ticket Type
+    const genInfo = ticketData?.generalInfo;
+    let requiredSeatType = 0; // Default: Normal
 
+    if (ticketTypeID === genInfo?.ticketTypeIDForTwinSeatsAndVIPSeats) {
+      // Could be Twin (2) or VIP (1). Most Twin-Seats have "TWIN" in name.
+      const price = ticketData?.priceDetails?.find(p => p.ticketTypeID === ticketTypeID);
+      const isNameTwin = price?.ticketTypeName?.toUpperCase()?.includes("TWIN");
+      requiredSeatType = isNameTwin ? 2 : 1;
+    } else if (ticketTypeID === genInfo?.ticketTypeIDForKidsSeat) {
+      requiredSeatType = 3;
+    } else if (ticketTypeID === genInfo?.ticketTypeIDForSofa) {
+      requiredSeatType = 4;
+    }
+
+    // Check availability from fetched seat data
+    if (availableSeats[requiredSeatType] !== undefined) {
+      const alreadySelected = tickets[ticketTypeID] || 0;
+
+      // For Twin Seats (Type 2), 1 quantity in UI usually means 1 Pair (1 physical Twin seat record in API)
+      // If the API record is 1 Twin Seat = 1 pair, then we check alreadySelected < availableSeats[2]
+      if (alreadySelected >= availableSeats[requiredSeatType]) {
+        console.warn(`[Availability] Type ${requiredSeatType} is sold out.`);
+        return;
+      }
+    }
+
+    // Check Transaction Limit
+    const isTwinSeats = genInfo?.ticketTypeIDForTwinSeatsAndVIPSeats === ticketTypeID;
+    const price = ticketData?.priceDetails?.find(p => p.ticketTypeID === ticketTypeID);
+    const isNameTwin = price?.ticketTypeName?.toUpperCase()?.includes("TWIN");
     const ticketWeight = isTwinSeats || isNameTwin ? 2 : 1;
 
     if (currentTotal + ticketWeight <= maxTickets) {
@@ -609,7 +659,7 @@ export default function TicketSelection() {
                   const isTwinSeats =
                     ticketData?.generalInfo
                       ?.ticketTypeIDForTwinSeatsAndVIPSeats ===
-                      price.ticketTypeID ||
+                    price.ticketTypeID ||
                     price.ticketTypeName?.toUpperCase().includes("TWIN");
                   const canIncrement =
                     totalTickets + (isTwinSeats ? 2 : 1) <= maxTickets;
@@ -617,11 +667,10 @@ export default function TicketSelection() {
                   return (
                     <div
                       key={price.priceID || idx}
-                      className={`p-4 grid grid-cols-3 items-center ${
-                        idx !== ticketData.priceDetails.length - 1
+                      className={`p-4 grid grid-cols-3 items-center ${idx !== ticketData.priceDetails.length - 1
                           ? "border-b border-white/5"
                           : ""
-                      }`}
+                        }`}
                     >
                       <div>
                         <div className="text-sm text-white font-medium">
@@ -643,11 +692,10 @@ export default function TicketSelection() {
                         <button
                           onClick={() => decrement(price.ticketTypeID)}
                           disabled={ticketCount === 0}
-                          className={`w-6 h-6 rounded flex items-center justify-center transition text-[#FFCA20] ${
-                            ticketCount === 0
+                          className={`w-6 h-6 rounded flex items-center justify-center transition text-[#FFCA20] ${ticketCount === 0
                               ? "opacity-50 cursor-not-allowed border-[0.5px] border-[#FFCA20]/50"
                               : "border-[0.5px] border-[#FFCA20] hover:bg-[#FFCA20]/10"
-                          }`}
+                            }`}
                         >
                           −
                         </button>
@@ -657,11 +705,10 @@ export default function TicketSelection() {
                         <button
                           onClick={() => increment(price.ticketTypeID)}
                           disabled={!canIncrement}
-                          className={`w-6 h-6 rounded flex items-center justify-center transition text-[#FFCA20] ${
-                            !canIncrement
+                          className={`w-6 h-6 rounded flex items-center justify-center transition text-[#FFCA20] ${!canIncrement
                               ? "opacity-50 cursor-not-allowed border-[0.5px] border-[#FFCA20]/50"
                               : "border-[0.5px] border-[#FFCA20] hover:bg-[#FFCA20]/10"
-                          }`}
+                            }`}
                         >
                           +
                         </button>
@@ -688,11 +735,10 @@ export default function TicketSelection() {
           {/* Continue Button */}
           <div className="flex justify-center mt-8">
             <button
-              className={`px-8 py-2.5 rounded font-medium text-sm transition ${
-                totalTickets > 0
+              className={`px-8 py-2.5 rounded font-medium text-sm transition ${totalTickets > 0
                   ? "bg-[#f5c118] text-black hover:bg-[#f5c118]/90"
                   : "bg-[#f5c118]/30 text-black/50 cursor-not-allowed"
-              }`}
+                }`}
               disabled={totalTickets === 0}
               onClick={handleContinue}
             >
