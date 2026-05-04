@@ -5,9 +5,46 @@ import { API_CONFIG } from '@/config/api';
 
 export const dynamic = 'force-dynamic';
 
-const API_BASE_URL = API_CONFIG.API_BASE_URL || 'https://apiv5.mscinemas.my/api';
+/**
+ * Get a fresh Bearer token for the given API using guest credentials.
+ * Copied from release-locked-seats cron logic.
+ */
+async function getTokenForApi(apiBaseUrl, credentials) {
+    const tokenUrl = `${apiBaseUrl}/APIUser/GetToken`;
+    const res = await fetch(tokenUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(credentials),
+        cache: 'no-store',
+    });
 
-// Helper functions for normalization (copied from admin route)
+    if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`GetToken failed: ${res.status} ${text}`);
+    }
+
+    const data = await res.json();
+    const token = data?.token || data?.Token || data?.accessToken || data?.access_token;
+    if (!token) throw new Error('Token not found in GetToken response');
+    return token;
+}
+
+/**
+ * Fetch with Bearer token.
+ * Copied from release-locked-seats cron logic.
+ */
+async function fetchWithAuth(url, token, options = {}) {
+    const headers = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+        'x-api-key': API_CONFIG.API_SECRET_KEY,
+        ...options.headers,
+    };
+    const res = await fetch(url, { ...options, headers });
+    return res;
+}
+
+// Helper functions for normalization
 const normalizeTime = (val) => {
     if (!val) return '';
     if (val instanceof Date) {
@@ -49,7 +86,7 @@ export async function GET(request) {
                 paymentStatus: 'PAID',
                 isSendMail: false
             },
-            take: 20 // Process in small batches to avoid timeouts
+            take: 20
         });
 
         if (orders.length === 0) {
@@ -58,6 +95,15 @@ export async function GET(request) {
 
         console.log(`[Cron Resend] Found ${orders.length} orders to process.`);
 
+        // 3. Get API Token (using current environment config)
+        let token = null;
+        try {
+            token = await getTokenForApi(API_CONFIG.API_BASE_URL, API_CONFIG.GUEST_CREDENTIALS);
+        } catch (tokenErr) {
+            console.error(`[Cron Resend] Failed to get API token:`, tokenErr.message);
+            return NextResponse.json({ success: false, error: `Auth failed: ${tokenErr.message}` }, { status: 500 });
+        }
+
         const results = [];
 
         for (const order of orders) {
@@ -65,7 +111,8 @@ export async function GET(request) {
                 let apiTicketData = null;
                 if (order.cinemaId && order.showId && order.referenceNo) {
                     try {
-                        const res = await fetch(`${API_BASE_URL}/Booking/GetTickets/${order.cinemaId}/${order.showId}/${order.referenceNo}`);
+                        const ticketUrl = `${API_CONFIG.API_BASE_URL}/Booking/GetTickets/${order.cinemaId}/${order.showId}/${order.referenceNo}`;
+                        const res = await fetchWithAuth(ticketUrl, token, { cache: 'no-store' });
                         if (res.ok) {
                             apiTicketData = await res.json();
                         }
@@ -77,7 +124,6 @@ export async function GET(request) {
                 const t = apiTicketData || {};
                 const o = order;
 
-                // Parse Seats
                 const getOrderSeats = () => {
                     try {
                          if (o.seats && (o.seats.startsWith('[') || o.seats.startsWith('{'))) {
@@ -132,7 +178,6 @@ export async function GET(request) {
 
                 const totalPersons = finalSeatDisplay.reduce((sum, g) => sum + g.seats.length, 0);
 
-                // Format Dates/Times
                 let displayShowDate = t.ShowDate || t.showDate;
                 let displayShowTime = t.ShowTime || t.showTime;
                 
@@ -174,10 +219,8 @@ export async function GET(request) {
                     continue;
                 }
 
-                // Send Email
                 await resendTicketEmail(emailTo, ticketInfo);
                 
-                // Update isSendMail status
                 await prisma.order.update({
                     where: { id: order.id },
                     data: { isSendMail: true }
