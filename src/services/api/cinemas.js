@@ -58,6 +58,11 @@ export const getCinemas = async () => {
  * @returns {Promise<object>} - Cinema details
  */
 export const getCinemaById = async (cinemaId) => {
+  if (!cinemaId || cinemaId === 'undefined' || cinemaId === 'null') {
+    console.warn('[Cinemas Service] getCinemaById blocked due to invalid ID:', cinemaId);
+    return null;
+  }
+  
   try {
     const response = await get(`/CinemaLocation/GetCinema/${cinemaId}`);
     return response;

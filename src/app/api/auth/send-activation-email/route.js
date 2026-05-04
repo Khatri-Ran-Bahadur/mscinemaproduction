@@ -8,10 +8,15 @@ import { NextResponse } from 'next/server';
 import { encryptId } from '@/utils/encryption';
 import { sendActivationEmail } from '@/utils/email';
 
+import { sanitizeInput } from '@/utils/security.js';
+
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { userId, email, name, type } = body;
+    let { userId, email, name, type } = body;
+
+    // Sanitize input
+    name = sanitizeInput(name);
 
     if (!userId || !email) {
       return NextResponse.json(

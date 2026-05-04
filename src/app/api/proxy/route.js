@@ -102,8 +102,6 @@ async function handleRequest(request, method) {
     // In that case, we should use it as-is and not add additional query parameters
     let url = `${EXTERNAL_API_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
     
-    // URL already logged if needed in development
-    
     // Only add additional query parameters if endpoint doesn't already have them
     // and if there are any additional query params in the request (besides 'endpoint')
     if (!endpoint.includes('?')) {
@@ -216,8 +214,6 @@ async function handleRequest(request, method) {
         { status: 503 }
       );
     }
-    
-    // Status monitoring
     
     // Get response data
     const contentType = response.headers.get('content-type') || '';

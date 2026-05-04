@@ -14,6 +14,12 @@ import { get, post } from './client';
  * @returns {Promise<object>} - Lock response with referenceNo
  */
 export const lockSeats = async (cinemaId, showId, lockType = 0, seatData = []) => {
+  if (!cinemaId || cinemaId === 'undefined' || cinemaId === 'null' || 
+      !showId || showId === 'undefined' || showId === 'null') {
+    console.warn('[Booking Service] lockSeats blocked due to invalid IDs:', { cinemaId, showId });
+    return null;
+  }
+  
   try {
     // Body format: [{ seatID: 0, priceID: 0 }]
     const response = await post(
@@ -36,6 +42,13 @@ export const lockSeats = async (cinemaId, showId, lockType = 0, seatData = []) =
  * @returns {Promise<object>} - Release response
  */
 export const releaseLockedSeats = async (cinemaId, showId, referenceNo) => {
+  if (!cinemaId || cinemaId === 'undefined' || cinemaId === 'null' || 
+      !showId || showId === 'undefined' || showId === 'null' || 
+      !referenceNo || referenceNo === 'undefined' || referenceNo === 'null') {
+    console.warn('[Booking Service] releaseLockedSeats blocked due to invalid IDs:', { cinemaId, showId, referenceNo });
+    return null;
+  }
+  
   try {
     const response = await post(
       `/Booking/ReleaseLockedSeats/${cinemaId}/${showId}/${referenceNo}`,
@@ -76,6 +89,12 @@ export const confirmLockedSeats = async (
   passportNo = '',
   mobileNo = ''
 ) => {
+  if (!showId || showId === 'undefined' || showId === 'null' || 
+      !referenceNo || referenceNo === 'undefined' || referenceNo === 'null') {
+    console.warn('[Booking Service] confirmLockedSeats blocked due to invalid IDs:', { showId, referenceNo });
+    return null;
+  }
+  
   try {
     // Encode path parameters
     const encodedShowId = encodeURIComponent(showId);
@@ -238,8 +257,12 @@ export const isValidMember = async (membershipNo) => {
     const response = await get(`/Booking/IsValidMember/${membershipNo}`);
     return response;
   } catch (error) {
-    console.error('IsValidMember error:', error);
-    throw error;
+    // Return an error object instead of throwing to prevent the Next.js error overlay in dev mode
+    return { 
+      error: true, 
+      status: error.status || 500,
+      message: error.message || 'Unknown error'
+    };
   }
 };
 

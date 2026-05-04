@@ -4,30 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { sendEmail } from '@/utils/email';
 import { verifyRecaptcha } from '@/utils/recaptcha';
 
-// Helper function to sanitize input and prevent XSS
-function sanitizeInput(input) {
-  if (typeof input !== 'string') return input;
-  
-  // Remove any HTML tags and script tags
-  return input
-    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-    .replace(/<[^>]*>/g, '')
-    .trim();
-}
-
-// Helper function to escape HTML for email display
-function escapeHtml(text) {
-  if (typeof text !== 'string') return text;
-  
-  const map = {
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#039;'
-  };
-  return text.replace(/[&<>"']/g, m => map[m]);
-}
+import { sanitizeInput, escapeHtml, hasSuspiciousPatterns } from '@/utils/security.js';
 
 // Validate email format
 function isValidEmail(email) {
@@ -66,17 +43,8 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Invalid email format' }, { status: 400 });
     }
 
-    // Additional validation: check for suspicious patterns
-    const suspiciousPatterns = [
-      /<script/i,
-      /javascript:/i,
-      /on\w+\s*=/i, // onclick=, onload=, etc.
-      /<iframe/i,
-      /eval\(/i
-    ];
-
     const allInputs = [name, email, phone, subject, message].join(' ');
-    if (suspiciousPatterns.some(pattern => pattern.test(allInputs))) {
+    if (hasSuspiciousPatterns(allInputs)) {
       return NextResponse.json({ error: 'Invalid input detected' }, { status: 400 });
     }
 

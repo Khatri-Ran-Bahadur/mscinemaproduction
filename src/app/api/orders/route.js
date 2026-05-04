@@ -2,10 +2,12 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
+import { sanitizeInput, hasSuspiciousPatterns } from '@/utils/security.js';
+
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { 
+    let { 
         orderId,
         referenceNo, 
         transactionNo,
@@ -26,6 +28,18 @@ export async function POST(request) {
         paymentMethod,
         token
     } = body;
+
+    // Sanitize customer inputs
+    customerName = sanitizeInput(customerName);
+    customerEmail = sanitizeInput(customerEmail);
+    customerPhone = sanitizeInput(customerPhone);
+    movieTitle = sanitizeInput(movieTitle);
+    hallName = sanitizeInput(hallName);
+
+    // Check for suspicious patterns in sensitive fields
+    if (hasSuspiciousPatterns(customerName) || hasSuspiciousPatterns(customerEmail) || hasSuspiciousPatterns(movieTitle)) {
+      return NextResponse.json({ error: 'Invalid input detected' }, { status: 400 });
+    }
 
     // Simple validation
     if (!orderId || !referenceNo || !movieTitle || !totalAmount) {

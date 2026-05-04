@@ -4,10 +4,12 @@ import { prisma } from '@/lib/prisma';
 import { sendEmail } from '@/utils/email';
 import { verifyRecaptcha } from '@/utils/recaptcha';
 
+import { sanitizeInput, escapeHtml, hasSuspiciousPatterns } from '@/utils/security.js';
+
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { 
+    let { 
       fullName, 
       contactNumber, 
       email, 
@@ -18,6 +20,21 @@ export async function POST(request) {
       numberOfPeople,
       recaptchaToken 
     } = body;
+
+    // Sanitize all inputs
+    fullName = sanitizeInput(fullName);
+    contactNumber = sanitizeInput(contactNumber);
+    email = sanitizeInput(email);
+    eventType = sanitizeInput(eventType);
+    preferredHall = sanitizeInput(preferredHall);
+    preferredLocation = sanitizeInput(preferredLocation);
+    numberOfPeople = sanitizeInput(numberOfPeople);
+
+    // Check for suspicious patterns
+    const allInputs = [fullName, contactNumber, email, eventType, preferredHall, preferredLocation].join(' ');
+    if (hasSuspiciousPatterns(allInputs)) {
+      return NextResponse.json({ error: 'Invalid input detected' }, { status: 400 });
+    }
 
     // Verify Recaptcha
     const isCaptchaValid = await verifyRecaptcha(recaptchaToken);
@@ -44,41 +61,41 @@ export async function POST(request) {
         day: 'numeric', month: 'long', year: 'numeric'
     });
 
-    // Send Email
+    // Send Email with escaped HTML
     const emailHtml = `
       <h2>New Hall Booking Request</h2>
-      <p><strong>Name:</strong> ${fullName}</p>
-      <p><strong>Email:</strong> ${email}</p>
-      <p><strong>Contact Number:</strong> ${contactNumber}</p>
+      <p><strong>Name:</strong> ${escapeHtml(fullName)}</p>
+      <p><strong>Email:</strong> ${escapeHtml(email)}</p>
+      <p><strong>Contact Number:</strong> ${escapeHtml(contactNumber)}</p>
       <hr />
       <h3>Event Details:</h3>
       <table cellpadding="5" style="border-collapse: collapse; width: 100%;">
         <tr>
           <td style="font-weight: bold; width: 150px;">Event Type:</td>
-          <td>${eventType}</td>
+          <td>${escapeHtml(eventType)}</td>
         </tr>
         <tr>
           <td style="font-weight: bold;">Preferred Hall:</td>
-          <td>${preferredHall}</td>
+          <td>${escapeHtml(preferredHall)}</td>
         </tr>
          <tr>
           <td style="font-weight: bold;">Preferred Location:</td>
-          <td>${preferredLocation}</td>
+          <td>${escapeHtml(preferredLocation)}</td>
         </tr>
         <tr>
           <td style="font-weight: bold;">Preferred Date:</td>
-          <td>${formattedDate}</td>
+          <td>${escapeHtml(formattedDate)}</td>
         </tr>
         <tr>
           <td style="font-weight: bold;">Number of People:</td>
-          <td>${numberOfPeople}</td>
+          <td>${escapeHtml(numberOfPeople)}</td>
         </tr>
       </table>
       <br />
       <p><small>Sent from MS Cinemas Hall Booking Form</small></p>
     `;
 
-    // Text version
+    // Text version (pure text is safer)
     const textVersion = `
       New Hall Booking Request\n
       Name: ${fullName}
@@ -94,7 +111,7 @@ export async function POST(request) {
 
     await sendEmail({
       to: recipientEmail,
-      subject: `[Hall Booking] ${eventType} - ${fullName}`,
+      subject: `[Hall Booking] ${escapeHtml(eventType)} - ${escapeHtml(fullName)}`,
       html: emailHtml,
       text: textVersion
     });

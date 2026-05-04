@@ -117,6 +117,13 @@ export const getShowTimes = async (cinemaId) => {
  * @returns {Promise<object>} - Configuration and ticket prices
  */
 export const getConfigAndTicketPrice = async (cinemaId, showId) => {
+  // Validate IDs to prevent calls to /undefined/undefined
+  if (!cinemaId || cinemaId === 'undefined' || cinemaId === 'null' || 
+      !showId || showId === 'undefined' || showId === 'null') {
+    console.warn('[Shows Service] getConfigAndTicketPrice blocked due to invalid IDs:', { cinemaId, showId });
+    return null;
+  }
+  
   try {
     const response = await get(`/ShowDetails/GetConfiqAndTicketPrice/${cinemaId}/${showId}`);
     return response;
@@ -133,6 +140,13 @@ export const getConfigAndTicketPrice = async (cinemaId, showId) => {
  * @returns {Promise<object>} - Seat layout and properties
  */
 export const getSeatLayoutAndProperties = async (cinemaId, showId) => {
+  // Validate IDs to prevent calls to /undefined/undefined
+  if (!cinemaId || cinemaId === 'undefined' || cinemaId === 'null' || 
+      !showId || showId === 'undefined' || showId === 'null') {
+    console.warn('[Shows Service] getSeatLayoutAndProperties blocked due to invalid IDs:', { cinemaId, showId });
+    return null;
+  }
+
   try {
     const response = await get(`/ShowDetails/GetSeatLayoutAndProperties/${cinemaId}/${showId}`);
     return response;

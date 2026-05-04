@@ -54,8 +54,13 @@ export default function TicketSelection() {
   const hasLoadedData = useRef(false);
 
   useEffect(() => {
-    if (!cinemaId || !showId) {
-      setError("Missing cinema ID or show ID");
+    // Validate IDs - check both falsy and string versions of undefined/null
+    const isInvalidCinemaId = !cinemaId || cinemaId === 'undefined' || cinemaId === 'null';
+    const isInvalidShowId = !showId || showId === 'undefined' || showId === 'null';
+
+    if (isInvalidCinemaId || isInvalidShowId) {
+      console.warn('[Ticket Selection] Blocked loadData due to invalid IDs:', { cinemaId, showId });
+      setError("Missing cinema ID or show ID. Please return to the movies page.");
       setIsLoading(false);
       return;
     }

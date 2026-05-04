@@ -5,6 +5,7 @@
  */
 
 import nodemailer from "nodemailer";
+import { escapeHtml } from "./security.js";
 
 /**
  * Create email transporter based on environment configuration
@@ -180,7 +181,7 @@ export async function sendActivationEmail(to, name, activationUrl) {
     </head>
     <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
       <div style="background-color: #1a1a1a; padding: 30px; border-radius: 10px;">
-        <h2 style="color: #FFCA20; margin-top: 0;">Welcome to MS Cinema, ${name || "User"}!</h2>
+        <h2 style="color: #FFCA20; margin-top: 0;">Welcome to MS Cinema, ${escapeHtml(name) || "User"}!</h2>
         <p style="color: #FAFAFA;">Thank you for registering with MS Cinema. To complete your registration, please activate your account by clicking the button below:</p>
         <div style="text-align: center; margin: 30px 0;">
           <a href="${activationUrl}" style="background-color: #FFCA20; color: #000; padding: 12px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold; font-size: 16px;">Activate Account</a>
@@ -512,15 +513,15 @@ Malaysia
                 <table width="100%" border="0" cellspacing="0" cellpadding="5" style="margin-bottom: 30px; border-collapse: collapse;">
                   <tr>
                     <td width="35%" style="color: ${colors.gray}; font-weight: bold; border-bottom: 1px solid ${colors.border};">Name:</td>
-                    <td style="color: ${colors.light}; border-bottom: 1px solid ${colors.border};">${customerName}</td>
+                    <td style="color: ${colors.light}; border-bottom: 1px solid ${colors.border};">${escapeHtml(customerName)}</td>
                   </tr>
                   <tr>
                     <td style="color: ${colors.gray}; font-weight: bold; border-bottom: 1px solid ${colors.border};">Tel. No:</td>
-                    <td style="color: ${colors.light}; border-bottom: 1px solid ${colors.border};">${customerPhone}</td>
+                    <td style="color: ${colors.light}; border-bottom: 1px solid ${colors.border};">${escapeHtml(customerPhone)}</td>
                   </tr>
                   <tr>
                     <td style="color: ${colors.gray}; font-weight: bold; border-bottom: 1px solid ${colors.border};">Email:</td>
-                    <td style="color: ${colors.light}; border-bottom: 1px solid ${colors.border};">${customerEmail}</td>
+                    <td style="color: ${colors.light}; border-bottom: 1px solid ${colors.border};">${escapeHtml(customerEmail)}</td>
                   </tr>
                   <tr>
                     <td style="color: ${colors.gray}; font-weight: bold; border-bottom: 1px solid ${colors.border};">Order No:</td>
@@ -557,9 +558,9 @@ Malaysia
                   </thead>
                   <tbody>
                     <tr style="background-color: ${colors.tableRow};">
-                      <td style="border-bottom: 1px solid ${colors.border}; color: ${colors.light}; font-weight: bold;">${showDate}</td>
-                      <td style="border-bottom: 1px solid ${colors.border}; color: ${colors.light}; font-weight: bold;">${showTime}</td>
-                      <td style="border-bottom: 1px solid ${colors.border}; color: ${colors.gold}; font-weight: bold;">${movieName.toUpperCase()}</td>
+                      <td style="border-bottom: 1px solid ${colors.border}; color: ${colors.light}; font-weight: bold;">${escapeHtml(showDate)}</td>
+                      <td style="border-bottom: 1px solid ${colors.border}; color: ${colors.light}; font-weight: bold;">${escapeHtml(showTime)}</td>
+                      <td style="border-bottom: 1px solid ${colors.border}; color: ${colors.gold}; font-weight: bold;">${escapeHtml(movieName).toUpperCase()}</td>
                     </tr>
                   </tbody>
                 </table>
@@ -645,9 +646,9 @@ Malaysia
 
                           return `
                            <tr style="background-color: ${rowColor};">
-                             <td style="border-bottom: 1px solid ${colors.border}; color: ${colors.light};">${hallName}</td>
-                             <td style="border-bottom: 1px solid ${colors.border}; color: ${colors.gold}; font-weight: bold;">${seat.replace(/[A-Za-z]+/, "").padStart(2, "0") ? seat : seat}</td>
-                             <td style="border-bottom: 1px solid ${colors.border}; color: ${colors.light}; font-size: 12px;">${type}</td>
+                             <td style="border-bottom: 1px solid ${colors.border}; color: ${colors.light};">${escapeHtml(hallName)}</td>
+                             <td style="border-bottom: 1px solid ${colors.border}; color: ${colors.gold}; font-weight: bold;">${escapeHtml(seat.replace(/[A-Za-z]+/, "").padStart(2, "0") ? seat : seat)}</td>
+                             <td style="border-bottom: 1px solid ${colors.border}; color: ${colors.light}; font-size: 12px;">${escapeHtml(type)}</td>
                              <td align="right" style="border-bottom: 1px solid ${colors.border}; color: ${colors.light};">RM${displayPrice.toFixed(2)}</td>
                              <td align="right" style="border-bottom: 1px solid ${colors.border}; color: ${colors.light};">RM${displaySurcharge.toFixed(2)}</td>
                              <td align="right" style="border-bottom: 1px solid ${colors.border}; color: ${colors.light}; font-weight: bold;">RM${rowTotal.toFixed(2)}</td>

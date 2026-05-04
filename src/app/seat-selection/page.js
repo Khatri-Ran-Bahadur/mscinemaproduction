@@ -358,8 +358,14 @@ export default function SeatSelection() {
 
   const loadData = async (targetShowId = null) => {
     const activeShowId = targetShowId || currentShowId || showId;
-    if (!cinemaId || !activeShowId) {
-      setError("Missing cinema ID or show ID");
+    
+    // Validate IDs - check both falsy and string versions of undefined/null
+    const isInvalidCinemaId = !cinemaId || cinemaId === 'undefined' || cinemaId === 'null';
+    const isInvalidShowId = !activeShowId || activeShowId === 'undefined' || activeShowId === 'null';
+
+    if (isInvalidCinemaId || isInvalidShowId) {
+      console.warn('[Seat Selection] Blocked loadData due to invalid IDs:', { cinemaId, activeShowId });
+      setError("Missing cinema ID or show ID. Please return to the movies page.");
       setIsLoading(false);
       return;
     }
@@ -1735,29 +1741,32 @@ export default function SeatSelection() {
     setIsConfirming(true);
     setError("");
     setFormErrors({});
-
     try {
       // Check membership validity if membershipNo is provided
       let membershipId = 0;
       if (formData.membershipNo && formData.membershipNo.trim()) {
-        try {
-          const membershipResponse = await booking.isValidMember(
-            formData.membershipNo.trim(),
-          );
-          // Assuming API returns a valid response if membership is valid
-          // Adjust based on actual API response structure
-          if (membershipResponse) {
-            membershipId = formData.membershipNo.trim();
-          } else {
-            setFormErrors((prev) => ({
-              ...prev,
-              membershipNo: "Invalid membership number",
-            }));
-            setIsConfirming(false);
-            return;
-          }
-        } catch (membershipErr) {
-          console.error("Membership validation error:", membershipErr);
+        const membershipResponse = await booking.isValidMember(
+          formData.membershipNo.trim(),
+        );
+        
+        // Handle error object returned by the service
+        if (membershipResponse && membershipResponse.error) {
+          const is404 = membershipResponse.status === 404;
+          setFormErrors((prev) => ({
+            ...prev,
+            membershipNo: is404 ? "Membership service is currently unavailable" : "Invalid membership number",
+          }));
+          setIsConfirming(false);
+          return;
+        }
+
+        // Check for success status (API returns 1 for success)
+        const isSuccess = membershipResponse && (membershipResponse.status === 1 || membershipResponse.Status === 1);
+        
+        if (isSuccess) {
+          membershipId = formData.membershipNo.trim();
+        } else {
+          // Not a valid member - stop and show error
           setFormErrors((prev) => ({
             ...prev,
             membershipNo: "Invalid membership number",

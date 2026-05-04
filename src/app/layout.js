@@ -2,6 +2,7 @@ import { Poppins } from "next/font/google";
 import "./globals.css";
 import MaintenanceCheck from "@/components/MaintenanceCheck";
 import RecaptchaProvider from "@/components/RecaptchaProvider";
+import Script from "next/script";
 
 
 const poppins = Poppins({
@@ -77,7 +78,8 @@ export default function RootLayout({ children }) {
       <body
         className={`${poppins.variable} antialiased`}
       >
-        <script
+        <Script
+          id="json-ld"
           type="application/ld+json"
           dangerouslySetInnerHTML={{
             __html: JSON.stringify({
@@ -108,7 +110,8 @@ export default function RootLayout({ children }) {
             {children}
           </RecaptchaProvider>
         </MaintenanceCheck>
-        <script
+        <Script
+          id="client-side-logic"
           dangerouslySetInnerHTML={{
             __html: `
               (function() {
