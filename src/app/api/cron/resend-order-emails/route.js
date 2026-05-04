@@ -80,12 +80,17 @@ export async function GET(request) {
             }
         }
 
+        const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
         // 2. Fetch orders that are PAID but email not sent
-        // Reduced to 5 orders to prevent 504 Gateway Timeout
+        // Only process orders from the last 24 hours
         const orders = await prisma.order.findMany({
             where: {
                 paymentStatus: 'PAID',
-                isSendMail: false
+                isSendMail: false,
+                createdAt: {
+                    gte: twentyFourHoursAgo
+                }
             },
             take: 5 
         });
