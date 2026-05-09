@@ -161,9 +161,9 @@ export async function GET(request) {
 
                 const totalPersons = finalSeatDisplay.reduce((sum, g) => sum + g.seats.length, 0);
 
-                // Use direct values from API or database without manual conversion
-                const displayShowDate = t.ShowDate || t.showDate || o.showTime || '';
-                const displayShowTime = t.ShowTime || t.showTime || o.showTime || '';
+                // Format Dates: Use API strings if available, otherwise format DB Date object for Malaysia time
+                const displayShowDate = t.ShowDate || t.showDate || (o.showTime instanceof Date ? o.showTime.toLocaleDateString('en-CA', { timeZone: 'Asia/Kuala_Lumpur' }) : o.showTime) || '';
+                const displayShowTime = t.ShowTime || t.showTime || (o.showTime instanceof Date ? o.showTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Kuala_Lumpur' }) : o.showTime) || '';
 
                 const ticketInfo = order.emailInfo ? 
                     (typeof order.emailInfo === 'string' ? JSON.parse(order.emailInfo) : order.emailInfo) 
