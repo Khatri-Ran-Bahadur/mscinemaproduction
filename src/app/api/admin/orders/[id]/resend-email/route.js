@@ -154,6 +154,10 @@ export async function POST(request, { params }) {
         ticketDetails: finalTicketDetails
     };
 
+    // CRITICAL: Always overwrite showDate and showTime with fresh API values
+    ticketInfo.showDate = displayShowDate;
+    ticketInfo.showTime = displayShowTime;
+
     const emailTo = ticketInfo.customerEmail;
     if (!emailTo || emailTo === 'N/A') {
         return NextResponse.json({ error: 'No email address found.' }, { status: 400 });
