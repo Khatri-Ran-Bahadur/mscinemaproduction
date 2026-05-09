@@ -297,45 +297,6 @@ export const sendTicketEmail = async (
     grandTotal = 0,
   } = ticketData;
 
-  // Format date and time (Malaysian locale)
-  const formatDate = (dateStr) => {
-    if (!dateStr) return "";
-    try {
-      const date = new Date(dateStr);
-      return date.toLocaleDateString("en-MY", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-        timeZone: "Asia/Kuala_Lumpur",
-      });
-    } catch {
-      return dateStr;
-    }
-  };
-
-  const formatTime = (timeStr) => {
-    if (!timeStr) return "";
-    try {
-      // If timeStr is a full date-time string, extract time part
-      if (timeStr.includes("T") || timeStr.includes(" ")) {
-        const date = new Date(timeStr);
-        return date.toLocaleTimeString("en-MY", {
-          hour: "2-digit",
-          minute: "2-digit",
-          hour12: true,
-          timeZone: "Asia/Kuala_Lumpur",
-        });
-      }
-      // If it's just time string (HH:MM or HH:MM:SS)
-      const [hours, minutes] = timeStr.split(":");
-      const hour = parseInt(hours);
-      const ampm = hour >= 12 ? "PM" : "AM";
-      const displayHour = hour % 12 || 12;
-      return `${displayHour}:${minutes} ${ampm}`;
-    } catch {
-      return timeStr;
-    }
-  };
 
   const getTimeonly = (timeStr) => {
     if (!timeStr) return "";
@@ -579,72 +540,72 @@ Malaysia
                   </thead>
                   <tbody>
                     ${(() => {
-                      let calcSubCharge = 0;
-                      let calcGrandTotal = 0;
+      let calcSubCharge = 0;
+      let calcGrandTotal = 0;
 
-                      // Render Rows
-                      const rows = ticketDetails
-                        .map((t, index) => {
-                          // 1. Price Components
-                          const price = parseFloat(
-                            t.Price ||
-                              t.price ||
-                              t.TicketPrice ||
-                              t.ticketPrice ||
-                              0,
-                          );
-                          const eTax = parseFloat(
-                            t.entertainmentTax || t.EntertainmentTax || 0,
-                          );
-                          const gTax = parseFloat(t.govtTax || t.GovtTax || 0);
+      // Render Rows
+      const rows = ticketDetails
+        .map((t, index) => {
+          // 1. Price Components
+          const price = parseFloat(
+            t.Price ||
+            t.price ||
+            t.TicketPrice ||
+            t.ticketPrice ||
+            0,
+          );
+          const eTax = parseFloat(
+            t.entertainmentTax || t.EntertainmentTax || 0,
+          );
+          const gTax = parseFloat(t.govtTax || t.GovtTax || 0);
 
-                          // 2. Charge Components
-                          const onlineCharge = parseFloat(
-                            t.onlineCharge || t.OnlineCharge || 0,
-                          );
-                          const sur = parseFloat(
-                            t.Surcharge || t.surcharge || t.surCharge || 0,
-                          );
-                          const ticketTotal = parseFloat(
-                            t.totalTicketPrice || t.TotalTicketPrice || 0,
-                          );
+          // 2. Charge Components
+          const onlineCharge = parseFloat(
+            t.onlineCharge || t.OnlineCharge || 0,
+          );
+          const sur = parseFloat(
+            t.Surcharge || t.surcharge || t.surCharge || 0,
+          );
+          const ticketTotal = parseFloat(
+            t.totalTicketPrice || t.TotalTicketPrice || 0,
+          );
 
-                          // 3. Display Logic
-                          // Price = Base + Entertainment Tax + Govt Tax
-                          const displayPrice = price + eTax + gTax;
+          // 3. Display Logic
+          // Price = Base + Entertainment Tax + Govt Tax
+          const displayPrice = price + eTax + gTax;
 
-                          // Surcharge = Surcharge ONLY (exclude Online Charge)
-                          const displaySurcharge = sur;
+          // Surcharge = Surcharge ONLY (exclude Online Charge)
+          const displaySurcharge = sur;
 
-                          // Row Total = Total Ticket Price - Online Charge
-                          // If totalTicketPrice is missing of 0, fallback to (Price + Tax + Surcharge)
-                          // NOTE: User said totalTicketPrice is always correct.
-                          const rowTotal = ticketTotal
-                            ? ticketTotal - onlineCharge
-                            : displayPrice + displaySurcharge;
+          // Row Total = Total Ticket Price - Online Charge
+          // If totalTicketPrice is missing of 0, fallback to (Price + Tax + Surcharge)
+          // NOTE: User said totalTicketPrice is always correct.
+          const rowTotal = ticketTotal
+            ? ticketTotal - onlineCharge
+            : displayPrice + displaySurcharge;
 
-                          // Accumulate totals
-                          calcSubCharge += onlineCharge;
-                          // Grand Total = Sum of all Ticket Total Prices
-                          calcGrandTotal +=
-                            ticketTotal || rowTotal + onlineCharge;
+          // Accumulate totals
+          calcSubCharge += onlineCharge;
+          // Grand Total = Sum of all Ticket Total Prices
+          calcGrandTotal +=
+            ticketTotal || rowTotal + onlineCharge;
 
-                          const rowColor =
-                            index % 2 === 0 ? colors.tableRow : "#2a2a2a";
+          const rowColor =
+            index % 2 === 0 ? colors.tableRow : "#2a2a2a";
 
-                          // Fix Ticket Type Mapping (Added ticketTypeName support)
-                          const type =
-                            t.ticketTypeName ||
-                            t.TicketTypeName ||
-                            t.TicketType ||
-                            t.ticketType ||
-                            t.Type ||
-                            t.type ||
-                            "Adult";
-                          const seat =
-                            t.SeatNo || t.seatNo || t.Seat || t.seat || "";
+          // Fix Ticket Type Mapping (Added ticketTypeName support)
+          const type =
+            t.ticketTypeName ||
+            t.TicketTypeName ||
+            t.TicketType ||
+            t.ticketType ||
+            t.Type ||
+            t.type ||
+            "Adult";
+          const seat =
+            t.SeatNo || t.seatNo || t.Seat || t.seat || "";
 
-                          return `
+          return `
                            <tr style="background-color: ${rowColor};">
                              <td style="border-bottom: 1px solid ${colors.border}; color: ${colors.light};">${escapeHtml(hallName)}</td>
                              <td style="border-bottom: 1px solid ${colors.border}; color: ${colors.gold}; font-weight: bold;">${escapeHtml(seat.replace(/[A-Za-z]+/, "").padStart(2, "0") ? seat : seat)}</td>
@@ -654,11 +615,11 @@ Malaysia
                              <td align="right" style="border-bottom: 1px solid ${colors.border}; color: ${colors.light}; font-weight: bold;">RM${rowTotal.toFixed(2)}</td>
                            </tr>
                            `;
-                        })
-                        .join("");
+        })
+        .join("");
 
-                      // Output with calculated totals
-                      return `
+      // Output with calculated totals
+      return `
                           ${rows}
                           <!-- Totals -->
                           <tr style="background-color: #000000;">
@@ -670,7 +631,7 @@ Malaysia
                             <td align="right" style="padding: 15px; font-size: 18px; color: ${colors.gold}; font-weight: bold;">RM${calcGrandTotal.toFixed(2)}</td>
                           </tr>
                         `;
-                    })()}
+    })()}
                   </tbody>
                 </table>
 
@@ -711,8 +672,8 @@ Malaysia
   const text = `
     
     Ref No: ${referenceNo}
-    Date: ${formatDate(showDate)}
-    Time: ${formatTime(showTime)}
+    Date: ${showDate}
+    Time: ${showTime}
     Hall: ${hallName}
     Seats: ${seatsString}
     
