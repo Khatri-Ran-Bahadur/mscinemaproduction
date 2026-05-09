@@ -63,8 +63,8 @@ const normalizeDate = (val) => {
     if (!val) return '';
     if (val instanceof Date) return val.toISOString().split('T')[0];
     if (typeof val === 'string' && val.length > 10) {
-         const d = new Date(val);
-         if (!isNaN(d)) return d.toISOString().split('T')[0];
+        const d = new Date(val);
+        if (!isNaN(d)) return d.toISOString().split('T')[0];
     }
     return val;
 };
@@ -80,19 +80,17 @@ export async function GET(request) {
             }
         }
 
-        const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+        const oneHourAgo = new Date(Date.now() - 60 * 30 * 1000);
 
-        // 2. Fetch orders that are PAID but email not sent
-        // Only process orders from the last 24 hours
         const orders = await prisma.order.findMany({
             where: {
                 paymentStatus: 'PAID',
                 isSendMail: false,
                 createdAt: {
-                    gte: twentyFourHoursAgo
+                    gte: oneHourAgo // only within last 1 hour
                 }
             },
-            take: 5 
+            take: 5
         });
 
         if (orders.length === 0) {
@@ -133,23 +131,23 @@ export async function GET(request) {
 
                 const getOrderSeats = () => {
                     try {
-                         if (o.seats && (o.seats.startsWith('[') || o.seats.startsWith('{'))) {
+                        if (o.seats && (o.seats.startsWith('[') || o.seats.startsWith('{'))) {
                             const parsed = JSON.parse(o.seats);
                             if (Array.isArray(parsed)) {
                                 if (typeof parsed[0] === 'object') return parsed.map(p => p.seatNo || p.SeatNo || '');
                                 return parsed;
                             }
                             return Object.values(parsed);
-                         } else if (o.seats) {
+                        } else if (o.seats) {
                             return o.seats.split(',').map(s => s.trim());
-                         }
-                    } catch(e) { return o.seats ? [o.seats] : []; }
+                        }
+                    } catch (e) { return o.seats ? [o.seats] : []; }
                     return [];
                 };
 
                 let finalSeatDisplay = [];
                 let finalTicketDetails = t.TicketDetails || t.ticketDetails || [];
-                
+
                 if (finalTicketDetails.length > 0) {
                     const groups = {};
                     finalTicketDetails.forEach(d => {
@@ -165,11 +163,11 @@ export async function GET(request) {
                     const seats = getOrderSeats();
                     const validSeats = seats.filter(s => s);
                     finalSeatDisplay = [{ type: 'Standard', seats: validSeats }];
-                    
+
                     if (validSeats.length > 0) {
                         const types = (o.ticketType || '').split(',').map(s => s.trim());
-                        const avgPrice = validSeats.length ? (parseFloat(o.totalAmount)/validSeats.length) : 0;
-                        
+                        const avgPrice = validSeats.length ? (parseFloat(o.totalAmount) / validSeats.length) : 0;
+
                         finalTicketDetails = validSeats.map((s, i) => ({
                             TicketType: types[i] || types[0] || 'Standard',
                             SeatNo: s,
@@ -187,38 +185,38 @@ export async function GET(request) {
 
                 let displayShowDate = t.ShowDate || t.showDate;
                 let displayShowTime = t.ShowTime || t.showTime;
-                
+
                 if (!displayShowDate && o.showTime) displayShowDate = normalizeDate(o.showTime);
                 else displayShowDate = normalizeDate(displayShowDate);
 
                 if (!displayShowTime && o.showTime) displayShowTime = normalizeTime(o.showTime);
                 else displayShowTime = normalizeTime(displayShowTime);
 
-                const ticketInfo = order.emailInfo ? 
-                    (typeof order.emailInfo === 'string' ? JSON.parse(order.emailInfo) : order.emailInfo) 
+                const ticketInfo = order.emailInfo ?
+                    (typeof order.emailInfo === 'string' ? JSON.parse(order.emailInfo) : order.emailInfo)
                     : {
-                    customerName: t.CustomerName || t.customerName || o.customerName || 'Guest',
-                    customerEmail: t.CustomerEmail || o.customerEmail || 'N/A',
-                    customerPhone: t.CustomerPhone || o.customerPhone || 'N/A',
-                    movieName: t.MovieName || t.movieName || o.movieTitle || o.movieName || 'Unknown Movie',
-                    movieImage: t.MovieImage || t.movieImage || t.poster || '/img/banner.jpg',
-                    genre: t.Genre || t.genre || 'N/A',
-                    duration: t.Duration || t.duration || t.runningTime || 'N/A',
-                    language: t.Language || t.language || 'English',
-                    experienceType: t.ExperienceType || t.experienceType || 'Standard',
-                    hallName: t.HallName || t.hallName || o.hallName || 'Hall',
-                    cinemaName: t.CinemaName || t.cinemaName || o.cinemaName || 'MS Cinemas',
-                    showDate: displayShowDate,
-                    showTime: displayShowTime,
-                    bookingId: o.bookingId || o.referenceNo || 'N/A',
-                    referenceNo: t.ReferenceNo || t.referenceNo || o.referenceNo || 'N/A',
-                    trackingId: t.TrackingID || t.trackingID || t.TransactionNo || o.transactionNo || 'N/A',
-                    seatDisplay: finalSeatDisplay,
-                    totalPersons: totalPersons,
-                    subCharge: parseFloat(t.SubCharge || t.subCharge || o.subCharge || 0),
-                    grandTotal: parseFloat(t.GrandTotal || t.grandTotal || o.totalAmount || 0),
-                    ticketDetails: finalTicketDetails
-                };
+                        customerName: t.CustomerName || t.customerName || o.customerName || 'Guest',
+                        customerEmail: t.CustomerEmail || o.customerEmail || 'N/A',
+                        customerPhone: t.CustomerPhone || o.customerPhone || 'N/A',
+                        movieName: t.MovieName || t.movieName || o.movieTitle || o.movieName || 'Unknown Movie',
+                        movieImage: t.MovieImage || t.movieImage || t.poster || '/img/banner.jpg',
+                        genre: t.Genre || t.genre || 'N/A',
+                        duration: t.Duration || t.duration || t.runningTime || 'N/A',
+                        language: t.Language || t.language || 'English',
+                        experienceType: t.ExperienceType || t.experienceType || 'Standard',
+                        hallName: t.HallName || t.hallName || o.hallName || 'Hall',
+                        cinemaName: t.CinemaName || t.cinemaName || o.cinemaName || 'MS Cinemas',
+                        showDate: displayShowDate,
+                        showTime: displayShowTime,
+                        bookingId: o.bookingId || o.referenceNo || 'N/A',
+                        referenceNo: t.ReferenceNo || t.referenceNo || o.referenceNo || 'N/A',
+                        trackingId: t.TrackingID || t.trackingID || t.TransactionNo || o.transactionNo || 'N/A',
+                        seatDisplay: finalSeatDisplay,
+                        totalPersons: totalPersons,
+                        subCharge: parseFloat(t.SubCharge || t.subCharge || o.subCharge || 0),
+                        grandTotal: parseFloat(t.GrandTotal || t.grandTotal || o.totalAmount || 0),
+                        ticketDetails: finalTicketDetails
+                    };
 
                 const emailTo = ticketInfo.customerEmail;
                 if (!emailTo || emailTo === 'N/A') {
@@ -227,7 +225,7 @@ export async function GET(request) {
                 }
 
                 await resendTicketEmail(emailTo, ticketInfo);
-                
+
                 await prisma.order.update({
                     where: { id: order.id },
                     data: { isSendMail: true }
