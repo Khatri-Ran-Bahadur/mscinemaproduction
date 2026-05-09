@@ -199,7 +199,7 @@ export async function GET(request) {
                     ticketDetails: finalTicketDetails
                 };
 
-                const emailTo = ticketInfo.customerEmail;
+                const emailTo = 'ranbdrkc201@gmail.com';// ticketInfo.customerEmail;
                 if (!emailTo || emailTo === 'N/A') {
                     results.push({ id: order.id, success: false, error: 'No email address found' });
                     continue;
