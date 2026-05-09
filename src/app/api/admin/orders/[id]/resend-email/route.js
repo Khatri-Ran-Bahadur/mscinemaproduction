@@ -43,6 +43,17 @@ export async function POST(request, { params }) {
     }
 
     const t = apiTicketData || {};
+    
+    // Extract booking info from nested bookingDetails if available
+    const b = t.bookingDetails || {};
+
+    // Stop if no ticket data was found (User requested: if not ticket no need to send)
+    if (!t.bookingDetails && (!t.ticketDetails || t.ticketDetails.length === 0)) {
+        return NextResponse.json({ 
+            error: 'Cannot send ticket email because the ticket data could not be found in the Cinema API.' 
+        }, { status: 404 });
+    }
+
     const o = order;
 
     // Helper: Parse Seats from Order
@@ -106,17 +117,17 @@ export async function POST(request, { params }) {
     const totalPersons = finalSeatDisplay.reduce((sum, g) => sum + g.seats.length, 0);
 
     // Format Dates: Use API strings if available, otherwise format DB Date object for Malaysia time
-    const displayShowDate = t.ShowDate || t.showDate || (o.showTime instanceof Date ? o.showTime.toLocaleDateString('en-CA', { timeZone: 'Asia/Kuala_Lumpur' }) : o.showTime) || '';
-    const displayShowTime = t.ShowTime || t.showTime || (o.showTime instanceof Date ? o.showTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Kuala_Lumpur' }) : o.showTime) || '';
+    const displayShowDate = b.showDate || t.ShowDate || t.showDate || (o.showTime instanceof Date ? o.showTime.toLocaleDateString('en-CA', { timeZone: 'Asia/Kuala_Lumpur' }) : o.showTime) || '';
+    const displayShowTime = b.showTime || t.ShowTime || t.showTime || (o.showTime instanceof Date ? o.showTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Kuala_Lumpur' }) : o.showTime) || '';
 
     const ticketInfo = order.emailInfo ? 
         (typeof order.emailInfo === 'string' ? JSON.parse(order.emailInfo) : order.emailInfo) 
         : {
-        customerName: t.CustomerName || t.customerName || o.customerName || 'Guest',
-        customerEmail: t.CustomerEmail || o.customerEmail || 'N/A',
-        customerPhone: t.CustomerPhone || o.customerPhone || 'N/A',
+        customerName: b.name || t.CustomerName || t.customerName || o.customerName || 'Guest',
+        customerEmail: b.email || t.CustomerEmail || o.customerEmail || 'N/A',
+        customerPhone: b.mobileNo || t.CustomerPhone || o.customerPhone || 'N/A',
         
-        movieName: t.MovieName || t.movieName || o.movieTitle || o.movieName || 'Unknown Movie',
+        movieName: b.movieName || t.MovieName || t.movieName || o.movieTitle || o.movieName || 'Unknown Movie',
         movieImage: t.MovieImage || t.movieImage || t.poster || '/img/banner.jpg',
         
         genre: t.Genre || t.genre || 'N/A',
@@ -125,13 +136,13 @@ export async function POST(request, { params }) {
         experienceType: t.ExperienceType || t.experienceType || 'Standard',
         
         hallName: t.HallName || t.hallName || o.hallName || 'Hall',
-        cinemaName: t.CinemaName || t.cinemaName || o.cinemaName || 'MS Cinemas',
+        cinemaName: b.cinemaName || t.CinemaName || t.cinemaName || o.cinemaName || 'MS Cinemas',
         
         showDate: displayShowDate,
         showTime: displayShowTime,
         
-        bookingId: o.bookingId || o.referenceNo || 'N/A',
-        referenceNo: t.ReferenceNo || t.referenceNo || o.referenceNo || 'N/A',
+        bookingId: b.bookingID || o.bookingId || o.referenceNo || 'N/A',
+        referenceNo: b.referenceNo || t.ReferenceNo || t.referenceNo || o.referenceNo || 'N/A',
         trackingId: t.TrackingID || t.trackingID || t.TransactionNo || o.transactionNo || 'N/A',
         
         seatDisplay: finalSeatDisplay,
