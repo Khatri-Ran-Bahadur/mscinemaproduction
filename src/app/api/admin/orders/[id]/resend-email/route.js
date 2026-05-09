@@ -105,44 +105,9 @@ export async function POST(request, { params }) {
 
     const totalPersons = finalSeatDisplay.reduce((sum, g) => sum + g.seats.length, 0);
 
-    // Format Dates
-    let displayShowDate = t.ShowDate || t.showDate;
-    let displayShowTime = t.ShowTime || t.showTime;
-    
-    // Normalize Time Format (Fix for "Tue Dec..." string from API or DB)
-    const normalizeTime = (val) => {
-        if (!val) return '';
-        // If val is Date object
-        if (val instanceof Date) {
-            return val.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-        }
-        // If string includes long text, try to parse
-        if (typeof val === 'string' && (val.length > 10 || val.includes('GMT') || val.includes('Time'))) {
-            const d = new Date(val);
-            if (!isNaN(d)) {
-                return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-            }
-        }
-        return val;
-    };
-
-    // Normalize Date
-    const normalizeDate = (val) => {
-        if (!val) return '';
-        if (val instanceof Date) return val.toISOString().split('T')[0];
-        // If it's a long string
-        if (typeof val === 'string' && val.length > 10) {
-             const d = new Date(val);
-             if (!isNaN(d)) return d.toISOString().split('T')[0];
-        }
-        return val;
-    }
-
-    if (!displayShowDate && o.showTime) displayShowDate = normalizeDate(o.showTime);
-    else displayShowDate = normalizeDate(displayShowDate); // Ensure clean string
-
-    if (!displayShowTime && o.showTime) displayShowTime = normalizeTime(o.showTime);
-    else displayShowTime = normalizeTime(displayShowTime); // Clean existing string
+    // Use direct values from API or database without manual conversion
+    const displayShowDate = t.ShowDate || t.showDate || o.showTime || '';
+    const displayShowTime = t.ShowTime || t.showTime || o.showTime || '';
 
     const ticketInfo = order.emailInfo ? 
         (typeof order.emailInfo === 'string' ? JSON.parse(order.emailInfo) : order.emailInfo) 

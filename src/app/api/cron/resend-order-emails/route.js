@@ -44,30 +44,6 @@ async function fetchWithAuth(url, token, options = {}) {
     return res;
 }
 
-// Helper functions for normalization
-const normalizeTime = (val) => {
-    if (!val) return '';
-    if (val instanceof Date) {
-        return val.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-    }
-    if (typeof val === 'string' && (val.length > 10 || val.includes('GMT') || val.includes('Time'))) {
-        const d = new Date(val);
-        if (!isNaN(d)) {
-            return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
-        }
-    }
-    return val;
-};
-
-const normalizeDate = (val) => {
-    if (!val) return '';
-    if (val instanceof Date) return val.toISOString().split('T')[0];
-    if (typeof val === 'string' && val.length > 10) {
-         const d = new Date(val);
-         if (!isNaN(d)) return d.toISOString().split('T')[0];
-    }
-    return val;
-};
 
 export async function GET(request) {
     try {
@@ -185,14 +161,9 @@ export async function GET(request) {
 
                 const totalPersons = finalSeatDisplay.reduce((sum, g) => sum + g.seats.length, 0);
 
-                let displayShowDate = t.ShowDate || t.showDate;
-                let displayShowTime = t.ShowTime || t.showTime;
-                
-                if (!displayShowDate && o.showTime) displayShowDate = normalizeDate(o.showTime);
-                else displayShowDate = normalizeDate(displayShowDate);
-
-                if (!displayShowTime && o.showTime) displayShowTime = normalizeTime(o.showTime);
-                else displayShowTime = normalizeTime(displayShowTime);
+                // Use direct values from API or database without manual conversion
+                const displayShowDate = t.ShowDate || t.showDate || o.showTime || '';
+                const displayShowTime = t.ShowTime || t.showTime || o.showTime || '';
 
                 const ticketInfo = order.emailInfo ? 
                     (typeof order.emailInfo === 'string' ? JSON.parse(order.emailInfo) : order.emailInfo) 
