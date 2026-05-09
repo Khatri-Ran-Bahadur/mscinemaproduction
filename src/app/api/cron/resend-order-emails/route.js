@@ -104,6 +104,8 @@ export async function GET(request) {
                     }
                 }
 
+                const t = apiTicketData || {};
+                
                 // Extract booking info from nested bookingDetails if available
                 const b = t.bookingDetails || {};
 
