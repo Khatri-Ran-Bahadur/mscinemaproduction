@@ -13,7 +13,7 @@ export default function ActivatePage() {
   const searchParams = useSearchParams();
   const encryptedUserId = searchParams?.get('userId') || searchParams?.get('userID') || searchParams?.get('id');
   const type = searchParams?.get('type') || searchParams?.get('Type');
-  
+
   const [isActivating, setIsActivating] = useState(false);
   const [isActivated, setIsActivated] = useState(false);
   const [error, setError] = useState('');
@@ -37,7 +37,7 @@ export default function ActivatePage() {
       } else {
         userId = decryptId(encryptedUserId);
       }
-      
+
       if (!userId) {
         throw new Error('Invalid activation link. Unable to decrypt user ID.');
       }
@@ -82,7 +82,7 @@ export default function ActivatePage() {
       {/* Left Side - Image (2/3 width on desktop, hidden on mobile) */}
       <div className="hidden md:block md:w-2/3 relative overflow-hidden">
         <img
-          src="/img/sing.jpg"
+          src="/img/login.jpeg"
           alt="Popcorn"
           className="w-full h-full object-cover"
         />
@@ -97,7 +97,7 @@ export default function ActivatePage() {
               {isActivated ? 'Account Activated!' : 'Activating Account'}
             </h2>
             <p className="text-sm text-[#D3D3D3]">
-              {isActivated 
+              {isActivated
                 ? 'Your account has been successfully activated. You can now sign in.'
                 : 'Please wait while we activate your account...'
               }

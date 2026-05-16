@@ -201,7 +201,11 @@ export async function GET(request) {
                     ticketDetails: finalTicketDetails
                 };
 
-                const emailTo = 'ranbdrkc201@gmail.com';// ticketInfo.customerEmail;
+                // CRITICAL: Always overwrite showDate and showTime with fresh API values
+                ticketInfo.showDate = displayShowDate;
+                ticketInfo.showTime = displayShowTime;
+
+                const emailTo = ticketInfo.customerEmail;
                 if (!emailTo || emailTo === 'N/A') {
                     results.push({ id: order.id, success: false, error: 'No email address found' });
                     continue;
