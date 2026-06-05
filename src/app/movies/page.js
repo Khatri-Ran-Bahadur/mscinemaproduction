@@ -35,10 +35,11 @@ export default function MoviesPage() {
             const transformedMovies = Array.isArray(data) ? data.map((movie, index) => ({
                 id: movie.movieID || movie.id || index + 1,
                 image: movie.imageURL || movie.image || movie.poster || "placeholder.png",
-                title: movie.movieName || movie.title || movie.name || "Unknown Movie",
+                title: (movie.movieName || movie.title || movie.name || "Unknown Movie").replace(/^\./, ''),
                 genre: movie.genre || movie.genres || movie.category || "Action",
                 rating: movie.rating || movie.ageRating || "U/A",
                 languages: movie.language || movie.languages || "English",
+                type: movie.type || "2D",
                 duration: movie.duration || "1 hr 48 mins",
                 isComingSoon: movie.isComingSoon || movie.comingSoon || false,
                 showType: movie.showType || "1",

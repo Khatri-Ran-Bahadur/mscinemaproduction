@@ -2,8 +2,55 @@ import { NextResponse } from 'next/server';
 import { API_CONFIG } from '@/config/api';
 import { prisma } from '@/lib/prisma';
 import { queryPaymentStatus, callReserveBooking, callCancelBooking } from '@/utils/molpay';
+import fs from 'fs';
+import path from 'path';
 
 export const dynamic = 'force-dynamic';
+
+/**
+ * Write log entry to release_locked_seats.log
+ */
+function writeReleaseLog(logEntry) {
+    try {
+        const logDir = path.join(process.cwd(), 'logs');
+        if (!fs.existsSync(logDir)) {
+            fs.mkdirSync(logDir, { recursive: true });
+        }
+        const logFile = path.join(logDir, 'release_locked_seats.log');
+        const timestamp = new Date().toISOString();
+        
+        let logLine = `[${timestamp}] `;
+        
+        if (typeof logEntry === 'string') {
+            logLine += logEntry;
+        } else {
+            logLine += `Env: ${logEntry.env} | `;
+            logLine += `Ref: ${logEntry.referenceNo} | `;
+            logLine += `Cinema: ${logEntry.cinemaId} | `;
+            logLine += `Show: ${logEntry.showId} | `;
+            logLine += `Type: ${logEntry.type} | `;
+            logLine += `Action: ${logEntry.action} | `;
+            logLine += `Success: ${logEntry.success}`;
+            if (logEntry.orderId) logLine += ` | OrderId: ${logEntry.orderId}`;
+            if (logEntry.gatewayStatus) logLine += ` | GatewayStatus: ${logEntry.gatewayStatus}`;
+            if (logEntry.skippedReason) logLine += ` | SkippedReason: ${logEntry.skippedReason}`;
+            if (logEntry.apiStatus !== undefined && logEntry.apiStatus !== 0) logLine += ` | APIStatus: ${logEntry.apiStatus}`;
+            if (logEntry.error) logLine += ` | Error: ${logEntry.error}`;
+            if (logEntry.responseBody) {
+                const responseStr = typeof logEntry.responseBody === 'object' 
+                    ? JSON.stringify(logEntry.responseBody) 
+                    : logEntry.responseBody;
+                logLine += ` | Response: ${responseStr}`;
+            }
+        }
+        
+        logLine += '\n';
+        
+        fs.appendFileSync(logFile, logLine);
+    } catch (err) {
+        console.error('[Cron Log] Failed to write release log:', err);
+    }
+}
 
 /**
  * Get a fresh Bearer token for the given API using guest credentials.
@@ -65,6 +112,7 @@ export async function GET(request) {
         ];
 
         console.log(`[Cron] Starting release-locked-seats. Params: m1=${m1}, m2=${m2}`);
+        writeReleaseLog(`[Cron] Starting release-locked-seats run. Params: m1=${m1}, m2=${m2}`);
         
         const results = [];
         let totalProcessed = 0;
@@ -78,6 +126,7 @@ export async function GET(request) {
                     console.log(`[Cron] ${env.name}: Got token.`);
                 } catch (tokenErr) {
                     console.error(`[Cron] ${env.name}: GetToken failed:`, tokenErr.message);
+                    writeReleaseLog(`Env: ${env.name} | ERROR: GetToken failed: ${tokenErr.message}`);
                     results.push({ env: env.name, error: `GetToken failed: ${tokenErr.message}` });
                     continue;
                 }
@@ -98,10 +147,12 @@ export async function GET(request) {
                     } else {
                         const errText = await fetchRes.text();
                         console.warn(`[Cron] ${env.name}: GetHalfWayBookings API returned ${fetchRes.status}:`, errText);
+                        writeReleaseLog(`Env: ${env.name} | WARNING: GetHalfWayBookings API returned ${fetchRes.status}: ${errText}`);
                         // Fall through to use database bookings instead
                     }
                 } catch (apiErr) {
                     console.warn(`[Cron] ${env.name}: GetHalfWayBookings API failed:`, apiErr.message);
+                    writeReleaseLog(`Env: ${env.name} | WARNING: GetHalfWayBookings API failed: ${apiErr.message}`);
                 }
 
                 if (bookings.length > 0) {
@@ -115,6 +166,7 @@ export async function GET(request) {
                 
                 if (targetBookings.length === 0) {
                     results.push({ env: env.name, message: 'No target bookings', count: 0 });
+                    writeReleaseLog(`Env: ${env.name} | Info: No target bookings to check.`);
                     continue;
                 }
 
@@ -139,6 +191,8 @@ export async function GET(request) {
                         let status = 0;
                         let body = null;
                         let skippedReason = '';
+                        let fiuuStatusString = 'N/A';
+                        let actionTaken = 'RELEASE_SEATS';
 
                         // --- START SAFE RELEASE CHECK ---
                         let orderRecord = await prisma.order.findFirst({
@@ -153,6 +207,7 @@ export async function GET(request) {
                         // before deciding whether to Reserve (Paid) or Release (Failed/Pending).
                         if (orderRecord && orderRecord.orderId) {
                             const fiuuStatus = await queryPaymentStatus(orderRecord.orderId, orderRecord.totalAmount.toString());
+                            fiuuStatusString = fiuuStatus?.status || 'UNKNOWN';
                             
                             if (fiuuStatus.status === '00') {
                                 console.log(`[Cron Safe] Order ${orderRecord.orderId} is PAID at Gateway.`);
@@ -184,6 +239,7 @@ export async function GET(request) {
 
                         // ACTION PHASE:
                         if (gatewayIsPaid && orderRecord) {
+                            actionTaken = 'RESERVE_BOOKING';
                             // Only RESERVE if explicitly confirmed as paid at Gateway
                             console.log(`[Cron Safe] Triggering Reservation for confirmed order ${orderRecord.orderId}`);
                             const reserveResult = await callReserveBooking(
@@ -241,6 +297,22 @@ export async function GET(request) {
                             skippedReason,
                             apiResponse: body,
                         });
+
+                        // Write detailed log for each reference check/release action
+                        writeReleaseLog({
+                            env: env.name,
+                            referenceNo: b.referenceNo,
+                            cinemaId: b.cinemaID,
+                            showId: b.showID,
+                            type: b.status === 0 ? 'Locked' : 'ConfirmLocked',
+                            action: actionTaken,
+                            success: ok,
+                            orderId: orderRecord?.orderId || null,
+                            gatewayStatus: fiuuStatusString,
+                            skippedReason,
+                            apiStatus: status,
+                            responseBody: body
+                        });
                             
                         if (ok) {
                             totalProcessed++;
@@ -260,15 +332,30 @@ export async function GET(request) {
                     } catch (err) {
                         console.error(`[Cron] ${env.name}: Action error for ${b.referenceNo}:`, err);
                         results.push({ env: env.name, referenceNo: b.referenceNo, success: false, error: err.message });
+                        
+                        writeReleaseLog({
+                            env: env.name,
+                            referenceNo: b.referenceNo,
+                            cinemaId: b.cinemaID,
+                            showId: b.showID,
+                            type: b.status === 0 ? 'Locked' : 'ConfirmLocked',
+                            action: 'UNKNOWN_ERROR',
+                            success: false,
+                            error: err.message
+                        });
                     }
                 }
 
                 results.push({ env: env.name, message: `Checked ${targetBookings.length}, released ${releasedInEnv}` });
+                writeReleaseLog(`Env: ${env.name} | Info: Checked ${targetBookings.length}, released/processed ${releasedInEnv}`);
              } catch (envErr) {
                 console.error(`[Cron] Error for ${env.name}:`, envErr);
                  results.push({ env: env.name, error: envErr.message });
+                 writeReleaseLog(`Env: ${env.name} | ERROR: Environment processing failed: ${envErr.message}`);
              }
         }
+
+        writeReleaseLog(`[Cron] Release run complete. Released: ${totalProcessed}`);
 
         return NextResponse.json({
             success: true,
@@ -278,6 +365,7 @@ export async function GET(request) {
         });
     } catch (error) {
         console.error('[Cron] release-locked-seats error:', error);
+        writeReleaseLog(`[Cron] CRITICAL ERROR: ${error.message}`);
         return NextResponse.json({ success: false, error: error.message }, { status: 500 });
     }
 }
