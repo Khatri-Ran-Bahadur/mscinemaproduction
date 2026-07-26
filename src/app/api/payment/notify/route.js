@@ -9,6 +9,7 @@ import crypto from 'crypto';
 import { API_BASE_URL } from '@/config/api';
 import { prisma } from '@/lib/prisma';
 import { sendTicketEmail } from '@/utils/email';
+import { callReserveBooking } from '@/utils/molpay';
 
 // Razer Merchant Services Configuration from environment variables
 const RMS_CONFIG = {
@@ -48,9 +49,9 @@ function verifyNotificationSignature(data) {
       skey
     } = data;
 
-    // All required fields must be present
-    if (!tranID || !orderid || !status || !domain || !amount || !currency || !paydate || !appcode || !skey) {
-      console.error('Missing required fields for signature verification');
+    // All required fields must be present (appcode can be empty string for some channels)
+    if (!tranID || !orderid || status === undefined || !domain || !amount || !currency || !paydate || appcode === undefined || skey === undefined) {
+      console.error('Missing required fields for signature verification:', { tranID, orderid, status, domain, amount, currency, paydate, appcode, skey });
       return false;
     }
 
@@ -59,7 +60,8 @@ function verifyNotificationSignature(data) {
     const key0 = crypto.createHash('md5').update(key0String, 'utf8').digest('hex');
 
     // Step 2: Calculate key1 = md5(paydate + domain + key0 + appcode + vkey)
-    const key1String = `${paydate}${domain}${key0}${appcode}${RMS_CONFIG.verifyKey}`;
+    const safeAppcode = appcode || '';
+    const key1String = `${paydate}${domain}${key0}${safeAppcode}${RMS_CONFIG.verifyKey}`;
     const key1 = crypto.createHash('md5').update(key1String, 'utf8').digest('hex');
 
     // Step 3: Compare skey with key1
@@ -81,14 +83,37 @@ function verifyNotificationSignature(data) {
  */
 export async function POST(request) {
   try {
-    // MOLPay sends notification via POST with form data
-    const formData = await request.formData();
-    const notificationData = {};
-    
-    // Convert FormData to object
-    for (const [key, value] of formData.entries()) {
-      notificationData[key] = value;
+    let rawBody = "";
+    try {
+      rawBody = await request.clone().text();
+    } catch (e) {
+      // ignore
     }
+
+    let notificationData = {};
+    
+    try {
+      const formData = await request.formData();
+      for (const [key, value] of formData.entries()) {
+        notificationData[key] = value;
+      }
+    } catch (e) {
+      // Fallback: Try reading as plain text (x-www-form-urlencoded) if formData fails
+      const params = new URLSearchParams(rawBody);
+      for (const [key, value] of params.entries()) {
+        notificationData[key] = value;
+      }
+    }
+
+    const orderid = notificationData.orderid || `unknown_${Date.now()}`;
+    // Always log the raw request and parsed data for debugging
+    writeMolpayLog(orderid, 'NOTIFY_RAW_REQUEST', {
+      method: request.method,
+      url: request.url,
+      rawBody: rawBody,
+      parsedData: notificationData,
+      headers: Object.fromEntries(request.headers.entries())
+    });
 
     console.log('[Payment Notify] Received notification:', notificationData);
 
@@ -147,14 +172,12 @@ export async function POST(request) {
             
             if (targetRef) {
                 console.log(`[Payment Notify] Order ID ${orderid} not found. Falling back to Reference No: ${targetRef}`);
-                order = await prisma.order.findFirst({
+                order = await prisma.order.findUnique({
                     where: { referenceNo: targetRef },
-                    orderBy: { createdAt: 'desc' }
                 });
 
-                // Link this new Order ID to the existing record if found
                 if (order) {
-                    await prisma.order.update({
+                    order = await prisma.order.update({
                         where: { id: order.id },
                         data: { orderId: orderid }
                     });
@@ -163,15 +186,39 @@ export async function POST(request) {
         }
 
         if (order) {
-            // 2. Update Local Order Status
-            // NOTE: ReserveBooking is NOT called here - it's handled by molpay_return route
+            let reserveSuccess = !!order.reserve_ticket;
+
+            // Reserve seats first — booking is only complete when cinema API confirms
+            if (!order.reserve_ticket && order.cinemaId && order.showId && order.referenceNo) {
+                try {
+                    const reserveResult = await callReserveBooking(
+                        orderid,
+                        tranID || orderid,
+                        channel || 'Online',
+                        appcode || '',
+                        {
+                            cinemaId: order.cinemaId,
+                            showId: order.showId,
+                            referenceNo: order.referenceNo,
+                            membershipId: order.membershipId || '0',
+                            storedDetails: { token: order.token || '' }
+                        }
+                    );
+                    reserveSuccess = reserveResult.success;
+                } catch (e) {
+                    console.error('[Payment Notify] ReserveBooking attempt failed:', e);
+                }
+            }
+
             await prisma.order.update({
                 where: { id: order.id },
                 data: {
-                    status: 'CONFIRMED',
+                    status: reserveSuccess ? 'CONFIRMED' : 'PENDING',
                     paymentStatus: 'PAID',
                     transactionNo: tranID,
                     paymentMethod: channel,
+                    reserve_ticket: reserveSuccess,
+                    orderId: orderid,
                     updatedAt: new Date()
                 }
             });

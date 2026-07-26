@@ -6,6 +6,11 @@ import { ChevronLeft, Loader2, Clock, AlertCircle } from 'lucide-react';
 import { booking,auth } from '@/services/api';
 import { encryptId, decryptId, encryptIds, decryptIds } from '@/utils/encryption';
 import { formatHallName } from '@/utils/hall';
+import {
+  PAYMENT_TIMER_SECONDS,
+  PAYMENT_TIMER_START_KEY,
+  PAYMENT_IN_PROGRESS_KEY,
+} from '@/config/booking';
 
 export default function PaymentPage() {
   const router = useRouter();
@@ -22,7 +27,21 @@ export default function PaymentPage() {
   const [token, setToken] = useState('');
   const scriptsLoadedRef = useRef(false);
   const loadingScriptsRef = useRef(false);
+  const paymentInProgressRef = useRef(false);
   const [showBackModal, setShowBackModal] = useState(false);
+
+  const getPaymentTimeRemaining = () => {
+    const startKey =
+      localStorage.getItem(PAYMENT_TIMER_START_KEY) ||
+      localStorage.getItem('timerStartTime');
+    if (!startKey) return null;
+    const elapsed = Math.floor((Date.now() - parseInt(startKey, 10)) / 1000);
+    return Math.max(0, PAYMENT_TIMER_SECONDS - elapsed);
+  };
+
+  const isPaymentInProgress = () =>
+    paymentInProgressRef.current ||
+    localStorage.getItem(PAYMENT_IN_PROGRESS_KEY) === 'true';
 
   // Payment methods configuration - Only show specified payment methods
   // Using images from public/images folder
@@ -62,30 +81,22 @@ export default function PaymentPage() {
         const data = JSON.parse(stored);
         setBookingData(data);
         
-        // Initialize timer from localStorage - calculate remaining time based on lock time
-        const timerStartTime = localStorage.getItem('timerStartTime');
-        const timerDuration = 120; // 2 minutes in seconds
-        
-        if (timerStartTime) {
-          const lockTime = parseInt(timerStartTime);
-          const now = Date.now();
-          const elapsed = Math.floor((now - lockTime) / 1000);
-          const remaining = Math.max(0, timerDuration - elapsed);
-          
-          if (remaining <= 0) {
-            // Timer expired - release seats and redirect
-            console.log('Timer expired on load, releasing seats...');
-            releaseConfirmedSeats();
-            return;
-          }
-          
-          setTimeLeft(remaining);
-          setTimerActive(true);
-        } else {
-         
+        const remaining = getPaymentTimeRemaining();
+
+        if (remaining === null) {
           setError('Booking session details missing. Redirecting...');
           window.location.href = '/';
+          return;
         }
+
+        if (remaining <= 0 && !isPaymentInProgress()) {
+          console.log('Payment timer expired, safe-releasing seats...');
+          releaseConfirmedSeats();
+          return;
+        }
+
+        setTimeLeft(remaining);
+        setTimerActive(true);
         
         setIsLoading(false);
       } else {
@@ -97,69 +108,94 @@ export default function PaymentPage() {
     }
   }, []);
 
-  // Timer countdown effect for payment page
+  // Timer countdown — never release while customer is paying at Fiuu
   useEffect(() => {
     if (!timerActive || !bookingData || timeLeft <= 0) {
-      if (timeLeft <= 0 && bookingData) {
-        // Timer expired
+      if (timeLeft <= 0 && bookingData && !isPaymentInProgress()) {
         releaseConfirmedSeats();
       }
       return;
     }
-    
+
     const interval = setInterval(() => {
-      setTimeLeft(time => {
+      setTimeLeft((time) => {
         const newTime = time - 1;
         if (newTime <= 0) {
           setTimerActive(false);
-          // Timer expired - release seats and redirect
-          releaseConfirmedSeats();
+          if (!isPaymentInProgress()) {
+            releaseConfirmedSeats();
+          }
           return 0;
         }
         return newTime;
       });
     }, 1000);
-    
-    return () => {
-      clearInterval(interval);
-    };
-  }, [timerActive, timeLeft, bookingData]);
 
-  const releaseConfirmedSeats = async () => {
-    if (!bookingData) return;
-    
-    const referenceNo = bookingData.confirmedReferenceNo || bookingData.referenceNo;
-    const cinemaId = bookingData.cinemaId;
-    const showId = bookingData.showId;
-    const movieId = bookingData.movieId;
-    
-    // Clear booking data first
+    return () => clearInterval(interval);
+  }, [timerActive, timeLeft, bookingData, isProcessing]);
+
+  const clearBookingSession = () => {
     localStorage.removeItem('bookingData');
     localStorage.removeItem('timerStartTime');
     localStorage.removeItem('timerDuration');
     localStorage.removeItem('confirmedReferenceNo');
     localStorage.removeItem('lockTime');
-    
+    localStorage.removeItem(PAYMENT_TIMER_START_KEY);
+    localStorage.removeItem(PAYMENT_IN_PROGRESS_KEY);
+  };
+
+  const releaseConfirmedSeats = async (force = false) => {
+    if (!bookingData) return;
+
+    if (!force && isPaymentInProgress()) {
+      console.log('[Payment] Skipping release — payment in progress');
+      return;
+    }
+
+    const referenceNo = bookingData.confirmedReferenceNo || bookingData.referenceNo;
+    const cinemaId = bookingData.cinemaId;
+    const showId = bookingData.showId;
+    const movieId = bookingData.movieId;
+
     if (!referenceNo || !cinemaId || !showId) {
-      // No reference - just redirect to seat selection
-      // No reference - just redirect to home
+      clearBookingSession();
       window.location.href = '/';
       return;
     }
-    
+
     try {
-      if (bookingData.confirmedReferenceNo) {
-        // Use ReleaseConfirmedLockedSeats if confirmed
-        await booking.releaseConfirmedLockedSeats(cinemaId, showId, referenceNo);
-      } else {
-        // Use ReleaseLockedSeats if only locked
-        await booking.releaseLockedSeats(cinemaId, showId, referenceNo);
+      const { API_CONFIG } = await import('@/config/api');
+      const res = await fetch('/api/booking/release', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': API_CONFIG.API_SECRET_KEY,
+        },
+        body: JSON.stringify({
+          cinemaId,
+          showId,
+          referenceNo,
+          type: bookingData.confirmedReferenceNo ? 'confirmed' : 'locked',
+          force,
+        }),
+      });
+      const data = await res.json();
+
+      if (data.action === 'PENDING_SKIPPED') {
+        console.log('[Payment] Release skipped — payment pending at gateway');
+        return;
+      }
+      if (data.action === 'RESERVED') {
+        clearBookingSession();
+        window.location.href = `/payment/success?referenceNo=${encodeURIComponent(referenceNo)}`;
+        return;
       }
     } catch (err) {
-      console.error('Error releasing seats:', err);
-    } 
-    
-    // Always redirect to seat selection page after releasing (reload page)
+      console.error('Error safe-releasing seats:', err);
+      return;
+    }
+
+    clearBookingSession();
     const encryptedMovieId = encryptId(movieId || '');
     const encryptedCinemaId = encryptId(cinemaId || '');
     const encryptedShowId = encryptId(showId || '');
@@ -306,7 +342,9 @@ export default function PaymentPage() {
       return false;
     }
 
-    setIsProcessing(true); // Start processing
+    setIsProcessing(true);
+    paymentInProgressRef.current = true;
+    localStorage.setItem(PAYMENT_IN_PROGRESS_KEY, 'true');
 
     if (!isReady) {
       setError('Payment gateway is still loading. Please wait a moment and try again.');
@@ -400,12 +438,25 @@ export default function PaymentPage() {
     })
       .then(response => response.json())
       .then(data => {
+        if (data.already_paid) {
+          paymentInProgressRef.current = false;
+          localStorage.removeItem(PAYMENT_IN_PROGRESS_KEY);
+          setIsProcessing(false);
+          window.location.href = `/payment/success?orderid=${encodeURIComponent(data.orderId || '')}`;
+          return null;
+        }
+        if (data.payment_pending) {
+          paymentInProgressRef.current = false;
+          localStorage.removeItem(PAYMENT_IN_PROGRESS_KEY);
+          throw new Error(data.error_desc || 'Payment is still being processed. Please wait.');
+        }
         if (!data.status) {
           throw new Error(data.error_desc || data.error || 'Failed to create payment request');
         }
-        return data; // Database is already updated server-side in create-request
+        return data;
       })
       .then(data => {
+        if (!data) return;
         // Initialize payment with MOLPay Seamless plugin immediately
         if (window.jQuery && window.jQuery.fn && window.jQuery.fn.MOLPaySeamless) {
           const $ = window.jQuery;
@@ -479,6 +530,8 @@ export default function PaymentPage() {
       })
       .catch(err => {
         console.error('Payment error:', err);
+        paymentInProgressRef.current = false;
+        localStorage.removeItem(PAYMENT_IN_PROGRESS_KEY);
         setIsProcessing(false);
         setError(err.message || 'Failed to initialize payment. Please try again.');
       });
@@ -814,7 +867,7 @@ export default function PaymentPage() {
               <button
                 onClick={() => {
                   setShowBackModal(false);
-                  releaseConfirmedSeats();
+                  releaseConfirmedSeats(true);
                 }}
                 className="flex-1 py-3 px-4 rounded-xl bg-red-600 text-white font-semibold hover:bg-red-700 transition shadow-lg shadow-red-600/20"
               >

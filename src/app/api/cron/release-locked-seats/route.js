@@ -195,12 +195,12 @@ export async function GET(request) {
                         let actionTaken = 'RELEASE_SEATS';
 
                         // --- START SAFE RELEASE CHECK ---
-                        let orderRecord = await prisma.order.findFirst({
+                        let orderRecord = await prisma.order.findUnique({
                             where: { referenceNo: b.referenceNo },
-                            orderBy: { createdAt: 'desc' }
                         });
 
                         let gatewayIsPaid = false;
+                        let gatewayIsPending = false;
                         let gatewayIsFailed = false;
 
                         // To be 100% safe, if there is a record in our DB, we always check Fiuu 
@@ -222,23 +222,46 @@ export async function GET(request) {
                                         paymentMethod: fiuuStatus.raw?.Channel || orderRecord.paymentMethod || 'Fiuu'
                                     }
                                 });
-                            } else {
-                                console.log(`[Cron Safe] Order ${orderRecord.orderId} is NOT PAID at Gateway (Status: ${fiuuStatus.status}).`);
-                                gatewayIsFailed = true;
-                                // Ensure DB reflects the failure
-                                orderRecord = await prisma.order.update({
+                            } else if (fiuuStatus.status === '22') {
+                                // IMPORTANT: Pending payments must never trigger seat release
+                                console.log(`[Cron Safe] Order ${orderRecord.orderId} is PENDING at Gateway (Status: 22). Skipping release.`);
+                                gatewayIsPending = true;
+                                await prisma.order.update({
                                     where: { id: orderRecord.id },
                                     data: { 
-                                        paymentStatus: fiuuStatus.status === '22' ? 'PENDING' : 'FAILED',
-                                        status: fiuuStatus.status === '22' ? 'PENDING' : 'CANCELLED',
+                                        paymentStatus: 'PENDING',
+                                        status: 'PENDING',
                                         transactionNo: fiuuStatus.tranID || orderRecord.transactionNo
                                     }
-                                });
+                                }).catch(() => {});
+                            } else {
+                                const orderAgeMinutes = (new Date() - new Date(orderRecord.updatedAt)) / 60000;
+                                if (orderAgeMinutes < 15) {
+                                    console.log(`[Cron Safe] Order ${orderRecord.orderId} is NOT PAID at Gateway (Status: ${fiuuStatus.status}), but was created only ${orderAgeMinutes.toFixed(1)} mins ago. Treating as PENDING to give user time to complete payment on Fiuu.`);
+                                    gatewayIsPending = true;
+                                } else {
+                                    console.log(`[Cron Safe] Order ${orderRecord.orderId} is NOT PAID at Gateway (Status: ${fiuuStatus.status}) and is ${orderAgeMinutes.toFixed(1)} mins old. Marking as FAILED.`);
+                                    gatewayIsFailed = true;
+                                    // Ensure DB reflects the failure
+                                    orderRecord = await prisma.order.update({
+                                        where: { id: orderRecord.id },
+                                        data: { 
+                                            paymentStatus: 'FAILED',
+                                            status: 'CANCELLED',
+                                            transactionNo: fiuuStatus.tranID || orderRecord.transactionNo
+                                        }
+                                    });
+                                }
                             }
                         }
 
                         // ACTION PHASE:
-                        if (gatewayIsPaid && orderRecord) {
+                        if (gatewayIsPending) {
+                            actionTaken = 'SKIP_PENDING';
+                            ok = true;
+                            skippedReason = 'PAYMENT_PENDING';
+                            body = { message: 'Payment pending at gateway — seats kept locked' };
+                        } else if (gatewayIsPaid && orderRecord) {
                             actionTaken = 'RESERVE_BOOKING';
                             // Only RESERVE if explicitly confirmed as paid at Gateway
                             console.log(`[Cron Safe] Triggering Reservation for confirmed order ${orderRecord.orderId}`);
@@ -260,7 +283,6 @@ export async function GET(request) {
                             body = reserveResult.data || { error: reserveResult.error };
                             skippedReason = 'PAID_RESERVED';
                         } else {
-                            // Payment failed or order not found in our DB -> Release the seats
                             if (gatewayIsFailed && orderRecord) {
                                 console.log(`[Cron Safe] Cleaning up resources for failed order ${orderRecord.orderId}`);
                                 await callCancelBooking(

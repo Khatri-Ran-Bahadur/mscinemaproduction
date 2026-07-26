@@ -110,7 +110,7 @@ function verifyReturnSignature(data) {
       skey
     } = data;
 
-    if (!tranID || !orderid || !status || !domain || !amount || !currency || !paydate || !appcode || !skey) {
+    if (!tranID || !orderid || status === undefined || !domain || !amount || !currency || !paydate || appcode === undefined || skey === undefined) {
       return false;
     }
 
@@ -119,7 +119,8 @@ function verifyReturnSignature(data) {
     const key0 = crypto.createHash('md5').update(key0String, 'utf8').digest('hex');
 
     // Step 2: Calculate key1
-    const key1String = `${paydate}${domain}${key0}${appcode}${RMS_CONFIG.verifyKey}`;
+    const safeAppcode = appcode || '';
+    const key1String = `${paydate}${domain}${key0}${safeAppcode}${RMS_CONFIG.verifyKey}`;
     const key1 = crypto.createHash('md5').update(key1String, 'utf8').digest('hex');
 
     // Step 3: Compare
@@ -546,32 +547,43 @@ async function handleReturn(request) {
       // Payment successful
       console.log(`[Payment Return] Payment successful - Order: ${orderid}, Transaction: ${tranID}`);
       
-      // Call ReserveBooking API immediately
-      const reserveResult = await callReserveBooking(orderid, returnData);
+      const referenceNo = returnData.referenceNo || orderid.split('_')[0];
+      const order = await prisma.order.findUnique({ where: { referenceNo } });
       
-      if (reserveResult.success) {
-        logPayment(orderid, 'INFO', 'ReserveBooking completed successfully');
+      let reserveResult = { success: true };
+      
+      // Call ReserveBooking API immediately only if not already reserved
+      if (!order || !order.reserve_ticket) {
+        reserveResult = await callReserveBooking(orderid, returnData);
+        
+        if (reserveResult.success) {
+          logPayment(orderid, 'INFO', 'ReserveBooking completed successfully');
+        } else {
+          logPayment(orderid, 'WARN', 'ReserveBooking failed but continuing to success page', {
+            error: reserveResult.error
+          });
+        }
       } else {
-        logPayment(orderid, 'WARN', 'ReserveBooking failed but continuing to success page', {
-          error: reserveResult.error
-        });
+        logPayment(orderid, 'INFO', 'ReserveBooking skipped - already reserved');
       }
       
-      // Update Order in DB to PAID
+      // Update the one order row for this referenceNo (orderid is CHEZC5FH_xxx, referenceNo is CHEZC5FH)
       try {
-          // Attempt to find order by orderid (assuming it matches referenceNo)
           await prisma.order.update({
-             where: { referenceNo: orderid },
-             data: { 
+             where: { referenceNo },
+             data: {
+                 orderId: orderid,
                  paymentStatus: 'PAID',
-                 status: 'CONFIRMED'
+                 status: reserveResult.success ? 'CONFIRMED' : 'PENDING',
+                 transactionNo: tranID,
+                 paymentMethod: channel || undefined,
+                 reserve_ticket: reserveResult.success,
              }
           });
-          logPayment(orderid, 'INFO', 'Database updated: PAID/CONFIRMED');
+          logPayment(orderid, 'INFO', 'Database updated: PAID/CONFIRMED', { referenceNo });
       } catch (dbErr) {
           console.error('[Payment Return] DB Update Error:', dbErr);
           logPayment(orderid, 'WARN', 'Database update failed', { error: dbErr.message });
-          // Continue to redirect even if DB update fails (client side might resolve or manual check)
       }
 
       // Extract card type from channel
@@ -624,17 +636,18 @@ async function handleReturn(request) {
         });
       }
 
-      // Update Order in DB to FAILED
+      // Update order by referenceNo — only if not already paid
       try {
-          await prisma.order.update({
-             where: { referenceNo: orderid },
-             data: { 
-                 paymentStatus: 'FAILED'
-                 // typically we keep status as PENDING or cancel it. Let's keep PENDING or update to CANCELLED only if sure.
-                 // safe to mark paymentStatus FAILED.
-             }
-          });
-          logPayment(orderid, 'INFO', 'Database updated: FAILED');
+          const referenceNo =
+            returnData.referenceNo || orderid.split('_')[0];
+          const order = await prisma.order.findUnique({ where: { referenceNo } });
+          if (order && order.paymentStatus !== 'PAID') {
+            await prisma.order.update({
+              where: { referenceNo },
+              data: { paymentStatus: 'FAILED' },
+            });
+          }
+          logPayment(orderid, 'INFO', 'Database updated: FAILED', { referenceNo });
       } catch (dbErr) {
           console.error('[Payment Return] DB Update Error:', dbErr);
           logPayment(orderid, 'WARN', 'Database update failed', { error: dbErr.message });

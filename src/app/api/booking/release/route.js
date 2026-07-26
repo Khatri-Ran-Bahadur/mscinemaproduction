@@ -28,9 +28,8 @@ export async function POST(request) {
       }
       
       if (!orderRecord) {
-        orderRecord = await prisma.order.findFirst({
+        orderRecord = await prisma.order.findUnique({
           where: { referenceNo: referenceNo },
-          orderBy: { createdAt: 'desc' }
         });
       }
 

@@ -7,6 +7,7 @@ import { NextResponse } from "next/server";
 import crypto from "crypto";
 import { storeBookingDetails } from "@/utils/booking-storage";
 import { prisma } from "@/lib/prisma";
+import { queryPaymentStatus, callReserveBooking } from "@/utils/molpay";
 
 // Fiuu Payment Gateway Configuration from environment variables
 const FIUU_CONFIG = {
@@ -107,13 +108,107 @@ export async function POST(request) {
       );
     }
 
-    // 1. Check if an order already exists for this referenceNo
+    // 1. One order per referenceNo — look up existing row
     const existingOrder = await prisma.order.findUnique({
       where: { referenceNo: referenceNo },
     });
 
-    // Generate a fresh unique Order ID for every payment attempt.
-    // Format: {referenceNo}_{8-digit-timestamp}{random} (One underscore after referenceNo)
+    const selectedPaymentOption = payment_options || "";
+    const billName =
+      `${billingFirstName || ""} ${billingLastName || ""}`.trim() || "Customer";
+    const amount = parseFloat(total_amount);
+
+    if (isNaN(amount) || amount <= 0) {
+      return NextResponse.json(
+        { status: false, error_desc: "Invalid amount" },
+        { status: 400 },
+      );
+    }
+
+    // 2. Already PAID in DB — do not send to Fiuu again
+    if (existingOrder?.paymentStatus === "PAID") {
+      return NextResponse.json(
+        {
+          status: false,
+          already_paid: true,
+          error_desc:
+            "This booking is already paid. Please check your email for the ticket.",
+          referenceNo,
+          orderId: existingOrder.orderId,
+        },
+        { status: 409 },
+      );
+    }
+
+    // 3. Before changing orderId, check Fiuu for the current orderId on this reference
+    if (existingOrder?.orderId) {
+      const fiuu = await queryPaymentStatus(
+        existingOrder.orderId,
+        amount.toFixed(2),
+      );
+
+      if (fiuu.status === "00") {
+        let reserveOk = existingOrder.reserve_ticket;
+        if (!reserveOk && cinemaId && showId) {
+          const reserveResult = await callReserveBooking(
+            existingOrder.orderId,
+            fiuu.tranID || existingOrder.orderId,
+            fiuu.raw?.Channel || existingOrder.paymentMethod || "Online",
+            "",
+            {
+              cinemaId,
+              showId,
+              referenceNo,
+              membershipId: membershipId || existingOrder.membershipId || "0",
+              storedDetails: { token: token || existingOrder.token || "" },
+            },
+          );
+          reserveOk = reserveResult.success;
+        }
+
+        await prisma.order.update({
+          where: { referenceNo },
+          data: {
+            paymentStatus: "PAID",
+            status: reserveOk ? "CONFIRMED" : "PENDING",
+            reserve_ticket: reserveOk,
+            transactionNo: fiuu.tranID || existingOrder.transactionNo,
+            paymentMethod: fiuu.raw?.Channel || existingOrder.paymentMethod,
+          },
+        });
+        console.log(
+          `[Payment Create] Reference ${referenceNo} paid at Fiuu (${existingOrder.orderId}) — synced DB, blocking new payment`,
+        );
+        return NextResponse.json(
+          {
+            status: false,
+            already_paid: true,
+            error_desc:
+              "This booking is already paid. Please check your email for the ticket.",
+            referenceNo,
+            orderId: existingOrder.orderId,
+            transactionNo: fiuu.tranID,
+          },
+          { status: 409 },
+        );
+      }
+
+      if (fiuu.status === "22") {
+        return NextResponse.json(
+          {
+            status: false,
+            payment_pending: true,
+            error_desc:
+              "A payment is still being processed. Please wait a few minutes.",
+            referenceNo,
+            orderId: existingOrder.orderId,
+          },
+          { status: 409 },
+        );
+      }
+    }
+
+    // 4. Not paid — generate new orderId and update the same order row
     const shortTs = Math.floor(Date.now() / 1000)
       .toString()
       .slice(-8);
@@ -121,7 +216,7 @@ export async function POST(request) {
     const orderId = `${referenceNo}_${shortTs}${random}`;
 
     console.log(
-      `[Payment Create] Fresh Order ID generated: ${orderId} for Reference No: ${referenceNo}`,
+      `[Payment Create] Order ID ${orderId} for reference ${referenceNo}`,
     );
 
     // Use return URL and cancel URL from env if provided, otherwise use from request
@@ -190,20 +285,6 @@ export async function POST(request) {
       );
     }
 
-    const selectedPaymentOption = payment_options || "";
-    const billName =
-      `${billingFirstName || ""} ${billingLastName || ""}`.trim() || "Customer";
-    const amount = parseFloat(total_amount);
-
-    if (isNaN(amount) || amount <= 0) {
-      return NextResponse.json(
-        { status: false, error_desc: "Invalid amount" },
-        { status: 400 },
-      );
-    }
-
-    // --- 2. Perform Atomic Database Update (Upsert) ---
-    // This ensures we have a record in our database BEFORE the user sees the payment gateway
     const paymentMethodName = selectedPaymentOption || "Online";
 
     const malaysiaLocalToUTCDate = (dateTimeStr) => {
@@ -225,7 +306,7 @@ export async function POST(request) {
       update: {
         orderId: orderId,
         paymentMethod: paymentMethodName,
-        paymentStatus: existingOrder?.paymentStatus || "PENDING",
+        paymentStatus: "PENDING",
         status:
           existingOrder?.status === "CANCELLED"
             ? "PENDING"

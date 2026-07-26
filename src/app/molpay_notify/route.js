@@ -21,6 +21,9 @@ async function handleCallback(request) {
       returnData[key] = value;
     });
 
+    // Capture raw body
+    const rawBody = await request.clone().text().catch(() => "");
+
     // 2️⃣ POST form or JSON
     if (request.method === 'POST') {
       const contentType = request.headers.get('content-type') || '';
@@ -29,18 +32,36 @@ async function handleCallback(request) {
         if (formData) {
           for (const [k, v] of formData.entries()) returnData[k] = v;
         }
+        
+        // Fallback: If formData failed or was empty, parse rawBody
+        if (Object.keys(returnData).length === 0 && rawBody) {
+          const params = new URLSearchParams(rawBody);
+          const obj = Object.fromEntries(params.entries());
+          Object.assign(returnData, obj);
+        }
       } else if (contentType.includes('application/json')) {
         const jsonBody = await request.json().catch(() => ({}));
         Object.assign(returnData, jsonBody);
+      } else {
+        // fallback parsing for unknown content types
+        const params = new URLSearchParams(rawBody);
+        const obj = Object.fromEntries(params.entries());
+        if (Object.keys(obj).length) {
+          Object.assign(returnData, obj);
+        }
       }
     }
 
     const orderid = returnData.orderid || `unknown_${Date.now()}`;
 
-      // Log callback
-    if(returnData.orderid){
-        writeMolpayLog(orderid, 'NOTIFY', returnData);
-    }
+    // Always log the raw request and parsed data for debugging
+    writeMolpayLog(orderid, 'NOTIFY_RAW_REQUEST', {
+      method: request.method,
+      url: request.url,
+      rawBody: rawBody,
+      parsedData: returnData,
+      headers: Object.fromEntries(request.headers.entries())
+    });
     
 
     // Verify signature

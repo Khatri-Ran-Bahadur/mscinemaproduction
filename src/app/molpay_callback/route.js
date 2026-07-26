@@ -77,30 +77,29 @@ async function handleCallback(request) {
         contentType.includes("application/x-www-form-urlencoded") ||
         contentType.includes("multipart/form-data")
       ) {
-
         const formData = await request.formData().catch(() => null);
-
         if (formData) {
           for (const [k, v] of formData.entries()) {
             returnData[k] = v;
           }
         }
-
+        
+        // Fallback: If formData failed or was empty, parse rawBody
+        if (Object.keys(returnData).length === 0 && rawBody) {
+          const params = new URLSearchParams(rawBody);
+          const obj = Object.fromEntries(params.entries());
+          Object.assign(returnData, obj);
+        }
       } else if (contentType.includes("application/json")) {
-
         const jsonBody = await request.json().catch(() => ({}));
         Object.assign(returnData, jsonBody);
-
       } else {
-
-        // fallback parsing
+        // fallback parsing for unknown content types
         const params = new URLSearchParams(rawBody);
         const obj = Object.fromEntries(params.entries());
-
         if (Object.keys(obj).length) {
           Object.assign(returnData, obj);
         }
-
       }
     }
 
@@ -214,15 +213,21 @@ async function handleCallback(request) {
         }
 
 
-        const reserveResult = await callReserveBooking(
-          orderid,
-          returnData.tranID,
-          returnData.channel,
-          returnData.appcode,
-          returnData
-        );
+        if (!order.reserve_ticket) {
+          const reserveResult = await callReserveBooking(
+            orderid,
+            returnData.tranID,
+            returnData.channel,
+            returnData.appcode,
+            returnData
+          );
 
-        if (reserveResult.success) {
+          if (reserveResult.success) {
+            updateData.reserve_ticket = true;
+            updateData.cancel_ticket = false;
+          }
+        } else {
+          // Already reserved, keep the flag
           updateData.reserve_ticket = true;
           updateData.cancel_ticket = false;
         }

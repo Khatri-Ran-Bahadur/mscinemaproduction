@@ -6,6 +6,7 @@ import { X, CheckCircle } from 'lucide-react';
 import Header from '@/components/header';
 import Footer from '@/components/footer';
 import TicketModal from '@/components/TicketModal';
+import { PAYMENT_IN_PROGRESS_KEY, PAYMENT_TIMER_START_KEY } from '@/config/booking';
 
 function PaymentSuccessContent() {
   const searchParams = useSearchParams();
@@ -16,6 +17,13 @@ function PaymentSuccessContent() {
   const [isLoadingTicket, setIsLoadingTicket] = useState(false);
   const [orderid, setOrderid] = useState('');
   
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem(PAYMENT_IN_PROGRESS_KEY);
+      localStorage.removeItem(PAYMENT_TIMER_START_KEY);
+    }
+  }, []);
+
   // Extract only orderid from URL (secure - minimal data exposure)
   useEffect(() => {
     if (typeof window !== 'undefined' && searchParams) {

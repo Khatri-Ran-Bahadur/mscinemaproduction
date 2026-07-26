@@ -17,6 +17,10 @@ import {
   decryptIds,
 } from "@/utils/encryption";
 import { formatHallName } from "@/utils/hall";
+import {
+  BOOKING_LOCK_TIMER_SECONDS,
+  PAYMENT_TIMER_START_KEY,
+} from "@/config/booking";
 
 export default function SeatSelection() {
   const router = useRouter();
@@ -66,7 +70,7 @@ export default function SeatSelection() {
   const [isConfirming, setIsConfirming] = useState(false);
   const [confirmedReferenceNo, setConfirmedReferenceNo] = useState(null); // Store confirmed reference number
   const [lockReferenceNo, setLockReferenceNo] = useState(null); // Store referenceNo from lockSeat API
-  const [timeLeft, setTimeLeft] = useState(300); // 5 minutes = 300 seconds
+  const [timeLeft, setTimeLeft] = useState(BOOKING_LOCK_TIMER_SECONDS);
   const [failedSeats, setFailedSeats] = useState([]); // Track seats that failed to lock recently
   // Form state for booking modal
   const [formData, setFormData] = useState({
@@ -170,7 +174,7 @@ export default function SeatSelection() {
       const elapsed = Math.floor(
         (Date.now() - parseInt(timerStartTime)) / 1000,
       );
-      const timerDuration = 120; // 2 minutes for booking modal
+      const timerDuration = BOOKING_LOCK_TIMER_SECONDS;
       const remaining = Math.max(0, timerDuration - elapsed);
 
       if (remaining > 0) {
@@ -1648,7 +1652,7 @@ export default function SeatSelection() {
 
       // Store reference number and start timer
       setLockReferenceNo(referenceNo);
-      setTimeLeft(300); // Reset to 5 minutes (300 seconds)
+      setTimeLeft(BOOKING_LOCK_TIMER_SECONDS);
       setTimerActive(true);
 
       // Store timer start time (lock time) in localStorage for payment page
@@ -1829,6 +1833,8 @@ export default function SeatSelection() {
         localStorage.getItem("timerStartTime") || Date.now().toString();
       localStorage.setItem("timerStartTime", lockTime);
       localStorage.setItem("confirmedReferenceNo", confirmedRef);
+      // Start 15-minute payment window from confirm (not lock)
+      localStorage.setItem(PAYMENT_TIMER_START_KEY, Date.now().toString());
 
       // Store booking data for payment gateway
       const priceInfo = calculateDetailedPrice();

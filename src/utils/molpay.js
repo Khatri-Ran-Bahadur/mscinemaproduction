@@ -123,13 +123,13 @@ export function verifyReturnSignature(data) {
     if (
       !tranID ||
       !orderid ||
-      !status ||
+      status === undefined ||
       !domain ||
       !amount ||
       !currency ||
       !paydate ||
-      !appcode ||
-      !skey
+      appcode === undefined ||
+      skey === undefined
     )
       return false;
 
@@ -139,8 +139,9 @@ export function verifyReturnSignature(data) {
     const key0 = md5(
       `${tranID}${orderid}${status}${domain}${amount}${currency}`,
     );
+    const safeAppcode = appcode || '';
     const key1 = md5(
-      `${paydate}${domain}${key0}${appcode}${RMS_CONFIG.secretKey}`,
+      `${paydate}${domain}${key0}${safeAppcode}${RMS_CONFIG.secretKey}`,
     );
     return skey === key1 || skey.toLowerCase() === key1.toLowerCase();
   } catch (e) {
