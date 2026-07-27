@@ -102,7 +102,7 @@ function buildTicketInfo(order, t) {
     cinemaName: b.cinemaName || t?.CinemaName || order.cinemaName || 'MS Cinemas',
     showDate: displayShowDate,
     showTime: displayShowTime,
-    bookingId: order.referenceNo,
+    bookingId: order.orderId || order.referenceNo,
     referenceNo: order.referenceNo,
     trackingId: order.transactionNo || order.orderId || 'N/A',
     seatDisplay: finalSeatDisplay,

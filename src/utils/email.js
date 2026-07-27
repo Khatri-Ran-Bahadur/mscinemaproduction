@@ -298,21 +298,55 @@ export const sendTicketEmail = async (
   } = ticketData;
 
 
-  const getTimeonly = (timeStr) => {
+  const formatShowTime = (timeStr) => {
     if (!timeStr) return "";
-    try {
-      const date = new Date(timeStr);
-      // Format to 12-hour time
-      const time12h = date.toLocaleTimeString("en-US", {
-        hour: "numeric",
-        minute: "2-digit",
-        hour12: true,
-      });
-      return time12h;
-    } catch {
-      return timeStr;
+    const s = String(timeStr).trim();
+
+    // 1. If already in 12-hour format with AM/PM e.g. "05:45 PM", "5:45 PM", "05:45 AM"
+    if (/^\d{1,2}:\d{2}\s*(AM|PM)$/i.test(s)) {
+      return s.toUpperCase();
     }
+
+    // 2. Extract time portion from ISO/datetime string like "2026-07-27 17:45:00" or "2026-07-27T17:45:00"
+    let timePart = s;
+    if (s.includes(" ") || s.includes("T")) {
+      const parts = s.split(/[ T]/);
+      timePart = parts.find((p) => p.includes(":")) || parts[1] || parts[0];
+    }
+
+    // 3. Directly format HH:MM:SS or HH:MM string to 12-hour AM/PM format WITHOUT timezone conversion
+    if (timePart && timePart.includes(":")) {
+      const [h, m] = timePart.split(":");
+      const hours = parseInt(h, 10);
+      const minutes = m ? m.substring(0, 2) : "00";
+      if (!isNaN(hours) && hours >= 0 && hours < 24) {
+        const ampm = hours >= 12 ? "PM" : "AM";
+        const h12 = hours % 12 || 12;
+        return `${String(h12).padStart(2, "0")}:${minutes} ${ampm}`;
+      }
+    }
+
+    return s;
   };
+
+  const formatShowDate = (dateStr) => {
+    if (!dateStr) return "";
+    const s = String(dateStr).trim();
+    if (s.includes(" ") || s.includes("T")) {
+      const datePart = s.split(/[ T]/)[0];
+      if (/^\d{4}-\d{2}-\d{2}$/.test(datePart)) return datePart;
+    }
+    return s;
+  };
+
+  // Clean Order No (Display exact bookingId from database/order payload)
+  let displayOrderNo = bookingId && bookingId !== "N/A" ? bookingId : (referenceNo && referenceNo !== "N/A" ? referenceNo : ticketData.bookingId || "N/A");
+
+  // Clean Transaction No
+  let displayTranNo = trackingId;
+  if (!displayTranNo || displayTranNo === "N/A") {
+    displayTranNo = ticketData.transactionNo || ticketData.tranID || ticketData.tranId || "N/A";
+  }
 
   // Generate QR code as Buffer for attachment
   const qrCodeData = referenceNo !== "N/A" ? referenceNo : bookingId;
@@ -486,11 +520,11 @@ Malaysia
                   </tr>
                   <tr>
                     <td style="color: ${colors.gray}; font-weight: bold; border-bottom: 1px solid ${colors.border};">Order No:</td>
-                    <td style="color: ${colors.gold}; font-family: monospace; font-size: 14px; border-bottom: 1px solid ${colors.border};">${bookingId}</td>
+                    <td style="color: ${colors.gold}; font-family: monospace; font-size: 14px; border-bottom: 1px solid ${colors.border};">${escapeHtml(displayOrderNo)}</td>
                   </tr>
                   <tr>
                     <td style="color: ${colors.gray}; font-weight: bold; border-bottom: 1px solid ${colors.border};">Transaction No:</td>
-                    <td style="color: ${colors.light}; font-family: monospace; border-bottom: 1px solid ${colors.border};">${trackingId}</td>
+                    <td style="color: ${colors.light}; font-family: monospace; border-bottom: 1px solid ${colors.border};">${escapeHtml(displayTranNo)}</td>
                   </tr>
                   <tr>
                     <td style="color: ${colors.gray}; font-weight: bold; border-bottom: 1px solid ${colors.border};">Printed On:</td>
@@ -519,8 +553,8 @@ Malaysia
                   </thead>
                   <tbody>
                     <tr style="background-color: ${colors.tableRow};">
-                      <td style="border-bottom: 1px solid ${colors.border}; color: ${colors.light}; font-weight: bold;">${escapeHtml(showDate)}</td>
-                      <td style="border-bottom: 1px solid ${colors.border}; color: ${colors.light}; font-weight: bold;">${escapeHtml(showTime)}</td>
+                      <td style="border-bottom: 1px solid ${colors.border}; color: ${colors.light}; font-weight: bold;">${escapeHtml(formatShowDate(showDate))}</td>
+                      <td style="border-bottom: 1px solid ${colors.border}; color: ${colors.light}; font-weight: bold;">${escapeHtml(formatShowTime(showTime))}</td>
                       <td style="border-bottom: 1px solid ${colors.border}; color: ${colors.gold}; font-weight: bold;">${escapeHtml(movieName).toUpperCase()}</td>
                     </tr>
                   </tbody>

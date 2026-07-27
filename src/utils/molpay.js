@@ -7,21 +7,8 @@ import { NextResponse } from "next/server";
 import { API_CONFIG } from "@/config/api";
 
 export function writeMolpayLog(referenceNo, type, payload) {
-  try {
-    const logDir = path.join(process.cwd(), "logs");
-    if (!fs.existsSync(logDir)) {
-      fs.mkdirSync(logDir, { recursive: true });
-    }
-
-    const logFile = path.join(logDir, `molpay_${referenceNo}.txt`);
-    const timestamp = new Date().toISOString();
-    const logEntry = `[${timestamp}] ${type}\n${JSON.stringify(payload, null, 2)}\n\n`;
-
-    fs.appendFileSync(logFile, logEntry);
-
-    // console.log(`[MOLPay API Log] ${type}`);
-  } catch (err) {
-    // console.error('[MOLPay API Log] Failed:', err);
+  if (process.env.NODE_ENV !== "production" && referenceNo && !String(referenceNo).includes("unknown")) {
+    console.log(`[MOLPay API Log] ${referenceNo} - ${type}`);
   }
 }
 
@@ -155,7 +142,7 @@ export async function callReserveBooking(
   tranID,
   channel,
   appcode,
-  returnData,
+  returnData = {},
 ) {
   try {
     let cinemaId = returnData.cinemaId || returnData.cinema_id || "";
@@ -163,17 +150,32 @@ export async function callReserveBooking(
     let referenceNo = returnData.referenceNo || returnData.refno || "";
     let membershipId =
       returnData.membershipId || returnData.membership_id || "0";
-    let token = "";
+    let token = returnData.token || returnData.authToken || "";
 
-    if (!cinemaId || !showId || !referenceNo) {
-      const stored = returnData.storedDetails;
-      if (stored) {
-        cinemaId = cinemaId || stored.cinemaId;
-        showId = showId || stored.showId;
-        referenceNo = referenceNo || stored.referenceNo;
-        membershipId = membershipId || stored.membershipId || "0";
-        token = stored.token || "";
-      }
+    const stored = returnData.storedDetails;
+    if (stored) {
+      cinemaId = cinemaId || stored.cinemaId;
+      showId = showId || stored.showId;
+      referenceNo = referenceNo || stored.referenceNo;
+      membershipId = membershipId || stored.membershipId || "0";
+      token = token || stored.token || "";
+    }
+
+    if (!token && (orderid || referenceNo)) {
+      try {
+        const existingOrder = await prisma.order.findFirst({
+          where: {
+            OR: [
+              orderid ? { orderId: orderid } : undefined,
+              referenceNo ? { referenceNo: referenceNo } : undefined,
+            ].filter(Boolean),
+          },
+          select: { token: true },
+        });
+        if (existingOrder?.token) {
+          token = existingOrder.token;
+        }
+      } catch (_) {}
     }
 
     if (!cinemaId || !showId || !referenceNo)
@@ -215,22 +217,37 @@ export async function callCancelBooking(
   tranID,
   channel,
   errorDesc,
-  returnData,
+  returnData = {},
 ) {
   try {
     let cinemaId = returnData.cinemaId || returnData.cinema_id || "";
     let showId = returnData.showId || returnData.show_id || "";
     let referenceNo = returnData.referenceNo || returnData.refno || "";
-    let token = "";
+    let token = returnData.token || returnData.authToken || "";
 
-    if (!cinemaId || !showId || !referenceNo) {
-      const stored = returnData.storedDetails;
-      if (stored) {
-        cinemaId = cinemaId || stored.cinemaId;
-        showId = showId || stored.showId;
-        referenceNo = referenceNo || stored.referenceNo;
-        token = stored.token || "";
-      }
+    const stored = returnData.storedDetails;
+    if (stored) {
+      cinemaId = cinemaId || stored.cinemaId;
+      showId = showId || stored.showId;
+      referenceNo = referenceNo || stored.referenceNo;
+      token = token || stored.token || "";
+    }
+
+    if (!token && (orderid || referenceNo)) {
+      try {
+        const existingOrder = await prisma.order.findFirst({
+          where: {
+            OR: [
+              orderid ? { orderId: orderid } : undefined,
+              referenceNo ? { referenceNo: referenceNo } : undefined,
+            ].filter(Boolean),
+          },
+          select: { token: true },
+        });
+        if (existingOrder?.token) {
+          token = existingOrder.token;
+        }
+      } catch (_) {}
     }
 
     if (!cinemaId || !showId || !referenceNo)
@@ -464,7 +481,7 @@ export async function queryRefundStatus(id, type = "txn") {
 }
 
 export function acknowledgeResponse() {
-  return new NextResponse("RECEIVEOK", {
+  return new NextResponse("CBRECEIVEOK", {
     status: 200,
     headers: { "Content-Type": "text/plain" },
   });

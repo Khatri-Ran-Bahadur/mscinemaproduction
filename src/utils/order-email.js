@@ -18,6 +18,16 @@ export async function sendMobileTicketEmailForOrder(orderId, tranID = '') {
       return { success: false, error: `Order not found:${orderId}` };
     }
 
+    if (order.paymentStatus !== 'PAID') {
+      console.warn(`[Mobile Email Service] Order ${orderId} is NOT PAID (status: ${order.paymentStatus}). Skipping email.`);
+      return { success: false, error: 'Order is not paid yet' };
+    }
+
+    if (order.isSendMail) {
+      console.log(`[Mobile Email Service] Email already sent for order ${orderId}. Skipping duplicate email.`);
+      return { success: true, message: 'Ticket email was already sent previously.' };
+    }
+
     // 1. Fetch fresh ticket data from Cinema API (Highly Recommended for accuracy)
     let apiTicketData = null;
     if (order.cinemaId && order.showId && order.referenceNo) {
@@ -73,6 +83,8 @@ export async function sendMobileTicketEmailForOrder(orderId, tranID = '') {
       return `${parseInt(day)} ${months[monthIndex]} ${year}`;
     };
 
+    const bDetails = t.bookingDetails || {};
+
     // 5. Build ticketInfoData payload (Casing compatible with email.js)
     const ticketInfoData = {
       customerName: t.CustomerName || t.customerName || order.customerName || 'Guest',
@@ -87,13 +99,13 @@ export async function sendMobileTicketEmailForOrder(orderId, tranID = '') {
       hallName: formatHallName(t.HallName || t.hallName || order.hallName || 'Hall'),
       cinemaName: t.CinemaName || t.cinemaName || order.cinemaName || 'Cinema',
 
-      // Use API formatted values directly, or parse API date format (YYYY-MM-DD to "D Mon YYYY")
-      showDate: t.bookingDetails.showDate || '',
-      showTime: t.bookingDetails.showTime || '',
+      // Use API formatted values directly
+      showDate: bDetails.showDate || t.ShowDate || t.showDate || '',
+      showTime: bDetails.showTime || t.ShowTime || t.showTime || '',
 
-      bookingId: order.referenceNo,
+      bookingId: t.BookingID || t.bookingID || t.orderId || order.referenceNo,
       referenceNo: t.ReferenceNo || t.referenceNo || order.referenceNo,
-      trackingId: tranID || order.transactionNo || 'N/A',
+      trackingId: tranID || t.TrackingID || t.TransactionNo || order.transactionNo || 'N/A',
       seatDisplay: Object.entries(seatGroups).map(([type, seats]) => ({ type, seats })),
       totalPersons: finalTicketDetails.length,
       subCharge: parseFloat(t.SubCharge || t.subCharge || 0),

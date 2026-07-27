@@ -52,17 +52,12 @@ async function handleCallback(request) {
       }
     }
 
-    const orderid = returnData.orderid || `unknown_${Date.now()}`;
+    // Quietly acknowledge empty health-check pings
+    if (Object.keys(returnData).length === 0) {
+      return acknowledgeResponse();
+    }
 
-    // Always log the raw request and parsed data for debugging
-    writeMolpayLog(orderid, 'NOTIFY_RAW_REQUEST', {
-      method: request.method,
-      url: request.url,
-      rawBody: rawBody,
-      parsedData: returnData,
-      headers: Object.fromEntries(request.headers.entries())
-    });
-    
+    const orderid = returnData.orderid || `unknown_${Date.now()}`;
 
     // Verify signature
     const isValidSignature = verifyReturnSignature(returnData);

@@ -25,33 +25,55 @@ export async function GET(request) {
         const anomalies = [];
 
         for (const order of cancelledOrders) {
-            // Check with Fiuu Gateway
+            let isPaidInGateway = false;
+            let tranNo = order.transactionNo;
+
+            // 1. Check current orderId with Fiuu Gateway
             if (order.orderId && order.totalAmount) {
                 const fiuuStatus = await queryPaymentStatus(order.orderId, order.totalAmount.toString());
-                
-                // If Fiuu says PAID, we found an anomaly!
                 if (fiuuStatus && fiuuStatus.status === '00') {
-                    
-                    // Mark it in DB
-                    await prisma.order.update({
-                        where: { id: order.id },
-                        data: {
-                            paymentStatus: 'PAID_BUT_RELEASED',
-                            transactionNo: fiuuStatus.tranID || order.transactionNo
-                        }
-                    });
-
-                    anomalies.push({
-                        orderId: order.orderId,
-                        referenceNo: order.referenceNo,
-                        customerName: order.customerName,
-                        phone: order.customerPhone,
-                        amount: order.totalAmount,
-                        transactionNo: fiuuStatus.tranID
-                    });
-
-                    console.log(`[ANOMALY DETECTED] Order ${order.orderId} was paid on Fiuu but is cancelled locally.`);
+                    isPaidInGateway = true;
+                    tranNo = fiuuStatus.tranID || tranNo;
                 }
+            }
+
+            // 2. If current orderId didn't return PAID, check PaymentLog for any paid attempt under referenceNo
+            if (!isPaidInGateway && order.referenceNo) {
+                const paidLog = await prisma.paymentLog.findFirst({
+                    where: {
+                        referenceNo: order.referenceNo,
+                        isSuccess: true,
+                    },
+                    orderBy: { createdAt: 'desc' },
+                });
+
+                if (paidLog) {
+                    isPaidInGateway = true;
+                    tranNo = paidLog.transactionNo || tranNo;
+                }
+            }
+
+            // If Fiuu or PaymentLog says PAID, we found an anomaly!
+            if (isPaidInGateway) {
+                // Mark it in DB
+                await prisma.order.update({
+                    where: { id: order.id },
+                    data: {
+                        paymentStatus: 'PAID_BUT_RELEASED',
+                        transactionNo: tranNo,
+                    }
+                });
+
+                anomalies.push({
+                    orderId: order.orderId,
+                    referenceNo: order.referenceNo,
+                    customerName: order.customerName,
+                    phone: order.customerPhone,
+                    amount: order.totalAmount,
+                    transactionNo: tranNo
+                });
+
+                console.log(`[ANOMALY DETECTED] Order ${order.orderId} (Ref: ${order.referenceNo}) was paid on Fiuu but is cancelled locally.`);
             }
         }
 

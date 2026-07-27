@@ -175,12 +175,10 @@ export async function GET(request) {
                 const displayShowDate = b.showDate || t.ShowDate || t.showDate || (o.showTime instanceof Date ? o.showTime.toLocaleDateString('en-CA', { timeZone: 'Asia/Kuala_Lumpur' }) : o.showTime) || '';
                 const displayShowTime = b.showTime || t.ShowTime || t.showTime || (o.showTime instanceof Date ? o.showTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Kuala_Lumpur' }) : o.showTime) || '';
 
-                const ticketInfo = order.emailInfo ? 
-                    (typeof order.emailInfo === 'string' ? JSON.parse(order.emailInfo) : order.emailInfo) 
-                    : {
+                const ticketInfo = {
                     customerName: b.name || t.CustomerName || t.customerName || o.customerName || 'Guest',
-                    customerEmail: b.email || t.CustomerEmail || o.customerEmail || 'N/A',
-                    customerPhone: b.mobileNo || t.CustomerPhone || o.customerPhone || 'N/A',
+                    customerEmail: o.customerEmail || b.email || t.CustomerEmail || 'N/A',
+                    customerPhone: o.customerPhone || b.mobileNo || t.CustomerPhone || 'N/A',
                     movieName: b.movieName || t.MovieName || t.movieName || o.movieTitle || o.movieName || 'Unknown Movie',
                     movieImage: t.MovieImage || t.movieImage || t.poster || '/img/banner.jpg',
                     genre: t.Genre || t.genre || 'N/A',
@@ -191,9 +189,9 @@ export async function GET(request) {
                     cinemaName: b.cinemaName || t.CinemaName || t.cinemaName || o.cinemaName || 'MS Cinemas',
                     showDate: displayShowDate,
                     showTime: displayShowTime,
-                    bookingId: b.bookingID || o.bookingId || o.referenceNo || 'N/A',
+                    bookingId: o.orderId || b.bookingID || o.referenceNo || 'N/A',
                     referenceNo: b.referenceNo || t.ReferenceNo || t.referenceNo || o.referenceNo || 'N/A',
-                    trackingId: t.TrackingID || t.trackingID || t.TransactionNo || o.transactionNo || 'N/A',
+                    trackingId: o.transactionNo || t.TrackingID || t.trackingID || t.TransactionNo || 'N/A',
                     seatDisplay: finalSeatDisplay,
                     totalPersons: totalPersons,
                     subCharge: parseFloat(t.SubCharge || t.subCharge || o.subCharge || 0),
@@ -201,7 +199,7 @@ export async function GET(request) {
                     ticketDetails: finalTicketDetails
                 };
 
-                // CRITICAL: Always overwrite showDate and showTime with fresh API values
+                // Always ensure showDate and showTime use exact values
                 ticketInfo.showDate = displayShowDate;
                 ticketInfo.showTime = displayShowTime;
 

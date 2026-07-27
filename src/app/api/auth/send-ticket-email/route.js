@@ -30,6 +30,39 @@ export async function POST(request) {
       );
     }
 
+    const refNo = ticketInfo.referenceNo !== 'N/A' ? ticketInfo.referenceNo : null;
+    const bookingId = ticketInfo.bookingId !== 'N/A' ? ticketInfo.bookingId : null;
+    
+    let targetOrder = null;
+    if (refNo || bookingId) {
+      targetOrder = await prisma.order.findFirst({
+        where: {
+          OR: [
+            refNo ? { referenceNo: refNo } : undefined,
+            bookingId ? { orderId: bookingId } : undefined,
+          ].filter(Boolean)
+        }
+      });
+    }
+
+    // Only send email if order is PAID, and avoid sending duplicates
+    if (targetOrder) {
+      if (targetOrder.paymentStatus !== 'PAID') {
+        console.warn(`API: Order ${targetOrder.referenceNo} is not PAID (status: ${targetOrder.paymentStatus}). Skipping email.`);
+        return NextResponse.json(
+          { success: false, message: 'Order is not paid yet. Ticket email skipped.' },
+          { status: 400 }
+        );
+      }
+      if (targetOrder.isSendMail) {
+        console.log(`API: Email already sent for order ${targetOrder.referenceNo}. Skipping duplicate email.`);
+        return NextResponse.json({
+          success: true,
+          message: 'Ticket email was already sent previously.',
+        });
+      }
+    }
+
     // Send ticket email
     console.log(`API: Attempting to send ticket email to ${email}`);
     const emailResult = await sendTicketEmail(email, ticketInfo);
@@ -37,36 +70,18 @@ export async function POST(request) {
 
     // Update Database Status
     try {
-        const refNo = ticketInfo.referenceNo !== 'N/A' ? ticketInfo.referenceNo : null;
-        const bookingId = ticketInfo.bookingId !== 'N/A' ? ticketInfo.bookingId : null;
-        
-        if (refNo || bookingId) {
-            // Try to find the order
-            const order = await prisma.order.findFirst({
-                where: {
-                    OR: [
-                        { referenceNo: refNo },
-                        { orderId: bookingId }
-                    ]
-                }
-            });
-
-            if (order) {
-                await prisma.order.update({
-                    where: { id: order.id },
-                    data: {
-                        isSendMail: true,
-                        emailInfo: ticketInfo // Store the JSON used to send
-                    }
-                });
-                console.log(`API: Updated order ${order.referenceNo} email status to SENT.`);
-            } else {
-                console.warn(`API: Order not found for Ref: ${refNo} / ID: ${bookingId}, skipped DB update.`);
-            }
-        }
+      if (targetOrder) {
+        await prisma.order.update({
+          where: { id: targetOrder.id },
+          data: {
+            isSendMail: true,
+            emailInfo: ticketInfo
+          }
+        });
+        console.log(`API: Updated order ${targetOrder.referenceNo} email status to SENT.`);
+      }
     } catch (dbErr) {
-        console.error('API Error updating DB status:', dbErr);
-        // Don't fail the response if email was sent but DB update failed
+      console.error('API Error updating DB status:', dbErr);
     }
 
     return NextResponse.json({

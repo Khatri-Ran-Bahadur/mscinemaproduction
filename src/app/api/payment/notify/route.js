@@ -120,7 +120,6 @@ export async function POST(request) {
     // Extract payment data (per official documentation)
     const {
       amount,
-      orderid,
       tranID,
       domain,
       status,
@@ -279,9 +278,9 @@ export async function POST(request) {
                             cinemaName: t.CinemaName || order.cinemaName || 'Cinema',
                             showDate: t.ShowDate || t.showDate || (order.showTime instanceof Date ? order.showTime.toLocaleDateString('en-CA', { timeZone: 'Asia/Kuala_Lumpur' }) : order.showTime) || 'N/A',
                             showTime: t.ShowTime || t.showTime || (order.showTime instanceof Date ? order.showTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Kuala_Lumpur' }) : order.showTime) || 'N/A',
-                            bookingId: order.referenceNo,
+                            bookingId: t.BookingID || t.bookingID || t.orderId || order.referenceNo,
                             referenceNo: t.ReferenceNo || order.referenceNo,
-                            trackingId: tranID,
+                            trackingId: tranID || t.TrackingID || t.TransactionNo || order.transactionNo || 'N/A',
                             seatDisplay: finalSeatDisplay,
                             totalPersons: finalSeatDisplay.reduce((s, g) => s + g.seats.length, 0),
                             subCharge: parseFloat(t.SubCharge || 0),
@@ -289,8 +288,8 @@ export async function POST(request) {
                             ticketDetails: finalTicketDetails
                         };
 
-                        // 5. Send Email
-                        if (ticketInfoData.customerEmail !== 'N/A') {
+                        // 5. Send Email (Only if not already sent)
+                        if (!order.isSendMail && ticketInfoData.customerEmail && ticketInfoData.customerEmail !== 'N/A') {
                             console.log(`[Payment Notify] Sending email to ${ticketInfoData.customerEmail}`);
                             await sendTicketEmail(ticketInfoData.customerEmail, ticketInfoData);
                             emailSent = true;

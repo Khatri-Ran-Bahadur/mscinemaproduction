@@ -103,17 +103,10 @@ async function handleCallback(request) {
       }
     }
 
-    /**
-     * Write full callback request log
-     */
-    writeCallbackLog({
-      method: request.method,
-      url: request.url,
-      headers,
-      queryParams,
-      rawBody,
-      parsedData: returnData
-    });
+    // If request contains no transaction parameters (e.g. gateway health-check ping), acknowledge quietly
+    if (Object.keys(returnData).length === 0) {
+      return acknowledgeResponse();
+    }
 
     const orderid = returnData.orderid || `unknown_${Date.now()}`;
 
@@ -179,10 +172,12 @@ async function handleCallback(request) {
         });
 
         if (order) {
-          order = await prisma.order.update({
-            where: { id: order.id },
-            data: { orderId: orderid }
-          });
+          if (order.paymentStatus !== "PAID") {
+            order = await prisma.order.update({
+              where: { id: order.id },
+              data: { orderId: orderid }
+            });
+          }
         }
       }
     }
@@ -234,26 +229,30 @@ async function handleCallback(request) {
 
       } else if (finalStatus === "22") {
 
-        updateData.paymentStatus = "PENDING";
-        updateData.status = "PENDING";
+        if (order.paymentStatus !== "PAID") {
+          updateData.paymentStatus = "PENDING";
+          updateData.status = "PENDING";
+        }
 
       } else {
 
-        updateData.paymentStatus = "FAILED";
-        updateData.status = "CANCELLED";
+        if (order.paymentStatus !== "PAID") {
+          updateData.paymentStatus = "FAILED";
+          updateData.status = "CANCELLED";
 
-        if (!order.cancel_ticket) {
+          if (!order.cancel_ticket) {
 
-          const cancelResult = await callCancelBooking(
-            orderid,
-            returnData.tranID,
-            returnData.channel,
-            returnData.error_desc || "Payment failed",
-            returnData
-          );
+            const cancelResult = await callCancelBooking(
+              orderid,
+              returnData.tranID,
+              returnData.channel,
+              returnData.error_desc || "Payment failed",
+              returnData
+            );
 
-          if (cancelResult.success || cancelResult.error?.includes("already")) {
-            updateData.cancel_ticket = true;
+            if (cancelResult.success || cancelResult.error?.includes("already")) {
+              updateData.cancel_ticket = true;
+            }
           }
         }
       }

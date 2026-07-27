@@ -60,10 +60,12 @@ async function handleReturn(request) {
         });
 
         if (order) {
-          order = await prisma.order.update({
-            where: { id: order.id },
-            data: { orderId: orderid }
-          });
+          if (order.paymentStatus !== 'PAID') {
+            order = await prisma.order.update({
+              where: { id: order.id },
+              data: { orderId: orderid }
+            });
+          }
         }
       }
     }
@@ -104,10 +106,12 @@ async function handleReturn(request) {
       }
 
     } else if (finalStatus === '22') {
-      await prisma.order.update({
-        where: { orderId: orderid },
-        data: { paymentStatus: 'PENDING', status: 'PENDING', transactionNo: returnData.tranID }
-      });
+      if (order.paymentStatus !== 'PAID') {
+        await prisma.order.update({
+          where: { orderId: orderid },
+          data: { paymentStatus: 'PENDING', status: 'PENDING', transactionNo: returnData.tranID }
+        });
+      }
     } else {
       // Payment Failed Case
       if (!order.cancel_ticket && order.paymentStatus !== 'PAID') {
@@ -126,7 +130,7 @@ async function handleReturn(request) {
             cancel_ticket: iscancel
           }
         });
-      } else if (order.paymentStatus !== 'FAILED') {
+      } else if (order.paymentStatus !== 'FAILED' && order.paymentStatus !== 'PAID') {
         // Just ensure status is updated even if cancel was done by callback
         await prisma.order.update({
           where: { orderId: orderid },
