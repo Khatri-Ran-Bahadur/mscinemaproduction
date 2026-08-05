@@ -61,10 +61,18 @@ async function handleReturn(request) {
 
         if (order) {
           if (order.paymentStatus !== 'PAID') {
-            order = await prisma.order.update({
-              where: { id: order.id },
-              data: { orderId: orderid }
-            });
+            if (finalStatus === 'PAID' || finalStatus === '00' || returnData.status === '00') {
+              order = await prisma.order.update({
+                where: { id: order.id },
+                data: { orderId: orderid }
+              });
+            } else {
+              console.warn(`[Return] Ignoring FAILED return for old OrderID: ${orderid}. Current DB OrderID is ${order.orderId}`);
+              order = null; // Do not apply old failures to the current active order
+            }
+          } else {
+            // Already paid, do not override with an old order id
+            order = null;
           }
         }
       }

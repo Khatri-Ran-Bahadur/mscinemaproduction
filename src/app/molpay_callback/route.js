@@ -173,10 +173,18 @@ async function handleCallback(request) {
 
         if (order) {
           if (order.paymentStatus !== "PAID") {
-            order = await prisma.order.update({
-              where: { id: order.id },
-              data: { orderId: orderid }
-            });
+            if (finalStatus === "PAID" || finalStatus === "00" || returnData.status === "00") {
+              order = await prisma.order.update({
+                where: { id: order.id },
+                data: { orderId: orderid }
+              });
+            } else {
+              console.warn(`[Callback] Ignoring FAILED callback for old OrderID: ${orderid}. Current DB OrderID is ${order.orderId}`);
+              order = null; // Do not apply old failures to the current active order
+            }
+          } else {
+             // Order is already PAID, don't overwrite its ID with an old mismatched callback
+             order = null;
           }
         }
       }

@@ -176,10 +176,15 @@ export async function POST(request) {
                 });
 
                 if (order) {
-                    order = await prisma.order.update({
-                        where: { id: order.id },
-                        data: { orderId: orderid }
-                    });
+                    if (order.paymentStatus !== 'PAID') {
+                        order = await prisma.order.update({
+                            where: { id: order.id },
+                            data: { orderId: orderid }
+                        });
+                    } else {
+                        console.warn(`[Notify] Ignoring callback for old OrderID: ${orderid}. Current DB OrderID ${order.orderId} is already PAID.`);
+                        order = null;
+                    }
                 }
             }
         }
@@ -324,9 +329,9 @@ export async function POST(request) {
       // Return success response to Razer Merchant Services
       // Merchant is recommended to implement IPN once received the payment status
       // regardless the status to acknowledge RazerMS system
-      return NextResponse.json({
-        status: 'RECEIVEOK',
-        message: 'Payment notification received and processed successfully',
+      return new NextResponse('CBRECEIVEOK', {
+        status: 200,
+        headers: { 'Content-Type': 'text/plain' },
       });
     } else {
       // Payment failed or pending
@@ -335,9 +340,9 @@ export async function POST(request) {
       // NOTE: CancelBooking is NOT called here - it's handled by molpay_return route
       // This route only acknowledges receipt of the notification
       
-      return NextResponse.json({
-        status: 'RECEIVEOK',
-        message: 'Payment notification received',
+      return new NextResponse('CBRECEIVEOK', {
+        status: 200,
+        headers: { 'Content-Type': 'text/plain' },
       });
     }
   } catch (error) {
@@ -379,9 +384,9 @@ export async function GET(request) {
       );
     }
 
-    return NextResponse.json({
-      status: 'RECEIVEOK',
-      message: 'Payment notification received',
+    return new NextResponse('CBRECEIVEOK', {
+      status: 200,
+      headers: { 'Content-Type': 'text/plain' },
     });
   } catch (error) {
     console.error('Error processing GET notification:', error);
