@@ -156,7 +156,11 @@ export async function GET(request) {
                 }
 
                 if (bookings.length > 0) {
-                    console.log(`[Cron] ${env.name}: Found ${bookings.length} halfway bookings. Statuses:`, bookings.map(b => `${b.referenceNo}(${b.status})`).join(', '));
+                    const refsList = bookings.map(b => `${b.referenceNo}(${b.status})`).join(', ');
+                    console.log(`[Cron] ${env.name}: Found ${bookings.length} halfway bookings. Statuses:`, refsList);
+                    writeReleaseLog(`Env: ${env.name} | Info: FETCHED_HALFWAY_BOOKINGS | Total: ${bookings.length} | Refs: ${refsList}`);
+                } else {
+                    writeReleaseLog(`Env: ${env.name} | Info: FETCHED_HALFWAY_BOOKINGS | Total: 0 | API returned no halfway bookings.`);
                 }
 
                 // 2b. (Removed) FALLBACK: Database checking is no longer used as GetHalfWayBookings is the source of truth.

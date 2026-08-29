@@ -9,7 +9,7 @@ import path from 'path';
 import { prisma } from '@/lib/prisma';
 import { API_CONFIG } from '@/config/api';
 import { queryPaymentStatus, callReserveBooking } from '@/utils/molpay';
-import { resendTicketEmail } from '@/utils/email';
+import { resendTicketEmail, sendAdminBookingFailureAlert } from '@/utils/email';
 
 export const dynamic = 'force-dynamic';
 
@@ -215,6 +215,16 @@ export async function GET(request) {
             action: 'RESERVE_FAILED',
             error: reserveResult.error,
           });
+          
+          await prisma.order.update({
+            where: { id: order.id },
+            data: { paymentStatus: 'PAID_BUT_RELEASED' }
+          });
+          
+          sendAdminBookingFailureAlert(order, reserveResult.error).catch(err => 
+            console.error("[Reconcile Cron] Failed to send admin alert email:", err)
+          );
+          
           continue;
         }
 

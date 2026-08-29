@@ -8,8 +8,10 @@ import {
   verifyReturnSignature,
   acknowledgeResponse,
   callReserveBooking,
-  callCancelBooking
+  callCancelBooking,
+  writeCallbackLog
 } from "@/utils/molpay";
+import { sendAdminBookingFailureAlert } from "@/utils/email";
 
 import fs from "fs";
 import path from "path";
@@ -228,6 +230,14 @@ async function handleCallback(request) {
           if (reserveResult.success) {
             updateData.reserve_ticket = true;
             updateData.cancel_ticket = false;
+          } else {
+            console.error(`[MOLPay Callback] ReserveBooking failed for PAID order ${order.orderId}:`, reserveResult.error);
+            updateData.paymentStatus = 'PAID_BUT_RELEASED';
+            
+            // Fire and forget email to admin
+            sendAdminBookingFailureAlert(order, reserveResult.error).catch(err => 
+              console.error("[MOLPay Callback] Failed to send admin alert email:", err)
+            );
           }
         } else {
           // Already reserved, keep the flag

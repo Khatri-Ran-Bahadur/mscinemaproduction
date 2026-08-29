@@ -8,8 +8,9 @@ import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { API_BASE_URL } from '@/config/api';
 import { prisma } from '@/lib/prisma';
-import { sendTicketEmail } from '@/utils/email';
-import { callReserveBooking } from '@/utils/molpay';
+import { verifyNotificationSignature } from '@/utils/fiuu';
+import { callReserveBooking, callCancelBooking, writeMolpayLog } from '@/utils/molpay';
+import { sendAdminBookingFailureAlert, sendTicketEmail } from '@/utils/email';
 
 // Razer Merchant Services Configuration from environment variables
 const RMS_CONFIG = {
@@ -209,8 +210,17 @@ export async function POST(request) {
                         }
                     );
                     reserveSuccess = reserveResult.success;
+                    if (!reserveSuccess) {
+                        console.error('[Payment Notify] ReserveBooking failed for PAID order:', reserveResult.error);
+                        sendAdminBookingFailureAlert(order, reserveResult.error).catch(err => 
+                            console.error("[Payment Notify] Failed to send admin alert email:", err)
+                        );
+                    }
                 } catch (e) {
                     console.error('[Payment Notify] ReserveBooking attempt failed:', e);
+                    sendAdminBookingFailureAlert(order, e.message).catch(err => 
+                        console.error("[Payment Notify] Failed to send admin alert email:", err)
+                    );
                 }
             }
 
@@ -218,7 +228,7 @@ export async function POST(request) {
                 where: { id: order.id },
                 data: {
                     status: reserveSuccess ? 'CONFIRMED' : 'PENDING',
-                    paymentStatus: 'PAID',
+                    paymentStatus: reserveSuccess ? 'PAID' : 'PAID_BUT_RELEASED',
                     transactionNo: tranID,
                     paymentMethod: channel,
                     reserve_ticket: reserveSuccess,

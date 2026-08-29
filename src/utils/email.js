@@ -240,6 +240,83 @@ export async function sendForgotPasswordEmail(to, resetUrl) {
 }
 
 /**
+ * Send admin alert for booking failure when payment is successful
+ * @param {object} order - Order object
+ * @param {string} errorReason - Reason for booking failure
+ * @returns {Promise<Object>} - Send result
+ */
+export async function sendAdminBookingFailureAlert(order, errorReason) {
+  const adminEmail = process.env.ADMIN_EMAIL || process.env.EMAIL_USER;
+  
+  if (!adminEmail) {
+    console.warn("No ADMIN_EMAIL or EMAIL_USER configured for alerts.");
+    return { success: false, error: "No admin email configured" };
+  }
+
+  const subject = `URGENT: Booking Failed for Paid Order ${order.orderId}`;
+  
+  // Clean up display for amounts and dates
+  const displayAmount = order.totalAmount ? `RM ${Number(order.totalAmount).toFixed(2)}` : "Unknown Amount";
+  const displayPhone = order.customerPhone || "N/A";
+  
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Payment Anomaly Alert</title>
+    </head>
+    <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+      <div style="background-color: #ffebee; padding: 30px; border-radius: 10px; border-left: 5px solid #d32f2f;">
+        <h2 style="color: #d32f2f; margin-top: 0;">URGENT: Paid Order Failed to Lock Seat!</h2>
+        <p>A customer successfully completed a payment, but the system failed to lock the seat via the Cinema API.</p>
+        
+        <h3 style="border-bottom: 1px solid #ccc; padding-bottom: 5px;">Order Details</h3>
+        <table style="width: 100%; border-collapse: collapse;">
+          <tr>
+            <td style="padding: 8px 0; font-weight: bold; width: 40%;">Order ID:</td>
+            <td style="padding: 8px 0;">${order.orderId}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; font-weight: bold;">Reference No:</td>
+            <td style="padding: 8px 0;">${order.referenceNo || 'N/A'}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; font-weight: bold;">Transaction No:</td>
+            <td style="padding: 8px 0;">${order.transactionNo || 'N/A'}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; font-weight: bold;">Amount Paid:</td>
+            <td style="padding: 8px 0; color: #2e7d32; font-weight: bold;">${displayAmount}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; font-weight: bold;">Customer Name:</td>
+            <td style="padding: 8px 0;">${order.customerName || 'N/A'}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 0; font-weight: bold;">Customer Phone:</td>
+            <td style="padding: 8px 0;">${displayPhone}</td>
+          </tr>
+        </table>
+        
+        <h3 style="border-bottom: 1px solid #ccc; padding-bottom: 5px; margin-top: 20px;">Error Details</h3>
+        <div style="background-color: #fff; padding: 15px; border: 1px solid #ffcdd2; border-radius: 5px; color: #c62828; font-family: monospace;">
+          ${escapeHtml(errorReason || 'Unknown Cinema API Error or Timeout')}
+        </div>
+        
+        <p style="margin-top: 30px; font-weight: bold;">Action Required:</p>
+        <p>Please manually verify this booking in the Cinema System. If the seats are gone, you must contact the customer and process a refund.</p>
+      </div>
+    </body>
+    </html>
+  `;
+  const text = `URGENT: Paid Order Failed to Lock Seat!\n\nOrder ID: ${order.orderId}\nReference No: ${order.referenceNo}\nAmount: ${displayAmount}\nCustomer: ${order.customerName}\nPhone: ${displayPhone}\n\nError: ${errorReason}\n\nAction Required: Manually check the cinema system or refund.`;
+
+  return await sendEmail({ to: adminEmail, subject, html, text });
+}
+
+/**
  * Send ticket confirmation email with ticket details and QR code
  * @param {string} to - Recipient email
  * @param {object} ticketInfo - Ticket information object
