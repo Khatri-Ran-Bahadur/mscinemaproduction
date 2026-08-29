@@ -8,9 +8,10 @@ import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { API_BASE_URL } from '@/config/api';
 import { prisma } from '@/lib/prisma';
-import { verifyNotificationSignature } from '@/utils/fiuu';
+
 import { callReserveBooking, callCancelBooking, writeMolpayLog } from '@/utils/molpay';
 import { sendAdminBookingFailureAlert, sendTicketEmail } from '@/utils/email';
+import { withLock } from '@/utils/mutex';
 
 // Razer Merchant Services Configuration from environment variables
 const RMS_CONFIG = {
@@ -194,35 +195,44 @@ export async function POST(request) {
             let reserveSuccess = !!order.reserve_ticket;
 
             // Reserve seats first — booking is only complete when cinema API confirms
-            if (!order.reserve_ticket && order.cinemaId && order.showId && order.referenceNo) {
-                try {
-                    const reserveResult = await callReserveBooking(
-                        orderid,
-                        tranID || orderid,
-                        channel || 'Online',
-                        appcode || '',
-                        {
-                            cinemaId: order.cinemaId,
-                            showId: order.showId,
-                            referenceNo: order.referenceNo,
-                            membershipId: order.membershipId || '0',
-                            storedDetails: { token: order.token || '' }
+            await withLock(orderid, async () => {
+                const currentOrder = await prisma.order.findUnique({
+                    where: { orderId: orderid },
+                    select: { reserve_ticket: true }
+                });
+                
+                if (!currentOrder?.reserve_ticket && order.cinemaId && order.showId && order.referenceNo) {
+                    try {
+                        const reserveResult = await callReserveBooking(
+                            orderid,
+                            tranID || orderid,
+                            channel || 'Online',
+                            appcode || '',
+                            {
+                                cinemaId: order.cinemaId,
+                                showId: order.showId,
+                                referenceNo: order.referenceNo,
+                                membershipId: order.membershipId || '0',
+                                storedDetails: { token: order.token || '' }
+                            }
+                        );
+                        reserveSuccess = reserveResult.success;
+                        if (!reserveSuccess) {
+                            console.error('[Payment Notify] ReserveBooking failed for PAID order:', reserveResult.error);
+                            sendAdminBookingFailureAlert(order, reserveResult.error).catch(err => 
+                                console.error("[Payment Notify] Failed to send admin alert email:", err)
+                            );
                         }
-                    );
-                    reserveSuccess = reserveResult.success;
-                    if (!reserveSuccess) {
-                        console.error('[Payment Notify] ReserveBooking failed for PAID order:', reserveResult.error);
-                        sendAdminBookingFailureAlert(order, reserveResult.error).catch(err => 
+                    } catch (e) {
+                        console.error('[Payment Notify] ReserveBooking attempt failed:', e);
+                        sendAdminBookingFailureAlert(order, e.message).catch(err => 
                             console.error("[Payment Notify] Failed to send admin alert email:", err)
                         );
                     }
-                } catch (e) {
-                    console.error('[Payment Notify] ReserveBooking attempt failed:', e);
-                    sendAdminBookingFailureAlert(order, e.message).catch(err => 
-                        console.error("[Payment Notify] Failed to send admin alert email:", err)
-                    );
+                } else if (currentOrder?.reserve_ticket) {
+                    reserveSuccess = true;
                 }
-            }
+            });
 
             await prisma.order.update({
                 where: { id: order.id },

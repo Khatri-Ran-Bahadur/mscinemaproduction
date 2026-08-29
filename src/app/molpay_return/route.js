@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server';
 import { writeMolpayLog, savePaymentLogDB, verifyReturnSignature, callReserveBooking, callCancelBooking, createRedirectResponse } from '@/utils/molpay';
 import { sendAdminBookingFailureAlert } from '@/utils/email';
+import { withLock } from '@/utils/mutex';
 import prisma from '@/lib/prisma';
 
 export async function GET(request) { return handleReturn(request); }
@@ -98,21 +99,30 @@ async function handleReturn(request) {
       }
 
       // 1. Reserve Booking
-      const reserveResult = await callReserveBooking(orderid, returnData.tranID, returnData.channel, returnData.appcode, returnData);
-      if (reserveResult.success) {
-        updateData.reserve_ticket = true;
-        updateData.cancel_ticket = false;
-        updated = true;
-      } else {
-        console.error(`[MOLPay Return] ReserveBooking failed for PAID order ${order.orderId}:`, reserveResult.error);
-        updateData.paymentStatus = 'PAID_BUT_RELEASED';
-        updated = true;
+      await withLock(orderid, async () => {
+        const currentOrder = await prisma.order.findUnique({
+          where: { orderId: orderid },
+          select: { reserve_ticket: true }
+        });
         
-        // Fire and forget email to admin
-        sendAdminBookingFailureAlert(order, reserveResult.error).catch(err => 
-          console.error("[MOLPay Return] Failed to send admin alert email:", err)
-        );
-      }
+        if (!currentOrder?.reserve_ticket) {
+          const reserveResult = await callReserveBooking(orderid, returnData.tranID, returnData.channel, returnData.appcode, returnData);
+          if (reserveResult.success) {
+            updateData.reserve_ticket = true;
+            updateData.cancel_ticket = false;
+            updated = true;
+          } else {
+            console.error(`[MOLPay Return] ReserveBooking failed for PAID order ${order.orderId}:`, reserveResult.error);
+            updateData.paymentStatus = 'PAID_BUT_RELEASED';
+            updated = true;
+            
+            // Fire and forget email to admin
+            sendAdminBookingFailureAlert(order, reserveResult.error).catch(err => 
+              console.error("[MOLPay Return] Failed to send admin alert email:", err)
+            );
+          }
+        }
+      });
 
 
       // Commit updates if any flags changed or if we need to confirm payment status

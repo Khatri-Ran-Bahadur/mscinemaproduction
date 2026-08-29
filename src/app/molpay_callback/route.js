@@ -8,10 +8,10 @@ import {
   verifyReturnSignature,
   acknowledgeResponse,
   callReserveBooking,
-  callCancelBooking,
-  writeCallbackLog
+  callCancelBooking
 } from "@/utils/molpay";
 import { sendAdminBookingFailureAlert } from "@/utils/email";
+import { withLock } from "@/utils/mutex";
 
 import fs from "fs";
 import path from "path";
@@ -218,32 +218,40 @@ async function handleCallback(request) {
         }
 
 
-        if (!order.reserve_ticket) {
-          const reserveResult = await callReserveBooking(
-            orderid,
-            returnData.tranID,
-            returnData.channel,
-            returnData.appcode,
-            returnData
-          );
+        await withLock(orderid, async () => {
+          // Re-fetch order to ensure we have the latest reserve_ticket status
+          const currentOrder = await prisma.order.findUnique({
+            where: { orderId: orderid },
+            select: { reserve_ticket: true }
+          });
+          
+          if (!currentOrder?.reserve_ticket) {
+            const reserveResult = await callReserveBooking(
+              orderid,
+              returnData.tranID,
+              returnData.channel,
+              returnData.appcode,
+              returnData
+            );
 
-          if (reserveResult.success) {
+            if (reserveResult.success) {
+              updateData.reserve_ticket = true;
+              updateData.cancel_ticket = false;
+            } else {
+              console.error(`[MOLPay Callback] ReserveBooking failed for PAID order ${order.orderId}:`, reserveResult.error);
+              updateData.paymentStatus = 'PAID_BUT_RELEASED';
+              
+              // Fire and forget email to admin
+              sendAdminBookingFailureAlert(order, reserveResult.error).catch(err => 
+                console.error("[MOLPay Callback] Failed to send admin alert email:", err)
+              );
+            }
+          } else {
+            // Already reserved, keep the flag
             updateData.reserve_ticket = true;
             updateData.cancel_ticket = false;
-          } else {
-            console.error(`[MOLPay Callback] ReserveBooking failed for PAID order ${order.orderId}:`, reserveResult.error);
-            updateData.paymentStatus = 'PAID_BUT_RELEASED';
-            
-            // Fire and forget email to admin
-            sendAdminBookingFailureAlert(order, reserveResult.error).catch(err => 
-              console.error("[MOLPay Callback] Failed to send admin alert email:", err)
-            );
           }
-        } else {
-          // Already reserved, keep the flag
-          updateData.reserve_ticket = true;
-          updateData.cancel_ticket = false;
-        }
+        });
 
       } else if (finalStatus === "22") {
 
