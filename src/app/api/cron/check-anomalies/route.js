@@ -14,9 +14,9 @@ export async function GET(request) {
                 createdAt: {
                     gte: twentyFourHoursAgo
                 },
-                // Skip checking if it's already marked as an anomaly
+                // Skip checking if it's already marked as PAID
                 paymentStatus: {
-                    not: 'PAID_BUT_RELEASED'
+                    not: 'PAID'
                 }
             },
             take: 50 // Limit to avoid hitting rate limits
@@ -59,7 +59,7 @@ export async function GET(request) {
                 await prisma.order.update({
                     where: { id: order.id },
                     data: {
-                        paymentStatus: 'PAID_BUT_RELEASED',
+                        paymentStatus: 'PAID',
                         transactionNo: tranNo,
                     }
                 });

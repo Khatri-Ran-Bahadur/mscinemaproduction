@@ -285,7 +285,7 @@ export async function GET(request) {
                             
                             ok = reserveResult.success;
                             body = reserveResult.data || { error: reserveResult.error };
-                            skippedReason = 'PAID_RESERVED';
+                            skippedReason = 'SUCCESSFULLY_RESERVED';
                         } else {
                             if (gatewayIsFailed && orderRecord) {
                                 console.log(`[Cron Safe] Cleaning up resources for failed order ${orderRecord.orderId}`);
@@ -343,7 +343,7 @@ export async function GET(request) {
                         if (ok) {
                             totalProcessed++;
                             releasedInEnv++;
-                            if (skippedReason === 'PAID_RESERVED') {
+                            if (skippedReason === 'SUCCESSFULLY_RESERVED') {
                                 console.log(`[Cron] Successfully reserved paid booking ${b.referenceNo}`);
                                 if (orderRecord) {
                                     await prisma.order.update({

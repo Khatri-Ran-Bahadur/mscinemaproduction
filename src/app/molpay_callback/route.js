@@ -239,7 +239,6 @@ async function handleCallback(request) {
               updateData.cancel_ticket = false;
             } else {
               console.error(`[MOLPay Callback] ReserveBooking failed for PAID order ${order.orderId}:`, reserveResult.error);
-              updateData.paymentStatus = 'PAID_BUT_RELEASED';
               
               // Fire and forget email to admin
               sendAdminBookingFailureAlert(order, reserveResult.error).catch(err => 

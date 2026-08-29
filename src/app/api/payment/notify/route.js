@@ -238,7 +238,7 @@ export async function POST(request) {
                 where: { id: order.id },
                 data: {
                     status: reserveSuccess ? 'CONFIRMED' : 'PENDING',
-                    paymentStatus: reserveSuccess ? 'PAID' : 'PAID_BUT_RELEASED',
+                    paymentStatus: 'PAID',
                     transactionNo: tranID,
                     paymentMethod: channel,
                     reserve_ticket: reserveSuccess,

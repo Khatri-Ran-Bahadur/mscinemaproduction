@@ -113,7 +113,6 @@ async function handleReturn(request) {
             updated = true;
           } else {
             console.error(`[MOLPay Return] ReserveBooking failed for PAID order ${order.orderId}:`, reserveResult.error);
-            updateData.paymentStatus = 'PAID_BUT_RELEASED';
             updated = true;
             
             // Fire and forget email to admin

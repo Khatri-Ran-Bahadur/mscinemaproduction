@@ -213,14 +213,7 @@ export async function GET(request) {
             id: order.id,
             referenceNo: order.referenceNo,
             action: 'RESERVE_FAILED',
-            error: reserveResult.error,
           });
-          
-          await prisma.order.update({
-            where: { id: order.id },
-            data: { paymentStatus: 'PAID_BUT_RELEASED' }
-          });
-          
           sendAdminBookingFailureAlert(order, reserveResult.error).catch(err => 
             console.error("[Reconcile Cron] Failed to send admin alert email:", err)
           );
