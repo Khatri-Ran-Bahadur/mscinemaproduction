@@ -12,7 +12,8 @@ import {
   CreditCard,
   Clock,
   Mail,
-  Shield
+  Shield,
+  Monitor
 } from 'lucide-react';
 
 export default function AdminSidebar() {
@@ -26,9 +27,14 @@ export default function AdminSidebar() {
     },
     
     {
-      title: 'Orders',
-      icon: <CreditCard className="w-5 h-5" />, // Use a relevant icon
+      title: 'Online Orders',
+      icon: <CreditCard className="w-5 h-5" />,
       href: '/admin/orders'
+    },
+    {
+      title: 'Kiosk Orders',
+      icon: <Monitor className="w-5 h-5" />,
+      href: '/admin/kiosk-orders'
     },
     {
       title: 'Half Way Bookings',

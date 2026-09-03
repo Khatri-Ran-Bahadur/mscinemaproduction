@@ -10,7 +10,11 @@ import {
     RotateCcw,
     CheckCircle,
     XCircle,
-    Info
+    Info,
+    Monitor,
+    CreditCard,
+    QrCode,
+    Globe
 } from 'lucide-react';
 import { timeAgo } from '@/utils/timeAgo';
 import { adminFetch } from '@/utils/admin-api';
@@ -19,8 +23,12 @@ export default function PaymentLogsPage() {
     const [logs, setLogs] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
-    const [filterStatus, setFilterStatus] = useState('All'); // MolPay Status Code
+    const [filterStatus, setFilterStatus] = useState('All'); // MolPay/Fiuu Status Code
     const [filterPaymentStatus, setFilterPaymentStatus] = useState('All'); // Success/Failed
+    const [filterSource, setFilterSource] = useState('All'); // All / kiosk / online
+    const [filterChannel, setFilterChannel] = useState('All');
+    const [startDate, setStartDate] = useState('');
+    const [endDate, setEndDate] = useState('');
     
     // Pagination State
     const [page, setPage] = useState(1);
@@ -37,7 +45,7 @@ export default function PaymentLogsPage() {
             fetchLogs();
         }, 300);
         return () => clearTimeout(timeoutId);
-    }, [page, limit, searchQuery, filterStatus, filterPaymentStatus]);
+    }, [page, limit, searchQuery, filterStatus, filterPaymentStatus, filterSource, filterChannel, startDate, endDate]);
 
     const fetchLogs = async () => {
         setLoading(true);
@@ -47,7 +55,11 @@ export default function PaymentLogsPage() {
                 limit: limit.toString(),
                 search: searchQuery,
                 status: filterStatus !== 'All' ? filterStatus : '',
-                paymentStatus: filterPaymentStatus !== 'All' ? filterPaymentStatus : ''
+                paymentStatus: filterPaymentStatus !== 'All' ? filterPaymentStatus : '',
+                source: filterSource !== 'All' ? filterSource : '',
+                channel: filterChannel !== 'All' ? filterChannel : '',
+                startDate: startDate,
+                endDate: endDate,
             });
             
             const res = await adminFetch(`/api/admin/payment-logs?${params.toString()}`);
@@ -78,6 +90,10 @@ export default function PaymentLogsPage() {
         setSearchQuery('');
         setFilterStatus('All');
         setFilterPaymentStatus('All');
+        setFilterSource('All');
+        setFilterChannel('All');
+        setStartDate('');
+        setEndDate('');
         setPage(1);
     };
 
@@ -97,68 +113,142 @@ export default function PaymentLogsPage() {
 
     const getStatusColor = (status) => {
         if (status === '00') return 'bg-green-500/10 text-green-500 border-green-500/20';
-        if (status === '11') return 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20';
-        if (status === '-1') return 'bg-red-500/10 text-red-500 border-red-500/20';
-        return 'bg-gray-500/10 text-gray-400 border-gray-500/20';
+        if (status === '11' || status === '22') return 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20';
+        return 'bg-red-500/10 text-red-500 border-red-500/20';
+    };
+
+    const getChannelBadge = (channel, method) => {
+        const ch = (channel || '').toUpperCase();
+        const m = (method || '').toUpperCase();
+
+        if (ch.includes('OPA') || ch.includes('KIOSK') || m.includes('KIOSK')) {
+            if (ch.includes('CARD') || ch.includes('EDC')) {
+                return (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-blue-500/15 text-blue-400 border border-blue-500/30">
+                        <CreditCard className="w-3 h-3" /> Kiosk Card (EDC)
+                    </span>
+                );
+            }
+            return (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-[#FFCA20]/15 text-[#FFCA20] border border-[#FFCA20]/30">
+                    <Monitor className="w-3 h-3" /> Kiosk QR (OPA)
+                </span>
+            );
+        }
+
+        return (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-purple-500/15 text-purple-300 border border-purple-500/30">
+                <Globe className="w-3 h-3" /> Online Web/App
+            </span>
+        );
     };
 
     return (
-        <div className="p-8 relative">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+        <div className="p-8">
+            <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center mb-8 gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold text-[#FFCA20] mb-2">Payment Logs</h1>
-                    <p className="text-[#888]">View raw MolPay return logs and outcomes</p>
+                    <h1 className="text-3xl font-bold text-[#FFCA20] mb-2">Payment Transaction Logs</h1>
+                    <p className="text-[#888]">Audit real-time payment gateway responses, callbacks, and kiosk transaction logs</p>
                 </div>
                 
-                <div className="flex gap-3 flex-wrap">
+                {/* Advanced Filters */}
+                <div className="flex gap-2 flex-wrap items-center">
                     <div className="relative">
                         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[#666]" />
                         <input 
                             type="text" 
-                            placeholder="Search Order ID, Ref..." 
+                            placeholder="Search Order, Ref, Tx..."
                             value={searchQuery}
                             onChange={handleSearchChange}
-                            className="bg-[#2a2a2a] border border-[#3a3a3a] text-white pl-10 pr-4 py-2 rounded-lg focus:border-[#FFCA20] outline-none w-64"
+                            className="bg-[#2a2a2a] border border-[#3a3a3a] text-white pl-10 pr-4 py-2 rounded-lg focus:border-[#FFCA20] outline-none w-56 text-sm"
                         />
                     </div>
 
-                    <div className="relative">
-                        <select 
-                            value={filterPaymentStatus}
-                            onChange={(e) => { setFilterPaymentStatus(e.target.value); setPage(1); }}
-                            className="bg-[#2a2a2a] border border-[#3a3a3a] text-white pl-4 pr-10 py-2 rounded-lg focus:border-[#FFCA20] outline-none appearance-none cursor-pointer"
-                        >
-                            <option value="All">All Outcomes</option>
-                            <option value="success">Success</option>
-                            <option value="failed">Failed</option>
-                        </select>
-                        <Filter className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[#666] pointer-events-none" />
+                    {/* Date Filters */}
+                    <div className="flex items-center bg-[#2a2a2a] border border-[#3a3a3a] rounded-lg px-2 gap-1 h-10">
+                        <span className="text-[10px] text-[#666] uppercase font-bold pl-1">From</span>
+                        <input
+                            type="date"
+                            value={startDate}
+                            onChange={(e) => { setStartDate(e.target.value); setPage(1); }}
+                            className="bg-transparent text-white py-1 text-xs outline-none cursor-pointer"
+                        />
                     </div>
+
+                    <div className="flex items-center bg-[#2a2a2a] border border-[#3a3a3a] rounded-lg px-2 gap-1 h-10">
+                        <span className="text-[10px] text-[#666] uppercase font-bold pl-1">To</span>
+                        <input
+                            type="date"
+                            value={endDate}
+                            onChange={(e) => { setEndDate(e.target.value); setPage(1); }}
+                            className="bg-transparent text-white py-1 text-xs outline-none cursor-pointer"
+                        />
+                    </div>
+
+                    {/* Source Filter: Kiosk vs Online */}
+                    <select 
+                        value={filterSource} 
+                        onChange={(e) => { setFilterSource(e.target.value); setPage(1); }}
+                        className="bg-[#2a2a2a] border border-[#3a3a3a] text-white px-3 py-2 rounded-lg focus:border-[#FFCA20] outline-none cursor-pointer text-sm h-10"
+                    >
+                        <option value="All">All Sources</option>
+                        <option value="kiosk">Kiosk Only (QR & EDC)</option>
+                        <option value="online">Online Web & Mobile</option>
+                    </select>
+
+                    {/* Channel Filter */}
+                    <select 
+                        value={filterChannel} 
+                        onChange={(e) => { setFilterChannel(e.target.value); setPage(1); }}
+                        className="bg-[#2a2a2a] border border-[#3a3a3a] text-white px-3 py-2 rounded-lg focus:border-[#FFCA20] outline-none cursor-pointer text-sm h-10"
+                    >
+                        <option value="All">All Channels</option>
+                        <option value="FIUU_OPA_QR">Fiuu OPA QR</option>
+                        <option value="CARDBIZ">CardBiz EDC (Card)</option>
+                        <option value="credit">Credit Card</option>
+                        <option value="fpx">FPX Online Banking</option>
+                    </select>
+
+                    {/* Outcome Filter */}
+                    <select 
+                        value={filterPaymentStatus} 
+                        onChange={(e) => { setFilterPaymentStatus(e.target.value); setPage(1); }}
+                        className="bg-[#2a2a2a] border border-[#3a3a3a] text-white px-3 py-2 rounded-lg focus:border-[#FFCA20] outline-none cursor-pointer text-sm h-10"
+                    >
+                        <option value="All">All Outcomes</option>
+                        <option value="success">Success</option>
+                        <option value="failed">Failed</option>
+                    </select>
                     
                     <button
                         onClick={handleReset}
-                        className="flex items-center gap-2 px-3 py-2 bg-[#333] border border-[#3a3a3a] text-white rounded-lg hover:bg-[#444] hover:text-[#FFCA20] transition h-10"
+                        className="flex items-center gap-1.5 px-3 py-2 bg-[#333] border border-[#3a3a3a] text-white rounded-lg hover:bg-[#444] hover:text-[#FFCA20] transition h-10 text-sm"
+                        title="Reset Filters"
                     >
                         <RotateCcw className="w-4 h-4" />
-                        <span className="hidden xl:inline text-sm">Reset</span>
+                        <span>Reset</span>
                     </button>
                 </div>
             </div>
 
             {loading && logs.length === 0 ? (
-                <div className="text-center py-20 text-[#888]">Loading logs...</div>
+                <div className="text-center py-20 text-[#888]">
+                    <div className="w-6 h-6 border-2 border-[#FFCA20] border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+                    <span>Loading payment logs...</span>
+                </div>
             ) : (
-                <div className="bg-[#2a2a2a] rounded-xl border border-[#3a3a3a] overflow-hidden flex flex-col">
+                <div className="bg-[#2a2a2a] rounded-xl border border-[#3a3a3a] overflow-hidden flex flex-col shadow-xl">
                     <div className="overflow-x-auto">
                         <table className="w-full text-left">
                             <thead className="bg-[#222] border-b border-[#3a3a3a]">
                                 <tr>
                                     <th className="px-4 py-3 text-[#888] font-medium text-xs">Outcome</th>
+                                    <th className="px-4 py-3 text-[#888] font-medium text-xs">Source / Channel</th>
                                     <th className="px-4 py-3 text-[#888] font-medium text-xs">Order ID</th>
                                     <th className="px-4 py-3 text-[#888] font-medium text-xs hidden md:table-cell">Ref No</th>
-                                    <th className="px-4 py-3 text-[#888] font-medium text-xs">MolPay Status</th>
+                                    <th className="px-4 py-3 text-[#888] font-medium text-xs">Gateway Status</th>
                                     <th className="px-4 py-3 text-[#888] font-medium text-xs hidden sm:table-cell">Amount</th>
-                                    <th className="px-4 py-3 text-[#888] font-medium text-xs hidden lg:table-cell">Remarks (Why)</th>
+                                    <th className="px-4 py-3 text-[#888] font-medium text-xs hidden lg:table-cell">Remarks (Audit)</th>
                                     <th className="px-4 py-3 text-[#888] font-medium text-xs hidden xl:table-cell">Date</th>
                                     <th className="px-4 py-3 text-[#888] font-medium text-xs text-right">Details</th>
                                 </tr>
@@ -177,17 +267,20 @@ export default function PaymentLogsPage() {
                                                 </div>
                                             </td>
                                             <td className="px-4 py-3">
+                                                {getChannelBadge(log.channel, log.method)}
+                                            </td>
+                                            <td className="px-4 py-3">
                                                 <div className="flex flex-col">
-                                                    <span className="font-mono text-white text-xs">{log.orderId}</span>
+                                                    <span className="font-mono text-white text-xs font-semibold">{log.orderId || '-'}</span>
                                                     {log.transactionNo && (
-                                                        <span className="text-[10px] text-[#666] font-mono">
+                                                        <span className="text-[10px] text-[#888] font-mono">
                                                             Tx: {log.transactionNo}
                                                         </span>
                                                     )}
                                                 </div>
                                             </td>
                                             <td className="px-4 py-3 hidden md:table-cell">
-                                                <span className="text-sm text-[#ccc]">{log.referenceNo || '-'}</span>
+                                                <span className="text-xs text-[#ccc] font-mono">{log.referenceNo || '-'}</span>
                                             </td>
                                             <td className="px-4 py-3">
                                                 <span className={`px-2 py-0.5 rounded text-[10px] border font-mono ${getStatusColor(log.status)}`}>
@@ -197,25 +290,25 @@ export default function PaymentLogsPage() {
                                             <td className="px-4 py-3 hidden sm:table-cell">
                                                 <div className="flex flex-col">
                                                     <span className="text-white font-bold text-xs">
-                                                        {parseFloat(log.amount || 0).toFixed(2)} {log.currency}
+                                                        RM {parseFloat(log.amount || 0).toFixed(2)}
                                                     </span>
-                                                    <span className="text-[10px] text-[#666]">{log.channel}</span>
+                                                    <span className="text-[10px] text-[#888]">{log.channel || log.method}</span>
                                                 </div>
                                             </td>
-                                            <td className="px-4 py-3 hidden lg:table-cell max-w-[300px]">
-                                                <p className="text-xs text-[#ccc] truncate" title={log.remarks}>{log.remarks}</p>
+                                            <td className="px-4 py-3 hidden lg:table-cell max-w-[280px]">
+                                                <p className="text-xs text-[#ccc] truncate" title={log.remarks}>{log.remarks || '-'}</p>
                                             </td>
                                             <td className="px-4 py-3 hidden xl:table-cell">
                                                 <div className="flex flex-col">
                                                     <span className="text-xs text-[#ccc]">{formatDate(log.createdAt)}</span>
-                                                    <span className="text-[10px] text-[#666]">{timeAgo(log.createdAt)}</span>
+                                                    <span className="text-[10px] text-[#888]">{timeAgo(log.createdAt)}</span>
                                                 </div>
                                             </td>
                                             <td className="px-4 py-3 text-right">
                                                 <button 
                                                     onClick={() => openDetails(log)}
                                                     className="p-1.5 bg-[#444] hover:bg-[#555] rounded text-white transition"
-                                                    title="View Full Details"
+                                                    title="View Full Payload Details"
                                                 >
                                                     <Eye className="w-4 h-4" />
                                                 </button>
@@ -224,8 +317,8 @@ export default function PaymentLogsPage() {
                                     ))
                                 ) : (
                                     <tr>
-                                        <td colSpan="8" className="p-8 text-center text-[#666]">
-                                            No logs found matching criteria.
+                                        <td colSpan="9" className="text-center py-12 text-[#888]">
+                                            No payment logs found matching your filters.
                                         </td>
                                     </tr>
                                 )}
@@ -234,36 +327,26 @@ export default function PaymentLogsPage() {
                     </div>
 
                     {/* Pagination */}
-                    <div className="p-4 border-t border-[#3a3a3a] flex items-center justify-between bg-[#222]">
-                        <div className="text-xs text-[#888]">
-                            Showing <span className="text-white">{(page - 1) * limit + 1}</span> to <span className="text-white">{Math.min(page * limit, totalLogs)}</span> of <span className="text-white">{totalLogs}</span>
+                    <div className="p-4 border-t border-[#3a3a3a] flex flex-col md:flex-row justify-between items-center gap-4 text-xs text-[#888]">
+                        <div>
+                            Showing {(page - 1) * limit + 1} to {Math.min(page * limit, totalLogs)} of {totalLogs} payment logs
                         </div>
-                        <div className="flex items-center gap-2">
-                             <div className="flex items-center gap-2 mr-4">
-                                <span className="text-xs text-[#888]">Per page:</span>
-                                <select
-                                    value={limit}
-                                    onChange={(e) => { setLimit(Number(e.target.value)); setPage(1); }}
-                                    className="bg-[#333] border border-[#444] text-white text-xs rounded px-2 py-1 focus:border-[#FFCA20] outline-none cursor-pointer"
-                                >
-                                    <option value={20}>20</option>
-                                    <option value={50}>50</option>
-                                    <option value={100}>100</option>
-                                </select>
-                            </div>
 
+                        <div className="flex items-center gap-2">
                             <button
-                                onClick={() => setPage(p => Math.max(1, p - 1))}
+                                onClick={() => setPage((p) => Math.max(1, p - 1))}
                                 disabled={page === 1}
-                                className="p-2 rounded bg-[#333] text-white disabled:opacity-50 hover:bg-[#444] transition"
+                                className="p-2 bg-[#333] hover:bg-[#444] text-white rounded disabled:opacity-30 disabled:cursor-not-allowed"
                             >
                                 <ChevronLeft className="w-4 h-4" />
                             </button>
-                            <span className="text-xs text-[#888] px-2">Page {page} of {totalPages}</span>
+                            <span className="px-3 py-1 bg-[#222] border border-[#3a3a3a] rounded text-white font-medium">
+                                Page {page} of {totalPages || 1}
+                            </span>
                             <button
-                                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                                disabled={page === totalPages}
-                                className="p-2 rounded bg-[#333] text-white disabled:opacity-50 hover:bg-[#444] transition"
+                                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                                disabled={page >= totalPages}
+                                className="p-2 bg-[#333] hover:bg-[#444] text-white rounded disabled:opacity-30 disabled:cursor-not-allowed"
                             >
                                 <ChevronRight className="w-4 h-4" />
                             </button>
@@ -272,91 +355,80 @@ export default function PaymentLogsPage() {
                 </div>
             )}
 
-            {/* JSON Details Modal */}
+            {/* Log Details Modal */}
             {showModal && selectedLog && (
-                <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 backdrop-blur-sm" onClick={() => setShowModal(false)}>
-                    <div className="bg-[#1a1a1a] border border-[#3a3a3a] rounded-xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl" onClick={e => e.stopPropagation()}>
-                        <div className="p-6 border-b border-[#3a3a3a] flex justify-between items-center bg-[#222] rounded-t-xl">
+                <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-[#222] border border-[#444] rounded-xl w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl">
+                        <div className="p-6 border-b border-[#333] flex justify-between items-center">
                             <div>
                                 <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                                    <Info className="w-5 h-5 text-[#FFCA20]" />
-                                    Transaction Details
+                                    <span>Log Details:</span>
+                                    <span className="font-mono text-[#FFCA20]">{selectedLog.orderId}</span>
                                 </h3>
-                                <p className="text-sm text-[#888] font-mono mt-1">{selectedLog.orderId}</p>
+                                <p className="text-xs text-[#888] mt-1">Recorded at {formatDate(selectedLog.createdAt)}</p>
                             </div>
-                            <button onClick={() => setShowModal(false)} className="text-[#888] hover:text-white transition">
-                                <XCircle className="w-6 h-6" />
-                            </button>
-                        </div>
-                        
-                        <div className="p-6 overflow-y-auto custom-scrollbar">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                                <div className="space-y-4">
-                                    <div className="bg-[#2a2a2a] p-4 rounded-lg border border-[#333]">
-                                        <h4 className="text-[#FFCA20] text-sm font-bold mb-3 uppercase tracking-wider">Summary</h4>
-                                        <div className="space-y-2 text-sm">
-                                            <div className="flex justify-between border-b border-[#333] pb-2">
-                                                <span className="text-[#888]">Status</span>
-                                                <span className={selectedLog.isSuccess ? "text-green-500 font-bold" : "text-red-500 font-bold"}>
-                                                    {selectedLog.isSuccess ? 'SUCCESS' : 'FAILED'}
-                                                </span>
-                                            </div>
-                                            <div className="flex justify-between border-b border-[#333] pb-2">
-                                                <span className="text-[#888]">MolPay Status</span>
-                                                <span className="text-white font-mono">{selectedLog.status}</span>
-                                            </div>
-                                            <div className="flex justify-between border-b border-[#333] pb-2">
-                                                <span className="text-[#888]">Amount</span>
-                                                <span className="text-white font-bold">{selectedLog.amount} {selectedLog.currency}</span>
-                                            </div>
-                                            <div className="flex justify-between pt-1">
-                                                <span className="text-[#888]">Channel</span>
-                                                <span className="text-white uppercase">{selectedLog.channel}</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    
-                                    <div className="bg-[#2a2a2a] p-4 rounded-lg border border-[#333]">
-                                        <h4 className="text-[#FFCA20] text-sm font-bold mb-3 uppercase tracking-wider">Request Info</h4>
-                                        <div className="space-y-2 text-sm">
-                                            <div className="flex justify-between border-b border-[#333] pb-2">
-                                                <span className="text-[#888]">Method</span>
-                                                <span className="text-white font-mono bg-[#333] px-2 rounded text-xs">{selectedLog.method}</span>
-                                            </div>
-                                            <div className="flex justify-between border-b border-[#333] pb-2">
-                                                <span className="text-[#888]">IP Address</span>
-                                                <span className="text-white font-mono text-xs">{selectedLog.ipAddress}</span>
-                                            </div>
-                                            <div className="flex justify-between pt-1">
-                                                <span className="text-[#888]">User Agent</span>
-                                                <span className="text-white text-xs truncate max-w-[200px]" title={selectedLog.userAgent}>{selectedLog.userAgent}</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="bg-[#2a2a2a] p-4 rounded-lg border border-[#333]">
-                                    <h4 className="text-[#FFCA20] text-sm font-bold mb-3 uppercase tracking-wider">System Remarks</h4>
-                                    <div className="bg-[#111] p-3 rounded border border-[#333] text-sm text-gray-300 min-h-[100px]">
-                                        {selectedLog.remarks}
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div>
-                                <h4 className="text-[#FFCA20] text-sm font-bold mb-3 uppercase tracking-wider">Raw Return Data (MolPay)</h4>
-                                <div className="bg-[#111] p-4 rounded-lg border border-[#333] overflow-x-auto">
-                                    <pre className="text-xs font-mono text-green-400 whitespace-pre-wrap">
-                                        {JSON.stringify(selectedLog.returnData, null, 2)}
-                                    </pre>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div className="p-4 border-t border-[#3a3a3a] bg-[#222] flex justify-end">
                             <button 
                                 onClick={() => setShowModal(false)}
-                                className="px-6 py-2 bg-[#333] hover:bg-[#444] text-white rounded-lg transition"
+                                className="text-[#888] hover:text-white text-2xl"
+                            >
+                                &times;
+                            </button>
+                        </div>
+
+                        <div className="p-6 overflow-y-auto space-y-6 flex-1">
+                            {/* Summary Grid */}
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 bg-[#1a1a1a] p-4 rounded-lg border border-[#333]">
+                                <div>
+                                    <span className="text-[10px] uppercase font-bold text-[#666]">Status</span>
+                                    <div className="flex items-center gap-1.5 mt-1">
+                                        {selectedLog.isSuccess ? (
+                                            <span className="text-xs text-green-500 font-semibold flex items-center gap-1">
+                                                <CheckCircle className="w-3.5 h-3.5" /> Success
+                                            </span>
+                                        ) : (
+                                            <span className="text-xs text-red-500 font-semibold flex items-center gap-1">
+                                                <XCircle className="w-3.5 h-3.5" /> Failed
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                                <div>
+                                    <span className="text-[10px] uppercase font-bold text-[#666]">Gateway Code</span>
+                                    <p className="text-sm font-mono text-white mt-1">{selectedLog.status || 'N/A'}</p>
+                                </div>
+                                <div>
+                                    <span className="text-[10px] uppercase font-bold text-[#666]">Amount</span>
+                                    <p className="text-sm font-bold text-white mt-1">
+                                        RM {parseFloat(selectedLog.amount || 0).toFixed(2)}
+                                    </p>
+                                </div>
+                                <div>
+                                    <span className="text-[10px] uppercase font-bold text-[#666]">Channel</span>
+                                    <p className="text-xs font-semibold text-white mt-1">{selectedLog.channel || '-'}</p>
+                                </div>
+                            </div>
+
+                            {/* Remarks */}
+                            <div>
+                                <h4 className="text-xs font-bold text-[#888] uppercase mb-2">Remarks & Explanation</h4>
+                                <div className="bg-[#1a1a1a] p-3 rounded-lg border border-[#333] text-sm text-[#ccc]">
+                                    {selectedLog.remarks || 'No remarks recorded.'}
+                                </div>
+                            </div>
+
+                            {/* Raw Return Data JSON */}
+                            <div>
+                                <h4 className="text-xs font-bold text-[#888] uppercase mb-2">Raw Return Data (Payload)</h4>
+                                <pre className="bg-[#111] p-4 rounded-lg border border-[#333] text-xs font-mono text-green-400 overflow-x-auto max-h-64">
+                                    {JSON.stringify(selectedLog.returnData, null, 2) || '{}'}
+                                </pre>
+                            </div>
+                        </div>
+
+                        <div className="p-4 border-t border-[#333] flex justify-end">
+                            <button
+                                onClick={() => setShowModal(false)}
+                                className="px-5 py-2 bg-[#333] hover:bg-[#444] text-white rounded-lg text-sm transition"
                             >
                                 Close
                             </button>

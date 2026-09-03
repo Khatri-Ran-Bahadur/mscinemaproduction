@@ -25,7 +25,9 @@ export async function GET(request) {
         where.paymentStatus = paymentStatus;
     }
 
-    if (buyFrom !== 'All') {
+    if (buyFrom === 'online') {
+        where.buy_from = { not: 'kiosk' };
+    } else if (buyFrom !== 'All') {
         where.buy_from = buyFrom;
     }
 

@@ -39,7 +39,7 @@ export default function AdminOrdersPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState("All");
   const [filterPaymentStatus, setFilterPaymentStatus] = useState("All");
-  const [filterBuyFrom, setFilterBuyFrom] = useState("All");
+  const [filterBuyFrom, setFilterBuyFrom] = useState("online");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [selectedOrder, setSelectedOrder] = useState(null);
@@ -170,7 +170,7 @@ export default function AdminOrdersPage() {
     setSearchQuery("");
     setFilterStatus("All");
     setFilterPaymentStatus("All");
-    setFilterBuyFrom("All");
+    setFilterBuyFrom("online");
     setStartDate("");
     setEndDate("");
     setPage(1);
@@ -603,10 +603,10 @@ export default function AdminOrdersPage() {
       <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center mb-8 gap-4">
         <div>
           <h1 className="text-3xl font-bold text-[#FFCA20] mb-2">
-            Booking Orders
+            Online Orders
           </h1>
           <p className="text-[#888]">
-            Manage and view all customer ticket bookings
+            Manage and view website and mobile app customer ticket bookings
           </p>
         </div>
 
@@ -675,9 +675,10 @@ export default function AdminOrdersPage() {
               onChange={handleBuyFromChange}
               className="bg-[#2a2a2a] border border-[#3a3a3a] text-white pl-4 pr-10 py-2 rounded-lg focus:border-[#FFCA20] outline-none appearance-none cursor-pointer"
             >
-              <option value="All">All Platforms</option>
-              <option value="web">Web</option>
-              <option value="mobile">Mobile</option>
+              <option value="online">Online (Web + Mobile)</option>
+              <option value="web">Website Only</option>
+              <option value="mobile">Mobile App Only</option>
+              <option value="All">All Platforms (Incl. Kiosk)</option>
             </select>
             <Smartphone className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[#666] pointer-events-none" />
           </div>
