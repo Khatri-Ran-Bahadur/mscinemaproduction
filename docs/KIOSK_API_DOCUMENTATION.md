@@ -290,3 +290,171 @@ The `ticketData` object returned by `/api/kiosk/orders/status` is pre-structured
 - Seat Labels (e.g. `E12, E13`)
 - Price & Tax Breakdown
 - 2D Entrance Barcode / QR String
+
+---
+
+## 8. Flutter Kiosk Implementation & Complete Architecture Diagram
+
+This section explains **how the Flutter Kiosk App works step-by-step**, which API to call at each stage, and how QR payments, status polling, and thermal printing are implemented in Flutter.
+
+### 8.1 Complete API Sequence & Lifecycle Diagram
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Customer as 👤 Customer at Kiosk
+    participant Flutter as 📱 Flutter Kiosk App
+    participant CinemaAPI as 🏢 Upstream Cinema API
+    participant Backend as ⚙️ Next.js Backend (/api/kiosk/*)
+    participant Fiuu as 💳 Fiuu OPA Gateway
+    participant Printer as 🖨️ Thermal Kiosk Printer
+
+    %% Step 1: Browse and Select
+    Customer->>Flutter: Touches screen, selects Movie, ShowTime & Seats
+    Flutter->>CinemaAPI: 1. POST /Booking/LockSeat/{CinemaID}/{ShowID}/...
+    CinemaAPI-->>Flutter: Returns referenceNo (e.g. "B1A12345")
+
+    %% Step 2: Create Kiosk Order
+    Flutter->>Backend: 2. POST /api/kiosk/orders/create<br/>{referenceNo, amount, seats, movieTitle, ...}
+    Note over Backend: Creates Order in DB<br/>status: 'PENDING'<br/>buy_from: 'kiosk'
+    Backend->>Fiuu: Calls precreate.php (HMAC-SHA256 Signed)
+    Fiuu-->>Backend: Returns imageUrl & molTransactionId
+    Backend-->>Flutter: Returns {orderId, qrImageUrl, qrCode, expiresIn: 120s}
+
+    %% Step 3: Display QR & Polling
+    Flutter->>Customer: Displays Dynamic QR on Screen with 120s Countdown
+    Note over Flutter: Starts Timer.periodic(Duration(seconds: 2))
+
+    loop Every 2 Seconds (Active Polling)
+        Flutter->>Backend: 3. POST /api/kiosk/orders/status {orderId, referenceNo}
+        Backend->>Fiuu: Calls inquiry.php (Status Query)
+        Fiuu-->>Backend: Returns status (e.g. "11" PENDING / "00" PAID)
+        alt Still Pending
+            Backend-->>Flutter: {status: 'PENDING', isPending: true}
+        else Payment Completed ("00")
+            Note over Backend: 1. Mark Order PAID in DB<br/>2. Call Cinema ReserveBooking
+            Backend->>CinemaAPI: POST /Booking/ReserveBooking/...
+            CinemaAPI-->>Backend: Reserved Successfully
+            Backend-->>Flutter: {status: 'PAID', isReserved: true, ticketData: {...}}
+        end
+    end
+
+    %% Step 4: Printing
+    Customer->>Fiuu: Scans QR with Bank App / eWallet & Approves
+    Note over Flutter: Receives {status: 'PAID'} from Backend
+    Flutter->>Printer: 4. ESC/POS Command: Print Physical Tickets + QR
+    Printer-->>Customer: Cuts and dispenses tickets
+    Flutter->>Customer: Shows "Please Collect Your Ticket Below"
+    Note over Flutter: Waits 15s, then resets to Attract / Home Screen
+
+    %% Edge Case: Cancel / Timeout
+    alt If Customer Clicks Cancel OR Countdown reaches 0
+        Flutter->>Backend: POST /api/kiosk/orders/cancel {orderId, referenceNo}
+        Backend->>CinemaAPI: POST /Booking/ReleaseLockedSeats/...
+        Backend-->>Flutter: {success: true, message: "Seats released"}
+        Flutter->>Customer: Shows "Transaction Cancelled" & resets to Home
+    end
+```
+
+---
+
+### 8.2 Summary Table: Which API to Call & When
+
+| Stage | Trigger in Flutter App | API Endpoint Called | Who Calls Whom? | Purpose & What it Does |
+| :--- | :--- | :--- | :--- | :--- |
+| **1. Seat Lock** | Customer selects seats and clicks "Proceed" | `/Booking/LockSeat/...` | **Flutter ➔ Upstream Cinema API** | Temporarily locks the seats in the cinema hall system and returns `referenceNo`. |
+| **2. Initiate Order** | Immediately after seats are locked | `POST /api/kiosk/orders/create` | **Flutter ➔ Next.js Backend** | Creates a `PENDING` order in PostgreSQL (`buy_from: 'kiosk'`) and gets Fiuu Dynamic QR image. |
+| **3. Poll Payment** | Starts running every 2s while QR is on screen | `POST /api/kiosk/orders/status` | **Flutter ➔ Next.js Backend** | Inquires Fiuu gateway in real time. Once paid, marks order `PAID`, reserves seats, and returns ticket data. |
+| **4. Card Payment** | Only if Card option is selected & UPT1000 approves | `POST /api/kiosk/orders/status` *(with `cardPaymentResult`)* | **Flutter ➔ Next.js Backend** | Sends card approval code/trace number, marks order `PAID`, and reserves seats. |
+| **5. Cancel / Timeout** | Customer clicks "Cancel" or 120s timer hits 0 | `POST /api/kiosk/orders/cancel` | **Flutter ➔ Next.js Backend** | Marks order `CANCELLED` and unlocks seats in cinema API so other customers can buy them. |
+| **6. Webhook (Async)** | Triggered by Fiuu gateway in background | `POST /api/kiosk/payment/webhook` | **Fiuu ➔ Next.js Backend** | Background backup notification in case network drops during kiosk polling. |
+
+---
+
+### 8.3 Flutter Client Implementation Blueprint
+
+#### 1. Order Creation & QR Display
+```dart
+import 'dart:async';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+
+class KioskPaymentService {
+  static const String baseUrl = 'http://localhost:3000'; // or your domain
+
+  Future<Map<String, dynamic>> createKioskOrder({
+    required String referenceNo,
+    required double amount,
+    required String movieTitle,
+    required String cinemaId,
+    required String showId,
+    required String hallName,
+    required List<String> seats,
+  }) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/api/kiosk/orders/create'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'referenceNo': referenceNo,
+        'amount': amount,
+        'movieTitle': movieTitle,
+        'cinemaId': cinemaId,
+        'showId': showId,
+        'hallName': hallName,
+        'seats': seats,
+        'terminalId': 'KIOSK01',
+        'paymentMethod': 'FIUU_QR',
+      }),
+    );
+
+    return jsonDecode(response.body);
+  }
+}
+```
+
+#### 2. Status Polling Timer (Every 2 Seconds)
+```dart
+Timer? _pollingTimer;
+
+void startPaymentPolling(String orderId, String referenceNo) {
+  _pollingTimer?.cancel();
+  
+  _pollingTimer = Timer.periodic(const Duration(seconds: 2), (timer) async {
+    final response = await http.post(
+      Uri.parse('$baseUrl/api/kiosk/orders/status'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'orderId': orderId,
+        'referenceNo': referenceNo,
+      }),
+    );
+
+    final data = jsonDecode(response.body);
+
+    if (data['status'] == 'PAID' && data['isReserved'] == true) {
+      timer.cancel(); // Stop polling
+      printPhysicalTicket(data['ticketData']); // Trigger printer
+      navigateToSuccessScreen();
+    } else if (data['status'] == 'FAILED' || data['status'] == 'CANCELLED') {
+      timer.cancel();
+      showErrorScreen('Payment failed or cancelled.');
+    }
+  });
+}
+```
+
+#### 3. Cancel / Timeout Call
+```dart
+Future<void> cancelOrder(String orderId, String referenceNo) async {
+  _pollingTimer?.cancel();
+  await http.post(
+    Uri.parse('$baseUrl/api/kiosk/orders/cancel'),
+    headers: {'Content-Type': 'application/json'},
+    body: jsonEncode({
+      'orderId': orderId,
+      'referenceNo': referenceNo,
+    }),
+  );
+}
+```
+
