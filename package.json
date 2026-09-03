@@ -10,7 +10,8 @@
     "prisma:generate": "prisma generate",
     "prisma:push": "prisma db push",
     "prisma:studio": "prisma studio",
-    "prisma:seed": "node prisma/seed.js"
+    "prisma:seed": "node prisma/seed.js",
+    "tunnel": "cloudflared tunnel --config ./config.yml run"
   },
   "prisma": {
     "seed": "node prisma/seed.js"
