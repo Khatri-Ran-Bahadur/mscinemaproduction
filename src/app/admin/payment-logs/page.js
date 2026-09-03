@@ -145,51 +145,51 @@ export default function PaymentLogsPage() {
 
     return (
         <div className="p-8">
-            <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center mb-8 gap-4">
-                <div>
-                    <h1 className="text-3xl font-bold text-[#FFCA20] mb-2">Payment Transaction Logs</h1>
-                    <p className="text-[#888]">Audit real-time payment gateway responses, callbacks, and kiosk transaction logs</p>
-                </div>
-                
-                {/* Advanced Filters */}
-                <div className="flex gap-2 flex-wrap items-center">
-                    <div className="relative">
-                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[#666]" />
+            {/* Top Header */}
+            <div className="mb-6">
+                <h1 className="text-3xl font-bold text-[#FFCA20] mb-1">Payment Transaction Logs</h1>
+                <p className="text-[#888] text-sm">Audit real-time payment gateway responses, callbacks, and kiosk transaction logs</p>
+            </div>
+            
+            {/* Dedicated Filter Bar */}
+            <div className="bg-[#242424] border border-[#3a3a3a] p-4 rounded-xl mb-6 shadow-md">
+                <div className="flex flex-wrap gap-3 items-center">
+                    {/* Search */}
+                    <div className="relative flex-1 min-w-[240px]">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[#888]" />
                         <input 
                             type="text" 
                             placeholder="Search Order, Ref, Tx..."
                             value={searchQuery}
                             onChange={handleSearchChange}
-                            className="bg-[#2a2a2a] border border-[#3a3a3a] text-white pl-10 pr-4 py-2 rounded-lg focus:border-[#FFCA20] outline-none w-56 text-sm"
+                            className="w-full bg-[#1e1e1e] border border-[#3a3a3a] text-white pl-10 pr-4 py-2.5 rounded-lg focus:border-[#FFCA20] outline-none text-sm placeholder-[#666]"
                         />
                     </div>
 
                     {/* Date Filters */}
-                    <div className="flex items-center bg-[#2a2a2a] border border-[#3a3a3a] rounded-lg px-2 gap-1 h-10">
-                        <span className="text-[10px] text-[#666] uppercase font-bold pl-1">From</span>
+                    <div className="flex items-center bg-[#1e1e1e] border border-[#3a3a3a] rounded-lg px-3 py-1 gap-2">
+                        <span className="text-[11px] text-[#888] uppercase font-bold">From</span>
                         <input
                             type="date"
                             value={startDate}
                             onChange={(e) => { setStartDate(e.target.value); setPage(1); }}
-                            className="bg-transparent text-white py-1 text-xs outline-none cursor-pointer"
+                            className="bg-transparent text-white py-1.5 text-xs outline-none cursor-pointer [color-scheme:dark]"
                         />
-                    </div>
-
-                    <div className="flex items-center bg-[#2a2a2a] border border-[#3a3a3a] rounded-lg px-2 gap-1 h-10">
-                        <span className="text-[10px] text-[#666] uppercase font-bold pl-1">To</span>
+                        <span className="text-[#444]">|</span>
+                        <span className="text-[11px] text-[#888] uppercase font-bold">To</span>
                         <input
                             type="date"
                             value={endDate}
                             onChange={(e) => { setEndDate(e.target.value); setPage(1); }}
-                            className="bg-transparent text-white py-1 text-xs outline-none cursor-pointer"
+                            className="bg-transparent text-white py-1.5 text-xs outline-none cursor-pointer [color-scheme:dark]"
                         />
                     </div>
 
-                    {/* Source Filter: Kiosk vs Online */}
+                    {/* Source Filter */}
                     <select 
                         value={filterSource} 
                         onChange={(e) => { setFilterSource(e.target.value); setPage(1); }}
-                        className="bg-[#2a2a2a] border border-[#3a3a3a] text-white px-3 py-2 rounded-lg focus:border-[#FFCA20] outline-none cursor-pointer text-sm h-10"
+                        className="bg-[#1e1e1e] border border-[#3a3a3a] text-white px-3 py-2.5 rounded-lg focus:border-[#FFCA20] outline-none cursor-pointer text-sm"
                     >
                         <option value="All">All Sources</option>
                         <option value="kiosk">Kiosk Only (QR & EDC)</option>
@@ -200,7 +200,7 @@ export default function PaymentLogsPage() {
                     <select 
                         value={filterChannel} 
                         onChange={(e) => { setFilterChannel(e.target.value); setPage(1); }}
-                        className="bg-[#2a2a2a] border border-[#3a3a3a] text-white px-3 py-2 rounded-lg focus:border-[#FFCA20] outline-none cursor-pointer text-sm h-10"
+                        className="bg-[#1e1e1e] border border-[#3a3a3a] text-white px-3 py-2.5 rounded-lg focus:border-[#FFCA20] outline-none cursor-pointer text-sm"
                     >
                         <option value="All">All Channels</option>
                         <option value="FIUU_OPA_QR">Fiuu OPA QR</option>
@@ -213,16 +213,17 @@ export default function PaymentLogsPage() {
                     <select 
                         value={filterPaymentStatus} 
                         onChange={(e) => { setFilterPaymentStatus(e.target.value); setPage(1); }}
-                        className="bg-[#2a2a2a] border border-[#3a3a3a] text-white px-3 py-2 rounded-lg focus:border-[#FFCA20] outline-none cursor-pointer text-sm h-10"
+                        className="bg-[#1e1e1e] border border-[#3a3a3a] text-white px-3 py-2.5 rounded-lg focus:border-[#FFCA20] outline-none cursor-pointer text-sm"
                     >
                         <option value="All">All Outcomes</option>
                         <option value="success">Success</option>
                         <option value="failed">Failed</option>
                     </select>
                     
+                    {/* Reset Button */}
                     <button
                         onClick={handleReset}
-                        className="flex items-center gap-1.5 px-3 py-2 bg-[#333] border border-[#3a3a3a] text-white rounded-lg hover:bg-[#444] hover:text-[#FFCA20] transition h-10 text-sm"
+                        className="flex items-center gap-1.5 px-4 py-2.5 bg-[#333] border border-[#444] text-white rounded-lg hover:bg-[#444] hover:text-[#FFCA20] transition text-sm font-medium"
                         title="Reset Filters"
                     >
                         <RotateCcw className="w-4 h-4" />

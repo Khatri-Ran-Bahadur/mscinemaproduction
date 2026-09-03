@@ -358,59 +358,73 @@ export default function AdminKioskOrdersPage() {
 
   return (
     <div className="p-8 relative">
-      {/* Header */}
-      <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center mb-8 gap-4">
+      {/* Top Header */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
         <div>
           <div className="flex items-center gap-3">
             <h1 className="text-3xl font-bold text-[#FFCA20]">
               Kiosk Orders & Ticketing
             </h1>
-            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-[#FFCA20]/10 text-[#FFCA20] border border-[#FFCA20]/30">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-[#FFCA20]/15 text-[#FFCA20] border border-[#FFCA20]/30 shadow-sm">
               <Monitor className="w-3.5 h-3.5" /> Self-Service Machine
             </span>
           </div>
-          <p className="text-[#888] mt-1">
+          <p className="text-[#888] mt-1 text-sm">
             Manage, audit, and view tickets booked directly via cinema Kiosk terminals
           </p>
         </div>
 
-        {/* Filters */}
-        <div className="flex gap-3 flex-wrap">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[#666]" />
+        {selectedOrders.length > 0 && (
+          <button
+            onClick={handleBulkDelete}
+            disabled={isDeleting}
+            className="flex items-center gap-2 px-4 py-2 bg-red-500/10 border border-red-500/30 text-red-400 rounded-lg hover:bg-red-500/20 transition disabled:opacity-50 text-sm"
+          >
+            <Trash2 className="w-4 h-4" />
+            <span>Delete Selected ({selectedOrders.length})</span>
+          </button>
+        )}
+      </div>
+
+      {/* Dedicated Filter Bar (Placed below the title) */}
+      <div className="bg-[#242424] border border-[#3a3a3a] p-4 rounded-xl mb-6 shadow-md">
+        <div className="flex flex-wrap gap-3 items-center">
+          {/* Search Box */}
+          <div className="relative flex-1 min-w-[260px]">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[#888]" />
             <input
               type="text"
-              placeholder="Search Kiosk order, ref, seat..."
+              placeholder="Search Kiosk order, ref, seat, movie..."
               value={searchQuery}
               onChange={handleSearchChange}
-              className="bg-[#2a2a2a] border border-[#3a3a3a] text-white pl-10 pr-4 py-2 rounded-lg focus:border-[#FFCA20] outline-none w-64"
+              className="w-full bg-[#1e1e1e] border border-[#3a3a3a] text-white pl-10 pr-4 py-2.5 rounded-lg focus:border-[#FFCA20] outline-none text-sm placeholder-[#666]"
             />
           </div>
 
-          <div className="flex items-center bg-[#2a2a2a] border border-[#3a3a3a] rounded-lg px-2 gap-2">
-            <span className="text-[10px] text-[#666] uppercase font-bold pl-1">From</span>
+          {/* Date Range */}
+          <div className="flex items-center bg-[#1e1e1e] border border-[#3a3a3a] rounded-lg px-3 py-1 gap-2">
+            <span className="text-[11px] text-[#888] uppercase font-bold">From</span>
             <input
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
-              className="bg-transparent text-white py-2 text-xs outline-none cursor-pointer"
+              className="bg-transparent text-white py-1.5 text-xs outline-none cursor-pointer [color-scheme:dark]"
             />
-          </div>
-
-          <div className="flex items-center bg-[#2a2a2a] border border-[#3a3a3a] rounded-lg px-2 gap-2">
-            <span className="text-[10px] text-[#666] uppercase font-bold pl-1">To</span>
+            <span className="text-[#444]">|</span>
+            <span className="text-[11px] text-[#888] uppercase font-bold">To</span>
             <input
               type="date"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
-              className="bg-transparent text-white py-2 text-xs outline-none cursor-pointer"
+              className="bg-transparent text-white py-1.5 text-xs outline-none cursor-pointer [color-scheme:dark]"
             />
           </div>
 
+          {/* Booking Status */}
           <select
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}
-            className="bg-[#2a2a2a] border border-[#3a3a3a] text-white px-3 py-2 rounded-lg focus:border-[#FFCA20] outline-none cursor-pointer text-sm"
+            className="bg-[#1e1e1e] border border-[#3a3a3a] text-white px-3 py-2.5 rounded-lg focus:border-[#FFCA20] outline-none cursor-pointer text-sm"
           >
             <option value="All">All Booking Statuses</option>
             <option value="CONFIRMED">Confirmed</option>
@@ -419,10 +433,11 @@ export default function AdminKioskOrdersPage() {
             <option value="REFUNDED">Refunded</option>
           </select>
 
+          {/* Payment Status */}
           <select
             value={filterPaymentStatus}
             onChange={(e) => setFilterPaymentStatus(e.target.value)}
-            className="bg-[#2a2a2a] border border-[#3a3a3a] text-white px-3 py-2 rounded-lg focus:border-[#FFCA20] outline-none cursor-pointer text-sm"
+            className="bg-[#1e1e1e] border border-[#3a3a3a] text-white px-3 py-2.5 rounded-lg focus:border-[#FFCA20] outline-none cursor-pointer text-sm"
           >
             <option value="All">All Payment Statuses</option>
             <option value="PAID">Paid</option>
@@ -431,35 +446,26 @@ export default function AdminKioskOrdersPage() {
             <option value="REFUNDED">Refunded</option>
           </select>
 
+          {/* Payment Method */}
           <select
             value={filterPaymentMethod}
             onChange={(e) => setFilterPaymentMethod(e.target.value)}
-            className="bg-[#2a2a2a] border border-[#3a3a3a] text-white px-3 py-2 rounded-lg focus:border-[#FFCA20] outline-none cursor-pointer text-sm"
+            className="bg-[#1e1e1e] border border-[#3a3a3a] text-white px-3 py-2.5 rounded-lg focus:border-[#FFCA20] outline-none cursor-pointer text-sm"
           >
             <option value="All">All Kiosk Methods</option>
             <option value="QR">Fiuu Dynamic QR</option>
             <option value="CARD">CardBiz EDC (Card)</option>
           </select>
 
+          {/* Reset Button */}
           <button
             onClick={handleReset}
-            className="flex items-center gap-2 px-3 py-2 bg-[#333] border border-[#3a3a3a] text-white rounded-lg hover:bg-[#444] hover:text-[#FFCA20] transition h-10"
+            className="flex items-center gap-1.5 px-4 py-2.5 bg-[#333] border border-[#444] text-white rounded-lg hover:bg-[#444] hover:text-[#FFCA20] transition text-sm font-medium"
             title="Reset Filters"
           >
             <RotateCcw className="w-4 h-4" />
-            <span className="hidden xl:inline text-sm">Reset</span>
+            <span>Reset</span>
           </button>
-
-          {selectedOrders.length > 0 && (
-            <button
-              onClick={handleBulkDelete}
-              disabled={isDeleting}
-              className="flex items-center gap-2 px-4 py-2 bg-red-500/10 border border-red-500/30 text-red-400 rounded-lg hover:bg-red-500/20 transition disabled:opacity-50"
-            >
-              <Trash2 className="w-4 h-4" />
-              <span>Delete ({selectedOrders.length})</span>
-            </button>
-          )}
         </div>
       </div>
 
