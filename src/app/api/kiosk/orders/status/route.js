@@ -10,6 +10,7 @@ import { callOpaInquiry, callOpaReversal } from '@/utils/fiuu-opa';
 import { callReserveBooking, savePaymentLogDB } from '@/utils/molpay';
 import { sendMobileTicketEmailForOrder } from '@/utils/order-email';
 import { API_CONFIG } from '@/config/api';
+import { FIUU_OPA_CONFIG } from '@/config/fiuu-opa';
 
 export async function POST(request) {
   try {
@@ -136,7 +137,9 @@ export async function POST(request) {
         }
       );
 
-      if (reserveResult.success) {
+      const isMockTest = FIUU_OPA_CONFIG.isSandbox && (order.referenceNo?.startsWith('TEST') || order.referenceNo?.startsWith('KSK'));
+
+      if (reserveResult.success || isMockTest) {
         await prisma.order.update({
           where: { id: order.id },
           data: { reserve_ticket: true },
@@ -177,6 +180,7 @@ export async function POST(request) {
     let fiuuInquiry;
     if (body.simulateQrSuccess && (FIUU_OPA_CONFIG.isSandbox || process.env.NODE_ENV !== 'production')) {
       fiuuInquiry = {
+        success: true,
         isSuccess: true,
         isPending: false,
         statusCode: '00',
@@ -242,7 +246,9 @@ export async function POST(request) {
         }
       );
 
-      if (!reserveResult.success) {
+      const isMockTestOrder = FIUU_OPA_CONFIG.isSandbox && (order.referenceNo?.startsWith('TEST') || order.referenceNo?.startsWith('KSK'));
+
+      if (!reserveResult.success && !isMockTestOrder) {
         console.error(`[Kiosk Reserve Failure] Order ${order.orderId} failed upstream reservation:`, reserveResult.error);
 
         // Instant Auto-Reversal (Void) to refund customer automatically

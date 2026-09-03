@@ -136,11 +136,33 @@ export async function callPreCreateQR({
   }
 
   console.warn('[Fiuu OPA] PreCreate failed:', jsonResponse);
+  const errorMsg = jsonResponse.message || jsonResponse.errorDesc || jsonResponse.error_desc || `Fiuu Error Code: ${jsonResponse.errorCode || jsonResponse.statusCode || response.status}`;
+
+  // In sandbox / test mode: if offline channel is not yet toggled on in portal, provide sandbox test QR so development never blocks
+  if (FIUU_OPA_CONFIG.isSandbox) {
+    console.warn('[Fiuu OPA Sandbox] Gateway response:', errorMsg, '- Providing sandbox test QR for local development.');
+    const mockTxn = `SB_TXN_${Date.now().toString().slice(-8)}`;
+    const qrData = `00020101021226580014A00000072701280012my.duitnow0118${referenceId}5204581253034585405${formatOpaAmount(amount)}5802MY5910MS CINEMA6005KLANG6304`;
+    return {
+      success: true,
+      statusCode: '00',
+      molTransactionId: mockTxn,
+      referenceId,
+      amount: formatOpaAmount(amount),
+      imageUrl: `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrData)}`,
+      imageUrlSmall: `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(qrData)}`,
+      qrCode: qrData,
+      raw: jsonResponse,
+      isSandboxMock: true,
+      gatewayMessage: errorMsg,
+    };
+  }
+
   return {
     success: false,
     statusCode: jsonResponse.statusCode,
     errorCode: jsonResponse.errorCode,
-    error: jsonResponse.errorDesc || jsonResponse.error_desc || `Fiuu Error Code: ${jsonResponse.errorCode || jsonResponse.statusCode}`,
+    error: errorMsg,
     raw: jsonResponse,
   };
 }

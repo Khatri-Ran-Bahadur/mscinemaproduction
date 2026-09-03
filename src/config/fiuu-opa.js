@@ -8,6 +8,7 @@ const isLive = (process.env.FIUU_OPA_ENV || process.env.NEXT_PUBLIC_FIUU_OPA_ENV
 
 export const FIUU_OPA_CONFIG = {
   isLive,
+  isSandbox: !isLive,
   environment: isLive ? 'live' : 'sandbox',
 
   // Service Endpoints

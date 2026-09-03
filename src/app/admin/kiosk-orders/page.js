@@ -102,9 +102,9 @@ export default function AdminKioskOrdersPage() {
           );
         }
         setOrders(list);
-        setTotalAmountSum(data.totalAmountSum || 0);
-        setPaidAmountSum(data.paidAmountSum || 0);
-        setUnpaidAmountSum(data.unpaidAmountSum || 0);
+        setTotalAmountSum(Number(data.totalAmountSum) || 0);
+        setPaidAmountSum(Number(data.paidAmountSum) || 0);
+        setUnpaidAmountSum(Number(data.unpaidAmountSum) || 0);
         if (data.pagination) {
           setTotalPages(data.pagination.totalPages);
           setTotalOrders(data.pagination.total);
@@ -485,7 +485,7 @@ export default function AdminKioskOrdersPage() {
             <CreditCard className="w-4 h-4 text-[#FFCA20]" />
           </div>
           <div className="text-2xl font-bold text-[#FFCA20]">
-            RM {totalAmountSum.toFixed(2)}
+            RM {Number(totalAmountSum || 0).toFixed(2)}
           </div>
         </div>
 
@@ -495,7 +495,7 @@ export default function AdminKioskOrdersPage() {
             <CheckCircle className="w-4 h-4 text-green-500" />
           </div>
           <div className="text-2xl font-bold text-green-400">
-            RM {paidAmountSum.toFixed(2)}
+            RM {Number(paidAmountSum || 0).toFixed(2)}
           </div>
         </div>
 
@@ -505,7 +505,7 @@ export default function AdminKioskOrdersPage() {
             <XCircle className="w-4 h-4 text-red-400" />
           </div>
           <div className="text-2xl font-bold text-red-400">
-            RM {unpaidAmountSum.toFixed(2)}
+            RM {Number(unpaidAmountSum || 0).toFixed(2)}
           </div>
         </div>
       </div>
