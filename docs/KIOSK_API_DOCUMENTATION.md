@@ -297,63 +297,126 @@ The `ticketData` object returned by `/api/kiosk/orders/status` is pre-structured
 
 This section explains **how the Flutter Kiosk App works step-by-step**, which API to call at each stage, and how QR payments, status polling, and thermal printing are implemented in Flutter.
 
-### 8.1 Complete API Sequence & Lifecycle Diagram
+### 8.1 Complete Visual Architecture & API Lifecycle Flow
 
-```mermaid
-sequenceDiagram
-    autonumber
-    actor Customer as 👤 Customer at Kiosk
-    participant Flutter as 📱 Flutter Kiosk App
-    participant CinemaAPI as 🏢 Upstream Cinema API
-    participant Backend as ⚙️ Next.js Backend (/api/kiosk/*)
-    participant Fiuu as 💳 Fiuu OPA Gateway
-    participant Printer as 🖨️ Thermal Kiosk Printer
+```text
+═══════════════════════════════════════════════════════════════════════════════════════════════════
+                         MS CINEMA KIOSK - END-TO-END SYSTEM FLOW
+═══════════════════════════════════════════════════════════════════════════════════════════════════
 
-    %% Step 1: Browse and Select
-    Customer->>Flutter: Touches screen, selects Movie, ShowTime & Seats
-    Flutter->>CinemaAPI: 1. POST /Booking/LockSeat/{CinemaID}/{ShowID}/...
-    CinemaAPI-->>Flutter: Returns referenceNo (e.g. "B1A12345")
+  [ STEP 1: MOVIE & SEAT SELECTION ]
+  Customer touches Kiosk screen ──► Selects Movie, Showtime & Seats (e.g. E12, E13)
+           │
+           ▼
+  Flutter App calls Upstream Cinema Core API:
+  POST /Booking/LockSeat/{CinemaID}/{ShowID}/...
+           │
+           ▼
+  Upstream Cinema API locks seats temporarily for 10 minutes & returns "referenceNo" (e.g. "B1A12345")
 
-    %% Step 2: Create Kiosk Order
-    Flutter->>Backend: 2. POST /api/kiosk/orders/create<br/>{referenceNo, amount, seats, movieTitle, ...}
-    Note over Backend: Creates Order in DB<br/>status: 'PENDING'<br/>buy_from: 'kiosk'
-    Backend->>Fiuu: Calls precreate.php (HMAC-SHA256 Signed)
-    Fiuu-->>Backend: Returns imageUrl & molTransactionId
-    Backend-->>Flutter: Returns {orderId, qrImageUrl, qrCode, expiresIn: 120s}
+───────────────────────────────────────────────────────────────────────────────────────────────────
 
-    %% Step 3: Display QR & Polling
-    Flutter->>Customer: Displays Dynamic QR on Screen with 120s Countdown
-    Note over Flutter: Starts Timer.periodic(Duration(seconds: 2))
+  [ STEP 2: CREATE KIOSK ORDER & GENERATE DYNAMIC QR ]
+  Flutter App calls Next.js Kiosk Backend:
+  POST /api/kiosk/orders/create
+  Payload: { referenceNo: "B1A12345", amount: 25.00, movieTitle: "Jawan", seats: ["E12","E13"], ... }
+           │
+           ▼
+  Next.js Backend:
+    1. Creates Order record in DB (status: 'PENDING', paymentStatus: 'PENDING', buy_from: 'kiosk')
+    2. Builds A-Z sorted parameters & generates HMAC-SHA256 signature
+    3. Calls Fiuu OPA PreCreate API: https://sandbox.merchant.razer.com/RMS/API/MOLOPA/precreate.php
+           │
+           ▼
+  Fiuu Gateway responds with:
+  { imageUrl: "https://.../qr.php?id=...", molTransactionId: "152688225" }
+           │
+           ▼
+  Next.js Backend responds to Flutter App:
+  {
+    "orderId": "KSK_B1A12345_366909ABC",
+    "referenceNo": "B1A12345",
+    "amount": "25.00",
+    "imageUrl": "https://sandbox.merchant.razer.com/RMS/API/MOLOPA/qr.php?id=...",
+    "expiresInSeconds": 120
+  }
 
-    loop Every 2 Seconds (Active Polling)
-        Flutter->>Backend: 3. POST /api/kiosk/orders/status {orderId, referenceNo}
-        Backend->>Fiuu: Calls inquiry.php (Status Query)
-        Fiuu-->>Backend: Returns status (e.g. "11" PENDING / "00" PAID)
-        alt Still Pending
-            Backend-->>Flutter: {status: 'PENDING', isPending: true}
-        else Payment Completed ("00")
-            Note over Backend: 1. Mark Order PAID in DB<br/>2. Call Cinema ReserveBooking
-            Backend->>CinemaAPI: POST /Booking/ReserveBooking/...
-            CinemaAPI-->>Backend: Reserved Successfully
-            Backend-->>Flutter: {status: 'PAID', isReserved: true, ticketData: {...}}
-        end
-    end
+───────────────────────────────────────────────────────────────────────────────────────────────────
 
-    %% Step 4: Printing
-    Customer->>Fiuu: Scans QR with Bank App / eWallet & Approves
-    Note over Flutter: Receives {status: 'PAID'} from Backend
-    Flutter->>Printer: 4. ESC/POS Command: Print Physical Tickets + QR
-    Printer-->>Customer: Cuts and dispenses tickets
-    Flutter->>Customer: Shows "Please Collect Your Ticket Below"
-    Note over Flutter: Waits 15s, then resets to Attract / Home Screen
+  [ STEP 3: DISPLAY QR ON SCREEN & 2-SECOND POLLING LOOP ]
+  Flutter App shows the QR Code Image on Kiosk Screen with a 120-second countdown.
+  Flutter starts a timer that queries Next.js Backend every 2 seconds:
+  POST /api/kiosk/orders/status
+  Payload: { orderId: "KSK_B1A12345_366909ABC", referenceNo: "B1A12345" }
+           │
+           ├─► Customer opens eWallet (DuitNow, Touch 'n Go, Boost, MAE) & Scans Screen QR
+           │   Customer confirms payment of RM 25.00
+           │
+           ▼
+  Next.js Backend inquires Fiuu OPA: https://sandbox.merchant.razer.com/RMS/API/MOLOPA/inquiry.php
+    • While customer has not paid yet:
+      Backend returns: { status: "PENDING", isPending: true }
+    • Once customer pays successfully:
+      Fiuu returns status "00" (SUCCESS) to Backend
 
-    %% Edge Case: Cancel / Timeout
-    alt If Customer Clicks Cancel OR Countdown reaches 0
-        Flutter->>Backend: POST /api/kiosk/orders/cancel {orderId, referenceNo}
-        Backend->>CinemaAPI: POST /Booking/ReleaseLockedSeats/...
-        Backend-->>Flutter: {success: true, message: "Seats released"}
-        Flutter->>Customer: Shows "Transaction Cancelled" & resets to Home
-    end
+───────────────────────────────────────────────────────────────────────────────────────────────────
+
+  [ STEP 4: PAYMENT CONFIRMED & PERMANENT SEAT RESERVATION ]
+  Upon detecting Payment Success ("00"):
+    1. Next.js Backend updates PostgreSQL Order:
+       status = 'CONFIRMED', paymentStatus = 'PAID', transactionNo = '152688225'
+    2. Next.js Backend calls Upstream Cinema API:
+       POST /Booking/ReserveBooking/...
+       (This permanently reserves the seats and generates ticket barcodes)
+    3. Next.js Backend logs the transaction into PaymentLog table
+    4. Next.js Backend sends ticket email (if customer entered email)
+    5. Next.js Backend responds to Flutter App:
+       {
+         "status": "PAID",
+         "isReserved": true,
+         "ticketData": {
+           "movieTitle": "Jawan",
+           "cinemaName": "MS Cinemas Klang",
+           "hallName": "Hall 2",
+           "seats": "E12, E13",
+           "referenceNo": "B1A12345",
+           "ticketDetails": [ ...barcodes, prices, seatNo... ]
+         }
+       }
+
+───────────────────────────────────────────────────────────────────────────────────────────────────
+
+  [ STEP 5: THERMAL TICKET PRINTING & RESET ]
+  Flutter App receives { status: "PAID", ticketData }:
+    1. Cancels the 2-second polling timer
+    2. Sends ESC/POS print commands to physical 80mm thermal printer via USB/Serial
+    3. Thermal printer prints each movie ticket with barcode and cuts paper
+    4. Kiosk screen displays: "Payment Successful! Please collect your tickets below."
+    5. After 15 seconds, Kiosk automatically resets back to Home Attract Screen.
+
+───────────────────────────────────────────────────────────────────────────────────────────────────
+
+  [ EXCEPTION 1: CUSTOMER CANCELS OR 120s TIMER EXPIRES ]
+  If Customer clicks "Cancel" OR countdown timer reaches 0:00:
+    1. Flutter stops polling timer
+    2. Flutter calls: POST /api/kiosk/orders/cancel
+       Payload: { orderId: "...", referenceNo: "B1A12345", cinemaId: "1", showId: "3542" }
+    3. Next.js Backend marks Order as CANCELLED in DB
+    4. Next.js Backend calls Upstream Cinema API:
+       POST /Booking/ReleaseLockedSeats/...
+    5. Seats are immediately unlocked so other website/kiosk customers can book them.
+
+───────────────────────────────────────────────────────────────────────────────────────────────────
+
+  [ EXCEPTION 2: PAYMENT SUCCESS BUT SEAT RESERVATION FAILS (AUTO-REFUND) ]
+  If Fiuu collected payment, but Upstream Cinema API failed to reserve:
+    1. Next.js Backend detects failure
+    2. Next.js Backend IMMEDIATELY calls Fiuu Reversal API:
+       POST https://sandbox.merchant.razer.com/RMS/API/MOLOPA/reversal.php
+    3. Customer's money is instantly refunded/voided back to their eWallet
+    4. Backend returns: { status: "RESERVE_FAILED_REFUNDED", error: "Auto-refunded" }
+    5. Kiosk screen notifies the customer that they were not charged.
+═══════════════════════════════════════════════════════════════════════════════════════════════════
 ```
 
 ---
