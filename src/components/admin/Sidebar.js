@@ -13,7 +13,8 @@ import {
   Clock,
   Mail,
   Shield,
-  Monitor
+  Monitor,
+  PlaySquare
 } from 'lucide-react';
 
 export default function AdminSidebar() {
@@ -35,6 +36,11 @@ export default function AdminSidebar() {
       title: 'Kiosk Orders',
       icon: <Monitor className="w-5 h-5" />,
       href: '/admin/kiosk-orders'
+    },
+    {
+      title: 'Kiosk Simulator',
+      icon: <PlaySquare className="w-5 h-5" />,
+      href: '/admin/kiosk-simulator'
     },
     {
       title: 'Half Way Bookings',

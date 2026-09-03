@@ -174,7 +174,20 @@ export async function POST(request) {
     }
 
     // 4. Case B: Fiuu OPA Dynamic QR Status Inquiry (Active Polling)
-    const fiuuInquiry = await callOpaInquiry({ referenceId: order.orderId });
+    let fiuuInquiry;
+    if (body.simulateQrSuccess && (FIUU_OPA_CONFIG.isSandbox || process.env.NODE_ENV !== 'production')) {
+      fiuuInquiry = {
+        isSuccess: true,
+        isPending: false,
+        statusCode: '00',
+        molTransactionId: `SIM_QR_${Date.now().toString().slice(-6)}`,
+        amount: order.totalAmount ? parseFloat(order.totalAmount.toString()) : 0,
+        channelId: '24',
+        raw: { simulated: true },
+      };
+    } else {
+      fiuuInquiry = await callOpaInquiry({ referenceId: order.orderId });
+    }
 
     if (fiuuInquiry.isPending) {
       return NextResponse.json({
