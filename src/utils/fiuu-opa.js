@@ -210,9 +210,23 @@ export async function callOpaInquiry({ referenceId, molTransactionId = '' }) {
     };
   }
 
-  // statusCode '00' = Paid, '11' = Pending, others = Failed/Cancelled
+  // statusCode '00' = Paid, '11' = Pending, '22' = Pending
   const isPaid = jsonResponse.statusCode === '00';
   const isPending = jsonResponse.statusCode === '11' || jsonResponse.statusCode === '22';
+
+  // In sandbox / test mode: if inquiry has not yet recorded payment ('00'), keep it in PENDING
+  // so the kiosk UI countdown doesn't abort prematurely while waiting for customer scan/simulation
+  if (FIUU_OPA_CONFIG.isSandbox && !isPaid) {
+    return {
+      success: false,
+      isPending: true,
+      statusCode: jsonResponse.statusCode || '11',
+      molTransactionId: jsonResponse.molTransactionId || '',
+      referenceId: jsonResponse.referenceId || referenceId,
+      amount: jsonResponse.amount,
+      raw: jsonResponse,
+    };
+  }
 
   return {
     success: isPaid,

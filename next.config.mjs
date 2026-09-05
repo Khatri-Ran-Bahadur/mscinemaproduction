@@ -28,9 +28,23 @@ const nextConfig = {
       }
     ],
   },
+  // Allow Cloudflare tunnel and local development origins
+  allowedDevOrigins: [
+    'staging.mscinemas.my',
+    '*.mscinemas.my',
+    'localhost:3000',
+    '127.0.0.1:3000',
+  ],
   experimental: {
+    allowedDevOrigins: [
+      'staging.mscinemas.my',
+      '*.mscinemas.my',
+      'localhost:3000',
+      '127.0.0.1:3000',
+    ],
     serverActions: {
       bodySizeLimit: '50mb', // Increase max upload size
+      allowedOrigins: ['staging.mscinemas.my', 'localhost:3000', '127.0.0.1:3000'],
     },
   },
 };

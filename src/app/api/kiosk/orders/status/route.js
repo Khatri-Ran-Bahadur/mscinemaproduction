@@ -193,7 +193,7 @@ export async function POST(request) {
       fiuuInquiry = await callOpaInquiry({ referenceId: order.orderId });
     }
 
-    if (fiuuInquiry.isPending) {
+    if (fiuuInquiry.isPending || (FIUU_OPA_CONFIG.isSandbox && !fiuuInquiry.success)) {
       return NextResponse.json({
         success: true,
         status: 'PENDING',

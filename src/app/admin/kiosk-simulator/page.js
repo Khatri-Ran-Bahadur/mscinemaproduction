@@ -21,6 +21,7 @@ import {
   ChevronRight,
   AlertTriangle,
 } from "lucide-react";
+import { toast, Toaster } from "react-hot-toast";
 
 export default function KioskSimulatorPage() {
   // Simulator State
@@ -83,20 +84,28 @@ export default function KioskSimulatorPage() {
         }),
       });
 
-      const data = await res.json();
+      let data;
+      try {
+        data = await res.json();
+      } catch (parseErr) {
+        const text = await res.text();
+        throw new Error(`Server returned HTTP ${res.status}: ${text.slice(0, 80)}`);
+      }
+
       addLog("Order Create Response", data, data.success ? "success" : "error");
 
       if (data.success) {
         setOrderData(data);
         setStep(2);
         setCountdown(120);
+        toast.success("Order created! QR Code ready.");
         startPolling(data.orderId, data.referenceNo);
       } else {
-        alert(data.error || "Failed to create kiosk order");
+        toast.error(data.error || "Failed to create kiosk order");
       }
     } catch (err) {
       addLog("Network Error", err.message, "error");
-      alert("Error initiating order: " + err.message);
+      toast.error("Error initiating order: " + err.message);
     } finally {
       setLoading(false);
     }
@@ -133,11 +142,11 @@ export default function KioskSimulatorPage() {
           stopPolling();
           setTicketData(data.ticketData);
           setStep(3);
+          toast.success("Payment Received! Printing Ticket...");
         } else if (data.status === "CANCELLED" || data.status === "FAILED") {
           addLog("Order Terminated", data, "error");
           stopPolling();
-          alert("Order was cancelled or payment failed.");
-          resetSimulator();
+          toast.error(data.error || "Order was cancelled or payment failed.");
         }
       } catch (err) {
         console.warn("Polling error:", err.message);
@@ -173,9 +182,13 @@ export default function KioskSimulatorPage() {
         stopPolling();
         setTicketData(data.ticketData);
         setStep(3);
+        toast.success("eWallet QR Payment Approved!");
+      } else {
+        toast.error(data.error || "Simulation failed");
       }
     } catch (err) {
       addLog("Simulate Error", err.message, "error");
+      toast.error("Simulation error: " + err.message);
     }
   };
 
@@ -212,9 +225,13 @@ export default function KioskSimulatorPage() {
         stopPolling();
         setTicketData(data.ticketData);
         setStep(3);
+        toast.success("Card Payment Approved via CardBiz EDC!");
+      } else {
+        toast.error(data.error || "Card simulation failed");
       }
     } catch (err) {
       addLog("Card Simulate Error", err.message, "error");
+      toast.error("Card error: " + err.message);
     }
   };
 
@@ -272,6 +289,7 @@ export default function KioskSimulatorPage() {
 
   return (
     <div className="p-8">
+      <Toaster position="top-right" />
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
         <div>

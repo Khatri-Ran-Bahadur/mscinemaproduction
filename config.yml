@@ -3,5 +3,7 @@ credentials-file: /Users/rnkhatri/.cloudflared/18c54d7f-2ac0-4b94-a2ed-30526fc00
 
 ingress:
   - hostname: staging.mscinemas.my
-    service: http://localhost:3000
+    service: http://127.0.0.1:3000
+    originRequest:
+      httpHostHeader: staging.mscinemas.my
   - service: http_status:404
